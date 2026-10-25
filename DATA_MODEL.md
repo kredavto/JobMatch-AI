@@ -31,3 +31,6 @@ RLS ограничивает чтение и изменения auth.uid(). Save
 | AuditLog | User, action, entity id, timestamp; redacted |
 
 Эта нормализация не объявляется реализованной. Ее миграция должна сохранить владельцев, снимки и revision.
+
+## Дополнения 0.2
+ResumeVersion: evidence_snapshot (копии выбранных подтвержденных фактов), profile_revision (revision workspace в момент сохранения), engine_version; restored_from при восстановлении. Старым версиям доказательства задним числом не приписываются. Application.resumeVersionId связывает с версией этого же workspace; сервер проверяет наличие, UI допускает «Без привязки». Это еще не нормализованный SQL foreign key. private.request_quotas хранит по три фиксированных счетчика на auth.users с ON DELETE CASCADE.

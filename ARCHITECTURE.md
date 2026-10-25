@@ -23,3 +23,6 @@ Prisma, Tailwind/shadcn и Redis не внедрены. SQLite был замен
 npm ci; npm run lint; npm run typecheck; npm test; npm run build.
 Переменные SUPABASE_URL и SUPABASE_PUBLISHABLE_KEY — на сервере. Схема в supabase/schema.sql, примененная миграция отражена в supabase/migrations.
 Настройка Supabase Site URL и собственного SMTP требуется для полноценной публичной регистрации. При стандартном email-подтверждении пользователь возвращается в приложение и входит после подтверждения адреса.
+
+## Итерация 0.2
+lib/body.ts ограничивает поток запроса до разбора JSON/multipart. lib/documents.ts выполняет проверку архива и извлечение; lib/errors.ts отделяет публичные ошибки от внутренних. consume_quota RPC использует PostgreSQL atomic upsert, поэтому квоты едины для Vercel-инстансов. Старый in-memory limiter сохранен только как дополнительная защита. Миграция аддитивная, совместима с предыдущим приложением. Для отката приложения таблицу квот удалять не нужно.

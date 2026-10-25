@@ -1,0 +1,8 @@
+import {beforeEach,afterEach,it,expect,vi} from 'vitest';import {supabase,consumeQuota,identity} from '../lib/db';
+beforeEach(()=>{vi.stubEnv('SUPABASE_URL','https://fixture.example');vi.stubEnv('SUPABASE_PUBLISHABLE_KEY','fixture');});afterEach(()=>{vi.unstubAllGlobals();vi.unstubAllEnvs();});
+it('handles malformed upstream JSON as gateway failure',async()=>{vi.stubGlobal('fetch',vi.fn().mockResolvedValue(new Response('<html>upstream secret</html>')));await expect(supabase('/rest/v1/test')).rejects.toMatchObject({status:502});});
+it('handles upstream 403',async()=>{vi.stubGlobal('fetch',vi.fn().mockResolvedValue(Response.json({message:'private'},{status:403})));await expect(supabase('/rest/v1/test')).rejects.toThrow('AUTH');});
+it('handles upstream 429',async()=>{vi.stubGlobal('fetch',vi.fn().mockResolvedValue(Response.json({message:'private'},{status:429})));await expect(supabase('/rest/v1/test')).rejects.toThrow('RATE');});
+it('rejects quota schema drift',async()=>{vi.stubGlobal('fetch',vi.fn().mockResolvedValue(Response.json({allowed:true})));await expect(consumeQuota({id:'owner',token:'t'},'import')).rejects.toMatchObject({status:502});});
+it('fails closed on invalid session result',async()=>{vi.stubGlobal('fetch',vi.fn().mockResolvedValueOnce(Response.json({id:'11111111-1111-4111-8111-111111111111'})).mockResolvedValueOnce(Response.json({active:true})));await expect(identity('t')).rejects.toThrow('AUTH');});
+it('does not expose network error messages',async()=>{vi.stubGlobal('fetch',vi.fn().mockRejectedValue(new Error('connection password=secret')));await expect(supabase('/rest/v1/test')).rejects.toMatchObject({status:503});});

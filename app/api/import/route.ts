@@ -1,7 +1,15 @@
-import {NextRequest,NextResponse} from 'next/server';import {sameOrigin,userOf,rateLimit,failure} from '../../../lib/http';
+import {NextRequest,NextResponse} from 'next/server';
+import {sameOrigin,userOf,failure} from '../../../lib/http';
+import {consumeQuota} from '../../../lib/db';
+import {boundedBody} from '../../../lib/body';
+import {extractDocument} from '../../../lib/documents';
+import {UserError} from '../../../lib/errors';
 export const runtime='nodejs';
-export async function POST(req:NextRequest){try{sameOrigin(req);rateLimit('import:'+(await userOf(req)).id,10);if(Number(req.headers.get('content-length'))>5500000)throw new Error('Файл должен быть меньше 5 МБ');const form=await req.formData();const file=form.get('file');if(!(file instanceof File)||file.size>5000000)throw new Error('Файл должен быть меньше 5 МБ');const data=Buffer.from(await file.arrayBuffer());let text='';
- if(file.name.toLowerCase().endsWith('.txt'))text=data.toString('utf8');
- else if(file.name.toLowerCase().endsWith('.docx')){if(data.subarray(0,2).toString()!=='PK')throw new Error('Неверный DOCX');const mammoth=await import('mammoth');text=(await mammoth.extractRawText({buffer:data})).value;}
- else if(file.name.toLowerCase().endsWith('.pdf')){if(data.subarray(0,5).toString()!=='%PDF-')throw new Error('Неверный PDF');const canvas=await import('@napi-rs/canvas');Object.assign(globalThis,{DOMMatrix:canvas.DOMMatrix,ImageData:canvas.ImageData,Path2D:canvas.Path2D});const pdf=await import('pdfjs-dist/legacy/build/pdf.mjs');const doc=await pdf.getDocument({data:new Uint8Array(data),useSystemFonts:true}).promise;try{if(doc.numPages>30)throw new Error('Не более 30 страниц');for(let i=1;i<=doc.numPages;i++){const content=await(await doc.getPage(i)).getTextContent();text+=content.items.map(item=>'str' in item?item.str+('hasEOL' in item&&item.hasEOL?'\n':' '):'').join('')+'\n';}}finally{await doc.destroy();}}
- else throw new Error('Поддерживаются TXT, DOCX, PDF');if(text.trim().length<5)throw new Error('Текст не найден. Для скана нужен OCR; вставьте текст вручную.');if(text.length>100000)throw new Error('Слишком много текста');return NextResponse.json({text},{headers:{'Cache-Control':'no-store'}});}catch(e){return failure(e);}}
+export async function POST(req:NextRequest){try{
+ sameOrigin(req);const user=await userOf(req);await consumeQuota(user,'import');
+ const bytes=await boundedBody(req,4_100_000);
+ const form=await new Response(bytes as BodyInit,{headers:{'Content-Type':req.headers.get('content-type')||''}}).formData();
+ const file=form.get('file');if(!(file instanceof File))throw new UserError('Выберите файл резюме');
+ const text=await extractDocument(file.name,Buffer.from(await file.arrayBuffer()));
+ return NextResponse.json({text},{headers:{'Cache-Control':'no-store'}});
+}catch(e){return failure(e);}}

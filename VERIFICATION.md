@@ -9,3 +9,12 @@
 - Supabase security advisor: нет предупреждений по таблицам/RLS; есть предупреждение Leaked Password Protection Disabled. Настройка: https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection
 
 Не проверены нагрузка, pentest, полноценный WCAG AA, восстановление резервной копии, генеративный AI, HH OAuth/write. Эти функции не объявляются production-ready. SMTP и legal/localization review остаются блокерами массового запуска.
+
+## Итерация 0.2 — 25 октября 2026
+- 77 unit/route/provider-тестов: PASS. ESLint, TypeScript, production build: PASS.
+- Реальная PostgreSQL: 11 конкурентных вызовов import quota → 10 true, 1 false. Изоляция пользователей, отказ anon и неизвестного bucket: PASS.
+- Привилегии счетчиков: authenticated SELECT=false, UPDATE=false; public RPC доступен только authenticated. Схема private, RLS deny-all — намеренная защита.
+- Архивные тесты: повреждение ZIP, отсутствующая DOCX-структура, шифрование, макрос, traversal, завышенная/ложная распаковка, избыток записей.
+- Проверены отказ на неподтвержденную/чужую версию, сохранность evidence после переимпорта, provenance восстановления, 409, 429, ошибки провайдера без утечки деталей.
+- Расширенный Playwright workflow: evidence snapshot + связь отклика с версией — PASS. Мобильный landing — PASS. Итого 2/2 E2E (2,6 минуты через тестовый прокси).
+- Лимит browser suite увеличен до 240с из-за последовательных запросов к реальному Supabase через тестовый прокси; timeout каждого upstream запроса остается 15с.
