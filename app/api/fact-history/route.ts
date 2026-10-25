@@ -4,10 +4,10 @@ import {historyStream} from '../../../lib/history-stream';
 import {z} from 'zod';
 import {readFactHistory} from '../../../lib/fact-history';
 import {consumeQuota} from '../../../lib/db';
-import {userOf,failure} from '../../../lib/http';
+import {userOf,requireExpectedOwner,failure} from '../../../lib/http';
 export const dynamic='force-dynamic';
 export async function GET(req:NextRequest){try{
- const user=await userOf(req);await consumeQuota(user,'service');
+ const user=await userOf(req);requireExpectedOwner(req,user.id);await consumeQuota(user,'service');
  const cursor=req.nextUrl.searchParams.get('before');const before=cursor===null?undefined:z.coerce.number().int().positive().max(2147483647).parse(cursor);
  if(req.nextUrl.searchParams.get('export')==='1'&&cursor!==null)throw new UserError('Полный экспорт истории выполняется без курсора.');
  const first=await readFactHistory(user,before);

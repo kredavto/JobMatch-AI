@@ -79,3 +79,6 @@ Service workspace responses add ownerId derived from authenticated identity; it 
 The in-memory original owner anchors draft-preserving reload/re-login. A missing owner cannot enable reauthentication with preserved drafts. Same-owner success refreshes server state while keeping text inputs, clearing analysis/history and requiring explicit save. Ordinary logout clears all draft fields. A stale-tab logout cleans local cookies without global revocation of a different account.
 
 expectedOwnerId is an additive stale-tab safeguard, not an authorization credential or replacement for RLS; older clients may omit it. Browser-memory drafts disappear on page close/reload. No localStorage, IndexedDB or offline PII storage is added.
+
+## Защита от смены аккаунта при чтении (0.16)
+История и импорт принимают optional `x-jobmatch-owner`; загрузка NDJSON использует `expectedOwnerId` в URL (UUID, не секрет и не credential). Все переданные значения должны совпадать с identity текущей сессии. Несовпадение — 409 до чтения истории/тела файла; malformed UUID — 400. Проверяются и повторные query-параметры. Отсутствие hint сохраняет совместимость, но не отменяет auth/RLS. Уже начатый ответ относится к проверенной сессии запроса; глобальная отмена при смене cookies не реализована.

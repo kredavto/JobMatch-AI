@@ -74,3 +74,18 @@ for(const endpoint of ['history','import'])test(endpoint+' expiration opens reco
  else await page.getByLabel('Загрузить TXT, DOCX, PDF · до 4 МБ').setInputFiles({name:'fixture.txt',mimeType:'text/plain',buffer:Buffer.from('SQL')});
  await expect(page.getByRole('heading',{name:'Восстановить вход'})).toBeVisible();await expect(draft).toHaveValue('Сохранить этот черновик');
 });
+for(const endpoint of ['history','import'])test(endpoint+' binds requests to the tab owner after account changes',async({page})=>{
+ await page.route('**/api/service',r=>r.fulfill({json:initial}));
+ let requests=0;
+ await page.route(endpoint==='history'?'**/api/fact-history*':'**/api/import',r=>{
+  expect(r.request().headers()['x-jobmatch-owner']).toBe(ownerId);requests++;
+  return r.fulfill({status:409,json:{error:'Аккаунт изменился. Войдите повторно в исходный аккаунт.'}});
+ });
+ await page.goto('/');await page.getByRole('navigation').getByRole('button',{name:'Мой профиль',exact:true}).click();
+ const draft=page.getByLabel('Проверьте текст после импорта');await draft.fill('Личный черновик');
+ if(endpoint==='history')await page.getByRole('button',{name:'Обновить историю фактов',exact:true}).click();
+ else await page.locator('input[type=file]').setInputFiles({name:'resume.txt',mimeType:'text/plain',buffer:Buffer.from('Новый текст')});
+ await expect(page.getByRole('heading',{name:'Восстановить вход'})).toBeVisible();await expect(draft).toHaveValue('Личный черновик');expect(requests).toBe(1);
+ await page.getByRole('navigation').getByRole('button',{name:'Настройки',exact:true}).click();
+ await expect(page.getByRole('link',{name:'Скачать полную историю фактов (NDJSON)'})).toHaveAttribute('href','/api/fact-history?export=1&expectedOwnerId='+ownerId);
+});
