@@ -219,3 +219,9 @@
 - Disconnect/timeout returns 408; partial bytes are never parsed. Source read errors become safe 400 responses. Reader locks, timers and abort listeners are released.
 - Cancel hooks cannot block error responses or mask the original failure. No automatic write retry; browser test verifies draft retention on 408.
 - Deadline starts when body reading starts (not at ingress) and is cooperative with the event loop. This does not bound parser CPU time or replace WAF/isolated workers.
+
+## 0.29 — completed: cooperative PDF lifecycle deadlines
+- A 15-second explicit promise deadline bounds asynchronous PDF loading/text extraction; timeout yields a safe 408 and late continuations stop before subsequent page/text operations.
+- Destroy is called once; cleanup errors cannot hide the original result, and cleanup waiting is bounded to one second. Deadline and cleanup timers are cleared.
+- Lifecycle tests cover stalled loading/cleanup, late continuation, synchronous/asynchronous destroy errors and parser error redaction. A synthetic PDF tests actual text extraction.
+- No hard CPU/memory isolation: a blocked event loop cannot run timers, a stuck destroy may retain resources, and dynamic module initialization precedes the deadline. An isolated worker remains required.

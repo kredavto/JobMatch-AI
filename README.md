@@ -75,3 +75,6 @@ DOCX containing duplicate/ambiguous archive parts, symlinks, conventional embedd
 
 ### 0.28 — interrupted uploads
 Incoming file and JSON bodies have a 15-second total read deadline. An interrupted or stalled read returns 408 with a retry message; partial content is not processed. Existing drafts stay in the current tab and writes are not automatically retried. This is a body-transfer limit, not a hard PDF/DOCX parsing timeout; isolated parser workers remain planned.
+
+### 0.29 — PDF lifecycle
+Stalled asynchronous PDF parsing returns a specific timeout error instead of relying on destroy to settle pending promises. Cleanup runs once, has a bounded wait, and cannot mask extraction errors. Tests include a generated one-page text PDF and simulated lifecycle failures. This remains cooperative in-process parsing; isolated workers, OCR and hard CPU limits are still roadmap items.

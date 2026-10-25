@@ -1,5 +1,6 @@
 import {fromBuffer,type Entry} from 'yauzl';
 import {UserError} from './errors';
+import {readPdfTask} from './pdf-lifecycle';
 export const MAX_FILE_BYTES=4_000_000;
 export const MAX_TEXT_CHARS=100_000;
 /** Validate central directory AND actual inflated bytes before handing the archive to a parser. */
@@ -35,9 +36,16 @@ export async function extractDocument(filename:string,data:Buffer):Promise<strin
   if(data.subarray(0,5).toString()!=='%PDF-')throw new UserError('Неверный PDF');
   const canvas=await import('@napi-rs/canvas');Object.assign(globalThis,{DOMMatrix:canvas.DOMMatrix,ImageData:canvas.ImageData,Path2D:canvas.Path2D});
   const pdf=await import('pdfjs-dist/legacy/build/pdf.mjs');const task=pdf.getDocument({data:new Uint8Array(data),useSystemFonts:true});
-  const timeout=setTimeout(()=>{void task.destroy();},15000);
-  try{const doc=await task.promise;if(doc.numPages>30)throw new UserError('Не более 30 страниц');for(let i=1;i<=doc.numPages;i++){const content=await(await doc.getPage(i)).getTextContent();text+=content.items.map(item=>'str' in item?item.str+('hasEOL' in item&&item.hasEOL?'\n':' '):'').join('')+'\n';if(text.length>MAX_TEXT_CHARS)throw new UserError('Слишком много текста');}}
-  catch(e){if(e instanceof UserError)throw e;throw new UserError('Не удалось прочитать PDF: файл поврежден, защищен паролем или слишком сложен.');}
-  finally{clearTimeout(timeout);await task.destroy();}
+  text=await readPdfTask(task,async(doc,assertActive)=>{
+   if(doc.numPages>30)throw new UserError('Не более 30 страниц');
+   let result='';
+   for(let i=1;i<=doc.numPages;i++){
+    assertActive();const page=await doc.getPage(i);assertActive();
+    const content=await page.getTextContent();assertActive();
+    result+=content.items.map(item=>'str' in item?item.str+('hasEOL' in item&&item.hasEOL?'\n':' '):'').join('')+'\n';
+    if(result.length>MAX_TEXT_CHARS)throw new UserError('Слишком много текста');
+   }
+   return result;
+  });
  }else throw new UserError('Поддерживаются TXT, DOCX, PDF');return validateText(text);
 }

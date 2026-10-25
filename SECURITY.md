@@ -68,3 +68,6 @@ ZIP validation rejects ambiguous normalized names, file/directory collisions, sy
 
 ### Request body deadline (0.28)
 Both JSON actions and multipart upload use a 15-second total read deadline. Abort and timeout discard partial data and cancel the reader without awaiting a potentially stalled cancel hook. Cancel rejections are handled, read failures are redacted, and timers/listeners/reader locks are cleaned up. Tests cover abort racing with an already queued chunk. This application-level cooperative deadline begins after preceding handler work; upstream buffering, event-loop blocking, parser execution and ingress anti-abuse remain separate concerns.
+
+### PDF lifecycle (0.29)
+An explicit 15-second cooperative deadline covers loading-task and asynchronous text extraction, followed by at most one second waiting for destroy. Cleanup is requested exactly once and its rejections are handled without overwriting the extraction result. Continuations check expiration between page operations. This does not forcibly terminate CPU work or guarantee resource reclamation if PDF.js destroy hangs; module import/native initialization is outside the deadline. Hard CPU/memory budgets and parser sandboxing remain unimplemented.
