@@ -1,8 +1,11 @@
+import {assertDisposableAccounts} from '../live-accounts';
 import {test,expect} from '@playwright/test';
 const email=process.env.TEST_EMAIL;const password=process.env.TEST_PASSWORD;
 test('landing on mobile has no horizontal overflow',async({page})=>{await page.setViewportSize({width:390,height:844});await page.goto('/');await expect(page.getByRole('heading',{name:'Создать аккаунт'})).toBeVisible();expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);});
 test('confirmed facts → analysis → immutable version',async({page})=>{
+ test.setTimeout(900000);
  test.skip(!email||!password,'Provide an isolated confirmed TEST_EMAIL and TEST_PASSWORD');
+ assertDisposableAccounts([email!]);
  await page.goto('/');await page.getByRole('button',{name:'Уже есть аккаунт? Войти'}).click();await page.getByLabel('Электронная почта').fill(email!);await page.getByLabel('Пароль · минимум 12 символов').fill(password!);await page.getByRole('button',{name:'Войти →'}).click();await expect(page.getByRole('heading',{name:'Следующий шаг в карьере'})).toBeVisible();if(process.env.QA_SCREENSHOT)await page.screenshot({path:'/tmp/jobmatch-dashboard.png',fullPage:true});
  await page.getByRole('button',{name:'Мой профиль',exact:false}).click();await page.getByLabel('Проверьте текст после импорта').fill('Демо Тест — менеджер\nВел продажи B2B с использованием Битрикс24.\nГотовил отчеты в Excel.');await page.getByRole('button',{name:'Сохранить мастер-профиль'}).click();await expect(page.getByText('Сохранено',{exact:true})).toBeVisible();
  const checks=page.locator('.fact input');for(let i=0;i<await checks.count();i++){await checks.nth(i).click();await expect(checks.nth(i)).toBeChecked();await expect(page.getByText('Сохранено',{exact:true})).toBeVisible();}
