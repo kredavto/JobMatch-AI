@@ -1,3 +1,4 @@
+import {MatchMetadataSchema} from './match-config';
 import {z} from 'zod';
 import {FactSchema} from './engine';
 import type {Workspace} from './db';
@@ -8,7 +9,7 @@ const date=z.string().refine(value=>/^\d{4}-\d{2}-\d{2}(T.*)?$/.test(value)&&Num
 const version=z.object({
  id,created:date,text:z.string(),vacancy:z.string(),evidence_ids:z.array(id),score:z.number().min(0).max(100),
  evidence_snapshot:z.array(fact).optional(),profile_revision:z.number().int().nonnegative().optional(),
- engine_version:z.string().optional(),restored_from:id.optional()
+ engine_version:z.string().optional(),match_metadata:MatchMetadataSchema.optional(),restored_from:id.optional()
 }).passthrough();
 const application=z.object({
  id,title:z.string(),status,note:z.string(),created:date,
