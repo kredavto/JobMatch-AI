@@ -54,3 +54,6 @@ AnalyticsPanel calculates read-only aggregates from the authenticated workspace 
 
 ### Workspace response validation 0.10
 WorkspaceSchema is shared by the server read boundary and browser state installation. Required values are validated without coercion/defaults; nested unknown fields are retained for compatibility. A malformed read becomes a generic 502 on the server. A malformed response to a browser mutation has unknown commit outcome, so the existing recovery flow blocks repeat writes until explicit reload. Original drafts remain in React memory. This does not replace RLS, database transition validators, or evidence verification.
+
+### Analysis integrity boundary 0.11
+analysis-response.ts validates the response structure and compares the complete rules-v1 result with a reconstruction from the request's facts/vacancy snapshot. Object key order is ignored; ordered arrays, evidence, quotes, scores, blockers and reasons must agree. Unknown protocol fields are ignored. Edits also pass gate before state installation. A mismatch clears the old editor result and enters explicit reload recovery. This is a deterministic provider integrity check, not independent semantic validation. Server-side version generation and database write gates remain authoritative.
