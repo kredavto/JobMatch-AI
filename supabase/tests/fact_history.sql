@@ -7,16 +7,16 @@ insert into auth.users(id) select a from qa_history_ids union all select b from 
 insert into auth.sessions(id,user_id) select sa,a from qa_history_ids union all select sb,b from qa_history_ids;
 select set_config('request.jwt.claims',jsonb_build_object('sub',a,'session_id',sa)::text,true) from qa_history_ids;
 set local role authenticated;
-select public.save_workspace(0,'{"facts":[{"id":"f1","text":"SQL","source":"test","verified":false}]}','import');
-select public.save_workspace(1,'{"facts":[{"id":"f1","text":"SQL","source":"test","verified":true}]}','verify');
-select public.save_workspace(2,'{"facts":[{"id":"f1","text":"SQL","source":"test","verified":true}],"goal":"analyst"}','goal');
+select public.save_workspace(0,'{"original":"","goal":"","vacancy":"","versions":[],"applications":[],"facts":[{"id":"f1","text":"SQL","source":"test","verified":false}]}','import');
+select public.save_workspace(1,'{"original":"","goal":"","vacancy":"","versions":[],"applications":[],"facts":[{"id":"f1","text":"SQL","source":"test","verified":true}]}','verify');
+select public.save_workspace(2,'{"original":"","goal":"","vacancy":"","versions":[],"applications":[],"facts":[{"id":"f1","text":"SQL","source":"test","verified":true}],"goal":"analyst"}','goal');
 do $$begin
  if (select count(*) from public.fact_history)<>2 then raise exception 'history count'; end if;
  if (select facts->0->>'verified' from public.fact_history order by id limit 1)<>'false' then raise exception 'old snapshot changed'; end if;
  begin update public.fact_history set kind='baseline';raise exception 'update allowed';exception when insufficient_privilege then null;end;
  begin delete from public.fact_history;raise exception 'delete allowed';exception when insufficient_privilege then null;end;
  begin insert into public.fact_history(user_id,workspace_revision,kind,facts) values(auth.uid(),99,'change','[]');raise exception 'insert allowed';exception when insufficient_privilege then null;end;
- begin perform public.save_workspace(1,'{"facts":[]}','import');raise exception 'stale revision allowed';exception when raise_exception then if sqlerrm<>'CONFLICT' then raise;end if;end;
+ begin perform public.save_workspace(1,'{"original":"","goal":"","vacancy":"","versions":[],"applications":[],"facts":[]}','import');raise exception 'stale revision allowed';exception when raise_exception then if sqlerrm<>'CONFLICT' then raise;end if;end;
  if (select count(*) from public.fact_history)<>2 then raise exception 'failed write recorded';end if;
 end;$$;
 select set_config('request.jwt.claims',jsonb_build_object('sub',b,'session_id',sb)::text,true) from qa_history_ids;
