@@ -5,7 +5,7 @@ vi.mock('../lib/db',()=>({supabase:db.supabase,readWorkspace:vi.fn(),saveWorkspa
 import {POST} from '../app/api/service/route';
 const user={id:'11111111-1111-4111-8111-111111111111',email:'demo@example.test'};
 const session={access_token:'fake.access.token',refresh_token:'fake-refresh',expires_in:3600,token_type:'bearer'};
-const request=(action:string)=>new NextRequest('https://app.test/api/service',{method:'POST',headers:{origin:'https://app.test','content-type':'application/json',cookie:'jm_refresh=old-fixture'},body:JSON.stringify({action,email:user.email,password:'fixture-password-123',consent:true})});
+const request=(action:string,extra:Record<string,unknown>={})=>new NextRequest('https://app.test/api/service',{method:'POST',headers:{origin:'https://app.test','content-type':'application/json',cookie:'jm_refresh=old-fixture'},body:JSON.stringify({action,email:user.email,password:'fixture-password-123',consent:true,...extra})});
 beforeEach(()=>{db.supabase.mockReset();db.identity.mockReset();});
 it.each(['login','refresh'])('sets secure cookies only for a validated %s response',async action=>{
  db.supabase.mockResolvedValue(session);const res=await POST(request(action));
@@ -37,4 +37,24 @@ it('does not silently succeed when logout fails due to an upstream outage',async
  db.identity.mockResolvedValue({id:'owner',token:'fake'});db.supabase.mockRejectedValue(new Error('upstream secret'));
  const res=await POST(request('logout'));expect(res.status).toBe(500);expect(res.headers.get('set-cookie')).toBeNull();
  expect(JSON.stringify(await res.json())).not.toContain('secret');
+});
+it('rejects reauthentication to another owner before replacing cookies',async()=>{
+ db.supabase.mockResolvedValue(session);db.identity.mockResolvedValue({id:'22222222-2222-4222-8222-222222222222',token:'new-token'});
+ const res=await POST(request('login',{expectedOwnerId:user.id}));
+ expect(res.status).toBe(409);expect(res.headers.get('set-cookie')).toBeNull();
+});
+it('permits reauthentication only after verifying the expected owner',async()=>{
+ db.supabase.mockResolvedValue(session);db.identity.mockResolvedValue({id:user.id,token:'new-token'});
+ const res=await POST(request('login',{expectedOwnerId:user.id}));
+ expect(res.status).toBe(200);expect(db.identity).toHaveBeenCalledWith(session.access_token);expect(res.headers.get('set-cookie')).toContain('jm_access=');
+});
+it('rejects a mutation from a stale account tab before accessing its workspace',async()=>{
+ db.identity.mockResolvedValue({id:'22222222-2222-4222-8222-222222222222',token:'new-token'});
+ const res=await POST(request('verify',{expectedOwnerId:user.id,ids:[],verified:true}));
+ expect(res.status).toBe(409);expect(db.supabase).not.toHaveBeenCalled();
+});
+it('does not revoke another account globally when logging out from a stale tab',async()=>{
+ db.identity.mockResolvedValue({id:'22222222-2222-4222-8222-222222222222',token:'other-token'});
+ const res=await POST(request('logout',{expectedOwnerId:user.id}));
+ expect(res.status).toBe(200);expect(res.headers.get('set-cookie')).toContain('jm_access=');expect(db.supabase).not.toHaveBeenCalled();
 });

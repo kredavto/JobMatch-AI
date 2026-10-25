@@ -4,7 +4,7 @@ import {UserError} from './errors';
 import type {Fact} from './engine';
 export type Version={id:string;created:string;text:string;vacancy:string;evidence_ids:string[];score:number;evidence_snapshot?:Fact[];profile_revision?:number;engine_version?:string;restored_from?:string};
 export type Application={id:string;title:string;status:string;note:string;created:string;events:{status:string;date:string}[];resumeVersionId?:string|null};
-export type Workspace={revision:number;original:string;facts:Fact[];vacancy:string;versions:Version[];applications:Application[];goal:string};
+export type Workspace={ownerId?:string;revision:number;original:string;facts:Fact[];vacancy:string;versions:Version[];applications:Application[];goal:string};
 export const empty=():Workspace=>({revision:0,original:'',facts:[],vacancy:'',versions:[],applications:[],goal:''});
 
 export type Identity={id:string;token:string;email?:string};

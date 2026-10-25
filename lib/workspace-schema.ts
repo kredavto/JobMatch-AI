@@ -18,7 +18,7 @@ const application=z.object({
  * Unknown fields survive the compatibility snapshot round trip. This is not a write authorization gate.
  */
 export const WorkspaceSchema:z.ZodType<Workspace>=z.object({
- revision:z.number().int().nonnegative(),original:z.string(),facts:z.array(fact),
+ ownerId:z.uuid().optional(),revision:z.number().int().nonnegative(),original:z.string(),facts:z.array(fact),
  vacancy:z.string(),goal:z.string(),versions:z.array(version),applications:z.array(application)
 }).passthrough().superRefine((workspace,ctx)=>{
  for(const field of ['facts','versions','applications'] as const){

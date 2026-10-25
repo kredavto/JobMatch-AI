@@ -72,3 +72,10 @@ history-stream.ts emits one NDJSON record per pull, reads the next page only whe
 auth-contract.ts distinguishes a raw GoTrue signup-user response from token grant responses. Login/refresh require validated access_token, refresh_token, bearer token_type and integer expires_in (1..604800 seconds); cookies are only installed after validation. Registration can instead return confirmationRequired when the raw response is a user with an ID/email and no token fields. Browser acknowledgments accept exactly ok:true, or confirmationRequired:true only for registration.
 
 Logout tries global revocation for a valid current identity. AUTH failures allow local cookie cleanup; other provider errors remain errors. Local cleanup after expiration does not assert global revocation. Same-origin checks still apply. Supabase signup behavior checked against its official internal/api/signup.go source on 2026-10-25; validation is a protocol check, not JWT signature verification, which remains the responsibility of the authenticated identity flow.
+
+### Same-owner reauthentication 0.15
+Service workspace responses add ownerId derived from authenticated identity; it is transport metadata and is not written to the workspace payload. The new client supplies expectedOwnerId for service actions. The server compares it with authenticated identity before accessing/mutating a workspace. On re-login it verifies the newly issued token identity before installing cookies. A mismatched grant is not installed or returned to the client.
+
+The in-memory original owner anchors draft-preserving reload/re-login. A missing owner cannot enable reauthentication with preserved drafts. Same-owner success refreshes server state while keeping text inputs, clearing analysis/history and requiring explicit save. Ordinary logout clears all draft fields. A stale-tab logout cleans local cookies without global revocation of a different account.
+
+expectedOwnerId is an additive stale-tab safeguard, not an authorization credential or replacement for RLS; older clients may omit it. Browser-memory drafts disappear on page close/reload. No localStorage, IndexedDB or offline PII storage is added.
