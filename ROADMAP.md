@@ -197,3 +197,8 @@
 
 ## Аналитика и масштабирование
 Напоминания, задачи, динамика по специальностям и дальнейшие срезы. Фильтры периода/версии, экспорт выборки и сравнение соседних когорт реализованы в 0.9. Корреляции не представлять как причинный эффект. Redis/BullMQ только после появления реально фоновых задач.
+
+## 0.25 — completed: saved resume DOCX export
+- Authenticated owner-bound export with quota and no-store headers; text-only OOXML, Unicode/XML validation and size limit.
+- History download link, unit roundtrip/security checks and mobile browser download check.
+- Remaining: visual cross-editor verification and inline download-error UX; original formatting is not reconstructed.
