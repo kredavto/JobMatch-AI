@@ -1,15 +1,15 @@
 import {test,expect} from '@playwright/test';
 const initial={revision:1,original:'SQL',vacancy:'SQL',goal:'Аналитик',facts:[],versions:[],applications:[]};
-for(const status of [403,429])test('definitive '+status+' rejection preserves draft without automatic retry',async({page})=>{
+for(const status of [403,408,429])test('definitive '+status+' rejection preserves draft without automatic retry',async({page})=>{
  let writes=0;
  await page.route('**/api/service',r=>{
   if(r.request().method()==='GET')return r.fulfill({json:initial});
-  writes++;return r.fulfill({status,json:{error:status===429?'Лимит запросов. Повторите позже.':'Доступ запрещен.'}});
+  writes++;return r.fulfill({status,json:{error:status===408?'Время загрузки истекло. Повторите попытку.':status===429?'Лимит запросов. Повторите позже.':'Доступ запрещен.'}});
  });
  await page.goto('/');await page.getByRole('navigation').getByRole('button',{name:'Мой профиль',exact:true}).click();
  const field=page.getByLabel('Проверьте текст после импорта');await field.fill('Несохраненный текст');
  await page.getByRole('button',{name:'Сохранить мастер-профиль'}).click();
- await expect(page.locator('.error')).toContainText(status===429?'Лимит запросов':'Доступ запрещен');
+ await expect(page.locator('.error')).toContainText(status===408?'Время загрузки истекло':status===429?'Лимит запросов':'Доступ запрещен');
  await expect(field).toHaveValue('Несохраненный текст');
  await page.getByRole('navigation').getByRole('button',{name:'Обзор',exact:true}).click();
  await page.getByRole('navigation').getByRole('button',{name:'Мой профиль',exact:true}).click();

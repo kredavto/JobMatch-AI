@@ -213,3 +213,9 @@
 - Reject standard word/embeddings and word/activeX parts, and VBA binary parts; ordinary images remain allowed.
 - Real multipart route tests with synthetic generated DOCX cover successful text extraction, rejected objects, owner authentication and safe errors; database identity/quota are mocked.
 - This is a conservative package filter, not antivirus, content-type inspection or parser isolation. Nonstandard disguised payloads and resource isolation require the planned isolated worker. Users can remove embedded objects or paste text manually.
+
+## 0.28 — completed: request-body deadlines and cancellation
+- Shared boundedBody now limits total streaming read time to 15 seconds for service JSON and file upload bodies, in addition to existing byte limits.
+- Disconnect/timeout returns 408; partial bytes are never parsed. Source read errors become safe 400 responses. Reader locks, timers and abort listeners are released.
+- Cancel hooks cannot block error responses or mask the original failure. No automatic write retry; browser test verifies draft retention on 408.
+- Deadline starts when body reading starts (not at ingress) and is cooperative with the event loop. This does not bound parser CPU time or replace WAF/isolated workers.

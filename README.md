@@ -72,3 +72,6 @@ The download button shows progress and prevents duplicate requests. Failed authe
 
 ### 0.27 — stricter DOCX import
 DOCX containing duplicate/ambiguous archive parts, symlinks, conventional embedded OLE/ActiveX objects or VBA binaries is rejected before text extraction. Save a copy without embedded objects or paste the text manually. Normal text and images remain supported. This conservative filter does not replace antivirus or the planned isolated parser worker. Synthetic multipart integration tests exercise the actual upload route and document extractor with mocked authentication/quota.
+
+### 0.28 — interrupted uploads
+Incoming file and JSON bodies have a 15-second total read deadline. An interrupted or stalled read returns 408 with a retry message; partial content is not processed. Existing drafts stay in the current tab and writes are not automatically retried. This is a body-transfer limit, not a hard PDF/DOCX parsing timeout; isolated parser workers remain planned.
