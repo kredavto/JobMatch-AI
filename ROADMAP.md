@@ -201,4 +201,9 @@
 ## 0.25 — completed: saved resume DOCX export
 - Authenticated owner-bound export with quota and no-store headers; text-only OOXML, Unicode/XML validation and size limit.
 - History download link, unit roundtrip/security checks and mobile browser download check.
-- Remaining: visual cross-editor verification and inline download-error UX; original formatting is not reconstructed.
+- Remaining: visual cross-editor verification; original formatting is not reconstructed.
+
+## 0.26 — completed: inline DOCX download recovery
+- Loading state, duplicate-click guard, fixed inline errors, explicit retry, response MIME/ZIP checks.
+- Abort on leaving the tab and 30-second timeout; no late downloads after unmount.
+- Added browser checks for 401/409/429/503, invalid success response, retry and cancellation.
