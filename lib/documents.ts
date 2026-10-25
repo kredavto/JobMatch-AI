@@ -4,12 +4,19 @@ export const MAX_FILE_BYTES=4_000_000;
 export const MAX_TEXT_CHARS=100_000;
 /** Validate central directory AND actual inflated bytes before handing the archive to a parser. */
 export function validateDocx(data:Buffer):Promise<void>{return new Promise((resolve,reject)=>{
- fromBuffer(data,{lazyEntries:true,validateEntrySizes:true},(error,zip)=>{
+ fromBuffer(data,{lazyEntries:true,validateEntrySizes:true,strictFileNames:true},(error,zip)=>{
   if(error||!zip){reject(new UserError('Неверный или поврежденный DOCX'));return;}
+  const names=new Set<string>();
   let count=0,total=0,actual=0,document=false,types=false,finished=false;
-  const fail=()=>{if(finished)return;finished=true;zip.close();reject(new UserError('DOCX поврежден или превышает безопасные лимиты распаковки'));};
+  const fail=()=>{if(finished)return;finished=true;zip.close();reject(new UserError('DOCX поврежден, содержит неподдерживаемые вложения или превышает безопасные лимиты. Сохраните копию без вложений или вставьте текст вручную.'));};
   zip.on('error',fail);zip.on('end',()=>{if(finished)return;finished=true;if(!document||!types)reject(new UserError('В файле нет структуры документа DOCX'));else resolve();});
   zip.on('entry',(entry:Entry)=>{
+   const name=entry.fileName,canonical=name.normalize('NFC').toLowerCase().replace(/\/$/,'');
+   const segments=canonical.split('/');
+   const mode=(entry.externalFileAttributes>>>16)&0xf000;
+   // Reject ambiguous parts before the second ZIP reader (Mammoth/JSZip) sees them.
+   if(names.has(canonical)||segments.some(p=>p===''||p==='.'||p==='..')||/[\u0000-\u001f\u007f]/.test(name)||/%(?:2e|2f|5c|00)/i.test(name)||mode===0xa000||/^word\/(?:embeddings|activex)(?:\/|$)/.test(canonical)||/(?:^|\/)vba[^/]*\.bin$/.test(canonical)){fail();return;}
+   names.add(canonical);
    count++;total+=entry.uncompressedSize;
    if(count>1000||total>20_000_000||entry.uncompressedSize>8_000_000||(entry.generalPurposeBitFlag&1)!==0||entry.fileName.split('/').includes('..')||entry.fileName.startsWith('/')||/vbaProject\.bin$/i.test(entry.fileName)){fail();return;}
    if(entry.fileName==='word/document.xml')document=true;if(entry.fileName==='[Content_Types].xml')types=true;

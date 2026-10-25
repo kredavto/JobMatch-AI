@@ -207,3 +207,9 @@
 - Loading state, duplicate-click guard, fixed inline errors, explicit retry, response MIME/ZIP checks.
 - Abort on leaving the tab and 30-second timeout; no late downloads after unmount.
 - Added browser checks for 401/409/429/503, invalid success response, retry and cancellation.
+
+## 0.27 — completed: stricter DOCX import envelope
+- Reject duplicate/case-folded/NFC-equivalent part names, directory/file collisions, dot and encoded traversal-like segments, control characters and Unix symlink entries before extraction.
+- Reject standard word/embeddings and word/activeX parts, and VBA binary parts; ordinary images remain allowed.
+- Real multipart route tests with synthetic generated DOCX cover successful text extraction, rejected objects, owner authentication and safe errors; database identity/quota are mocked.
+- This is a conservative package filter, not antivirus, content-type inspection or parser isolation. Nonstandard disguised payloads and resource isolation require the planned isolated worker. Users can remove embedded objects or paste text manually.

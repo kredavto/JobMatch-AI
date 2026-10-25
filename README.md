@@ -69,3 +69,6 @@ Structure follows [Microsoft's WordprocessingML documentation](https://learn.mic
 
 ### 0.26 — recoverable DOCX downloads
 The download button shows progress and prevents duplicate requests. Failed authentication, owner conflicts, missing versions, quotas and outages produce fixed localized inline messages. No automatic retries or upstream error text display. Successful responses require the DOCX MIME type, a ZIP header and a maximum 2 MiB downloaded blob (not full client-side OOXML validation). Pending fetches abort on unmount and after 30 seconds; late results cannot trigger a download. Browser tests cover retry and cancellation using mocked endpoints; real Word rendering remains unverified.
+
+### 0.27 — stricter DOCX import
+DOCX containing duplicate/ambiguous archive parts, symlinks, conventional embedded OLE/ActiveX objects or VBA binaries is rejected before text extraction. Save a copy without embedded objects or paste the text manually. Normal text and images remain supported. This conservative filter does not replace antivirus or the planned isolated parser worker. Synthetic multipart integration tests exercise the actual upload route and document extractor with mocked authentication/quota.
