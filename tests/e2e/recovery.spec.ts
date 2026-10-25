@@ -29,3 +29,21 @@ test('two tabs use revision conflict recovery without silently replacing draft',
  await second.getByRole('button',{name:'Загрузить актуальные данные'}).click();await expect(second.getByRole('status')).toContainText('Актуальные данные загружены');await expect(second.getByLabel('Проверьте текст после импорта')).toHaveValue('Черновик второй вкладки');
  expect(workspace.original).toBe('Запись первой вкладки');await second.getByRole('button',{name:'Сохранить мастер-профиль'}).click();await expect(second.getByRole('status')).toHaveText('Сохранено');expect(workspace.revision).toBe(3);expect(workspace.original).toBe('Черновик второй вкладки');
 });
+test('server comparison stays available after an unrelated success notification',async({page})=>{
+ let current={...initial};let conflicted=false;
+ await page.route('**/api/service',r=>{
+  if(r.request().method()==='GET')return r.fulfill({json:current});
+  if(!conflicted){conflicted=true;current={...current,revision:2,original:'Актуальный серверный текст'};return r.fulfill({status:409,json:{error:'Конфликт'}});}
+  current={...current,revision:3,goal:'Аналитик'};
+  return r.fulfill({json:current});
+ });
+ await page.goto('/');await page.getByRole('navigation').getByRole('button',{name:'Мой профиль',exact:true}).click();
+ await page.getByLabel('Проверьте текст после импорта').fill('Черновик на русском и English');
+ await page.getByRole('button',{name:'Сохранить мастер-профиль'}).click();
+ await page.getByRole('button',{name:'Загрузить актуальные данные'}).click();
+ await page.getByRole('button',{name:'Сохранить цель'}).click();
+ await expect(page.getByRole('status')).toHaveText('Сохранено');
+ await page.getByText('Сохраненные на сервере тексты',{exact:true}).click();
+ await expect(page.getByText('Актуальный серверный текст',{exact:true})).toBeVisible();
+ await expect(page.getByLabel('Проверьте текст после импорта')).toHaveValue('Черновик на русском и English');
+});
