@@ -44,3 +44,9 @@ RLS и SELECT grants действуют на всех четырех новых 
 Граница защищает целостность пользовательских утверждений, не доказывает их истинность. Match Score и семантическая релевантность вычисляются серверным engine и не пересчитываются SQL-валидатором. Владелец может вызвать разрешенный RPC напрямую с собственной сессией; прикладные квоты не заменяют ограничения Data API. Удаление аккаунта остается отдельным owner-only RPC. Требуется дальнейшая защита от злоупотреблений публичным Auth/Data API.
 
 Advisor также сообщает Leaked Password Protection Disabled: настройка пока не включена; https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection . INFO private.request_quotas без RLS-политик остается намеренным deny-all.
+
+
+## PWA и офлайн (0.6)
+Service worker имеет фиксированный allowlist: /offline.html, /icon.svg, /icon-192.png, /icon-512.png. Install получает их с credentials: omit. Успешные navigation responses не записываются в Cache Storage и запрашиваются с cache: no-store. Навигация только на / при сетевой ошибке получает generic offline HTML; /api/**, POST, чужие origin, Next.js chunks и URL статических файлов с query не перехватываются. Нет Cache.put для динамических данных, IndexedDB/localStorage, background sync или очереди mutations. API сохраняет Cache-Control: no-store.
+
+Cache очистка ограничена префиксом jobmatch-public-. При изменении публичных офлайн-ресурсов обновляйте версию кеша в sw.js. Worker обновляется без HTTP-кеширования, не перезагружает открытую страницу и не отправляет формы. При удаленном/недоступном Cache Storage навигация получает минимальный текстовый 503. Это не гарантия отсутствия данных в скачанных пользователем файлах, памяти открытой вкладки, расширениях или системных снимках экрана.

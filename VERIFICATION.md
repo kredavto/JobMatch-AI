@@ -51,3 +51,11 @@
 - Advisor: INFO private.request_quotas (намеренный deny-all) и WARN Leaked Password Protection Disabled (не исправлено, ссылка в SECURITY.md).
 - 7/7 Playwright: PASS (3,3 минуты): mock-сценарии истории/ошибок/конфликтов и полный workflow с настоящими Auth/PostgreSQL, включая подтверждение фактов, версию, связь отклика, повторную загрузку и историю.
 - Отдельная проверка trim_fact_line: обычное слово value не меняется; vertical tab и NBSP обрабатываются как в JavaScript.
+
+
+## Итерация 0.6 — 25 октября 2026
+- 111 unit/route/provider/client/worker-тестов: PASS. Включая allowlist публичного кеша, credentials omit, исключение API/POST/чужого origin, отсутствие кеширования документов, очистку только своего кеша и fallback после eviction.
+- Браузерный offline-тест использует настоящий service worker и отключение сети; API профиля подменен синтетическим ответом. Проверены Cache Storage (ровно четыре публичных файла, без маркера профиля), сохранность открытого черновика, отсутствие автоматических writes, offline navigation, API failure и возврат онлайн.
+- Мобильный offline-скриншот 390×844 проверен визуально: нет горизонтального overflow, читаемая кнопка и текст. Физические устройства/iOS install flow и полноценный WCAG AA не проверены.
+- Полный authenticated workflow с реальной базой в этой итерации пропущен (тестовый аккаунт не создавался); backend/схема базы не менялись.
+- Итоговый прогон: ESLint, TypeScript, build — PASS; Playwright 7 passed / 1 skipped (реальный authenticated workflow), 4,0с. Тесты повторены после добавления fallback при удалении кеша.
