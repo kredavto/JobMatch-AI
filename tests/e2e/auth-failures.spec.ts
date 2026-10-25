@@ -30,3 +30,14 @@ test('a confirmation response to login is not treated as successful authenticati
  await expect(page.locator('.error')).toContainText('некорректный ответ');expect(reads).toBe(before);
  await expect(page.getByRole('heading',{name:'С возвращением'})).toBeVisible();
 });
+test('refresh outage offers retry; an ended session on retry opens login instead of retaining outage',async({page})=>{
+ let outage=true,refreshes=0;
+ await page.route('**/api/service',r=>{if(r.request().method()==='GET')return r.fulfill({status:401,json:{error:'Войдите'}});refreshes++;return r.fulfill({status:outage?503:401,json:{error:outage?'Сервис временно недоступен':'Войдите'}});});
+ await page.goto('/');await expect(page.getByRole('heading',{name:'Не удалось загрузить рабочее пространство'})).toBeVisible();expect(refreshes).toBe(1);
+ outage=false;await page.getByRole('button',{name:'Повторить загрузку'}).click();await expect(page.getByLabel('Электронная почта')).toBeVisible();await expect(page.getByRole('heading',{name:'Не удалось загрузить рабочее пространство'})).toHaveCount(0);expect(refreshes).toBe(2);
+});
+test('refresh during draft reload binds original owner and offers reauthentication on mismatch',async({page})=>{
+ const owner='11111111-1111-4111-8111-111111111111';let expired=false,refreshes=0;
+ await page.route('**/api/service',r=>{if(r.request().method()==='GET')return r.fulfill({status:expired?401:200,json:expired?{error:'Войдите'}:{...workspace,ownerId:owner}});const b=r.request().postDataJSON();if(b.action==='refresh'){expect(b.expectedOwnerId).toBe(owner);refreshes++;return r.fulfill({status:409,json:{error:'Другой аккаунт'}});}expired=true;return r.fulfill({status:409,json:{error:'Обновите данные'}});});
+ await page.goto('/');await page.getByRole('navigation').getByRole('button',{name:'Мой профиль',exact:true}).click();const draft=page.getByLabel('Проверьте текст после импорта');await draft.fill('Открытый черновик');await page.getByRole('button',{name:'Сохранить мастер-профиль'}).click();await page.getByRole('button',{name:'Загрузить актуальные данные'}).click();await expect(page.getByRole('heading',{name:'Восстановить вход'})).toBeVisible();await expect(draft).toHaveValue('Открытый черновик');expect(refreshes).toBe(1);
+});

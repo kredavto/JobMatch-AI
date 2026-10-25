@@ -13,7 +13,18 @@ function config(){const url=process.env.SUPABASE_URL;const key=process.env.SUPAB
 export async function supabase(path:string,method='GET',body?:unknown,token?:string){
  const {url,key}=config();let res:Response;
  try{res=await fetch(url+path,{method,headers:{apikey:key,...(token?{Authorization:`Bearer ${token}`} : {}),'Content-Type':'application/json'},body:body===undefined?undefined:JSON.stringify(body),cache:'no-store',signal:AbortSignal.timeout(15000)});}catch(e){throw new UserError(e instanceof Error&&e.name==='TimeoutError'?'Сервис не ответил вовремя. Повторите позже.':'Сервис временно недоступен. Повторите позже.',503);}
- const text=await res.text();let data;try{data=text?JSON.parse(text):null;}catch{throw new UserError('Некорректный ответ сервиса. Повторите позже.',502);}
+ let text:string;try{text=await res.text();}catch{throw new UserError('Сервис временно недоступен. Повторите позже.',503);}
+ // HTTP failures take precedence over HTML/malformed bodies from a proxy.
+ if(res.status===429)throw new Error('RATE');
+ if(res.status>=500)throw new UserError('Сервис временно недоступен. Повторите позже.',503);
+ let data;try{data=text?JSON.parse(text):null;}catch{throw new UserError('Некорректный ответ сервиса. Повторите позже.',502);}
+ const authPath=path.startsWith('/auth/v1/'),code=typeof data?.error_code==='string'?data.error_code:data?.code;
+ if(!res.ok&&authPath&&(res.status===400||res.status===422)){
+  const endedSession=['session_expired','session_not_found'].includes(code);
+  const endedRefresh=path==='/auth/v1/token?grant_type=refresh_token'&&['refresh_token_not_found','refresh_token_already_used'].includes(code);
+  if(endedSession||endedRefresh)throw new Error('AUTH');
+ }
+
  if(!res.ok){if(data?.message==='INVALID_WRITE')throw new UserError('Изменение не прошло проверку. Обновите данные и повторите действие.',400);if(data?.message==='CONFLICT')throw new Error('CONFLICT');if(res.status===429)throw new Error('RATE');if(res.status===401||res.status===403)throw new Error('AUTH');if(data?.error_code==='email_not_confirmed')throw new UserError('Подтвердите почту и вернитесь для входа');if(data?.error_code==='over_email_send_rate_limit')throw new Error('RATE');if(path.includes('/auth/'))throw new UserError('Не удалось войти или зарегистрироваться. Проверьте данные и подтверждение почты. Для публичной регистрации администратору нужен SMTP.');throw new UserError('Ошибка базы данных. Повторите запрос позже.',502);}return data;
 }
 export async function readWorkspace(user:Identity):Promise<Workspace>{const data=await supabase('/rest/v1/rpc/read_workspace','POST',{},user.token);if(data===null)return empty();const parsed=WorkspaceSchema.safeParse(data);if(!parsed.success)throw new UserError('Некорректный ответ хранилища. Повторите позже.',502);return parsed.data;}
