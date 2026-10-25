@@ -1,3 +1,4 @@
+import {validateAuthAck} from './auth-contract';
 import {WorkspaceSchema} from './workspace-schema';
 import {ui} from './i18n';
 /** Never retry mutations: a lost response does not prove a failed write. */
@@ -14,3 +15,5 @@ export async function requestJson<T>(url:string,init?:RequestInit):Promise<T>{
 }
 
 export function validatedWorkspace(data:unknown){const result=WorkspaceSchema.safeParse(data);if(!result.success)throw new RequestError(ui.request.invalid);return result.data;}
+
+export function validatedAuthAck(data:unknown,allowConfirmation=false){try{return validateAuthAck(data,allowConfirmation);}catch{throw new RequestError(ui.request.invalid,502);}}

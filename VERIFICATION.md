@@ -113,3 +113,11 @@
 - Полный export с before возвращает 400 до запроса данных.
 - Playwright: 23 passed / 1 skipped (19,3с). Новый сценарий: поврежденная следующая страница оставляет один исходный снимок, повтор после исправления корректно завершает пагинацию. Существующий history-тест обновлен под завершение на пустой странице.
 - Реальный authenticated workflow пропущен; ответы провайдера и отмена потока проверены на mocks. Схема БД и права не менялись.
+
+## Итерация 0.14 — 25 октября 2026
+- ESLint, TypeScript, production build: PASS; 181 unit/route/provider/client/stream/schema-тест: PASS.
+- Auth contracts: missing token при login/refresh, signup user vs malformed data, invalid refresh token/expiry/type, cookie-control characters, acknowledgment discriminator проверены.
+- Route tests проверяют отсутствие Set-Cookie при ошибке, HttpOnly/Secure/SameSite=strict и expiry при успехе, локальный logout после AUTH и отсутствие ложного успеха при outage.
+- Playwright: 26 passed / 1 skipped. Новые сценарии: malformed refresh с последующим retry, malformed logout без потери черновика, confirmation response при login не считается входом.
+- Ошибка инициализации mock в расширении logout-тестов исправлена до итогового прогона.
+- Реальный authenticated workflow пропущен. Протокол проверен на mocks и официальном исходном signup handler; живые SMTP/межустройственные сессии не проверены. Схема БД и настройки Auth не менялись.

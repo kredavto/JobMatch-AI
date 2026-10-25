@@ -1,3 +1,4 @@
+import {parseProviderAuth} from '../../../lib/auth-contract';
 import {personalExport} from '../../../lib/personal-export';
 import {boundedBody} from '../../../lib/body';import {UserError} from '../../../lib/errors';
 import {NextRequest,NextResponse} from 'next/server';import {z} from 'zod';import {randomUUID} from 'node:crypto';
@@ -10,8 +11,9 @@ export async function POST(req:NextRequest){try{sameOrigin(req);rateLimit('globa
  if(['login','register','refresh'].includes(action)){rateLimit('auth',60);let data;
  if(action==='refresh'){const refresh=req.cookies.get('jm_refresh')?.value;if(!refresh)throw new Error('AUTH');data=await supabase('/auth/v1/token?grant_type=refresh_token','POST',{refresh_token:refresh});}
  else {const {email,password}=z.object({email:z.email().max(200).transform(v=>v.toLowerCase()),password:z.string().min(12).max(128)}).parse(b);rateLimit('email:'+email,10);if(action==='register'&&b.consent!==true)throw new UserError('Необходимо согласие на обработку данных');data=await supabase(action==='register'?'/auth/v1/signup':'/auth/v1/token?grant_type=password','POST',{email,password,...(action==='register'?{data:{consent_version:'privacy-v1',consent_at:new Date().toISOString()}}:{})});}
- if(!data.access_token)return ok({confirmationRequired:true});const res=ok({ok:true});const opts={httpOnly:true,secure:req.nextUrl.protocol==='https:',sameSite:'strict' as const,path:'/'};res.cookies.set('jm_access',data.access_token,{...opts,maxAge:data.expires_in||3600});res.cookies.set('jm_refresh',data.refresh_token,{...opts,maxAge:604800});return res;}
- const user=await userOf(req);rateLimit(user.id);if(action==='logout'){await supabase('/auth/v1/logout?scope=global','POST',{},user.token);const res=ok({ok:true});res.cookies.delete('jm_access');res.cookies.delete('jm_refresh');return res;}
+ let auth;try{auth=parseProviderAuth(data,action as 'login'|'register'|'refresh');}catch{throw new UserError('Некорректный ответ сервиса авторизации. Повторите попытку.',502);}if(auth.kind==='confirmation')return ok({confirmationRequired:true});const res=ok({ok:true});const opts={httpOnly:true,secure:req.nextUrl.protocol==='https:',sameSite:'strict' as const,path:'/'};res.cookies.set('jm_access',auth.access_token,{...opts,maxAge:auth.expires_in});res.cookies.set('jm_refresh',auth.refresh_token,{...opts,maxAge:604800});return res;}
+ if(action==='logout'){try{const user=await userOf(req);rateLimit(user.id);await supabase('/auth/v1/logout?scope=global','POST',{},user.token);}catch(e){if(!(e instanceof Error)||e.message!=='AUTH')throw e;}const res=ok({ok:true});res.cookies.delete('jm_access');res.cookies.delete('jm_refresh');return res;}
+ const user=await userOf(req);rateLimit(user.id);
  if(action==='delete'){if(b.confirm!=='УДАЛИТЬ')throw new UserError('Введите УДАЛИТЬ');await supabase('/rest/v1/rpc/delete_my_account','POST',{},user.token);const res=ok({ok:true});res.cookies.delete('jm_access');res.cookies.delete('jm_refresh');return res;}
  if(action==='export'){await consumeQuota(user,'service');return ok(await personalExport(user));}
  await consumeQuota(user,action==='analyze'?'analysis':'service');const state=await readWorkspace(user);const rev=z.number().int().nonnegative().parse(b.revision);if(rev!==state.revision)throw new Error('CONFLICT');
