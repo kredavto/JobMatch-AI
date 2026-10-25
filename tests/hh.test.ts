@@ -1,0 +1,2 @@
+import {it,expect} from 'vitest';import {HHProvider} from '../lib/hh';
+it('HH fallback never writes remotely',async()=>{const hh=new HHProvider();expect(hh.prepareResumeUpdate('SQL').mode).toBe('manual');expect(hh.validateResumeUpdate().valid).toBe(false);await expect(hh.publishResumeUpdate()).rejects.toThrow();await expect(hh.getVacancy('123')).rejects.toThrow();await expect(hh.getMyResumes()).rejects.toThrow();await expect(hh.getResume()).rejects.toThrow();});

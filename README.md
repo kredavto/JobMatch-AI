@@ -1,3 +1,36 @@
 # JobMatch AI
 
-Initial project setup. Application source and verification report follow in the next commit.
+Рабочая ранняя версия сервиса адаптации резюме с доказательствами. **Не production-ready коммерческий релиз.** Реализована консервативная оптимизация порядка подтвержденных фактов, а не генеративная перепись.
+
+## Запуск
+Node.js 24; PostgreSQL в Supabase.
+
+```sh
+npm ci
+cp .env.example .env.local
+# Настройте SUPABASE_URL и SUPABASE_PUBLISHABLE_KEY
+npm run dev
+```
+
+В новой базе примените `supabase/schema.sql`. Для существующей установки — только непримененные миграции из `supabase/migrations`, после проверки текущей схемы. Включите email/password Auth; настройте Site URL и собственный SMTP. Подтверждение почты сохраняется включенным. После письма вернитесь в приложение и войдите. Не используйте пароль hh.ru.
+
+## Проверки
+```sh
+npm run lint
+npm run typecheck
+npm test
+npm run build
+# Для browser E2E: установите Chromium и отдельную тестовую учетную запись
+npx playwright install chromium
+npm run test:e2e
+```
+
+## Первый сценарий
+Создайте аккаунт → демо-профиль → подтвердите факты → выберите демо-вакансию → сохраните текст → анализ → выберите правки → подтвердите отдельную версию → скачайте TXT/JSON.
+
+Внешний AI и HH API отключены. Публикация в hh.ru только вручную. Match Score — внутренняя эвристика; перестановка фактов не увеличивает оценку.
+
+## Документы
+[Спецификация](PRODUCT_SPEC.md) · [Архитектура](ARCHITECTURE.md) · [Возможности HH](HH_API_CAPABILITIES.md) · [Модель](DATA_MODEL.md) · [Безопасность](SECURITY.md) · [Roadmap](ROADMAP.md).
+
+Текущая инфраструктура находится вне РФ: соответствие требованиям локализации персональных данных не подтверждено. До реального массового использования нужны юридическая/эксплуатационная приемка, SMTP и distributed anti-abuse. Подробнее SECURITY.md.
