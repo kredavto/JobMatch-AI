@@ -78,3 +78,6 @@ Incoming file and JSON bodies have a 15-second total read deadline. An interrupt
 
 ### 0.29 — PDF lifecycle
 Stalled asynchronous PDF parsing returns a specific timeout error instead of relying on destroy to settle pending promises. Cleanup runs once, has a bounded wait, and cannot mask extraction errors. Tests include a generated one-page text PDF and simulated lifecycle failures. This remains cooperative in-process parsing; isolated workers, OCR and hard CPU limits are still roadmap items.
+
+### 0.30 — application tracker filters
+The tracker supports search across saved vacancy/company titles and notes, current-status filtering, and resume-version filtering including unlinked applications. Search is case-insensitive, treats ё/е alike and requires every query word; filters combine with AND. Counts, empty results and reset are provided. Filtering is local to the list, performs no writes and does not affect calendar/analytics. Controls reset when leaving the tab; unsaved notes are not indexed. Cards remain mounted while hidden so filtering does not discard their input state. RU/EN filter message dictionaries are included; UI remains Russian.

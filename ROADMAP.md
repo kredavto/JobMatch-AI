@@ -225,3 +225,8 @@
 - Destroy is called once; cleanup errors cannot hide the original result, and cleanup waiting is bounded to one second. Deadline and cleanup timers are cleared.
 - Lifecycle tests cover stalled loading/cleanup, late continuation, synchronous/asynchronous destroy errors and parser error redaction. A synthetic PDF tests actual text extraction.
 - No hard CPU/memory isolation: a blocked event loop cannot run timers, a stuck destroy may retain resources, and dynamic module initialization precedes the deadline. An isolated worker remains required.
+
+## 0.30 — completed: application tracker search and filters
+- Search saved title/notes, filter current status and associated resume version (including unlinked), combine criteria, reset and show matching/total counts.
+- Empty states, mobile controls and RU/EN filter dictionaries; existing edit actions retained.
+- Filters are in-memory view state only, with no server writes and no impact on calendar or analytics. Unsaved note drafts are not searched; permanent reminders/tasks and specialty analytics remain planned.
