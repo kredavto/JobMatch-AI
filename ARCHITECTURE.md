@@ -51,3 +51,6 @@ Client Connectivity подписывается на online/offline через us
 
 ### Analytics 0.9
 AnalyticsPanel calculates read-only aggregates from the authenticated workspace already loaded by the application. lib/analytics.ts contains pure UTC cohort/filter/summary/CSV functions; no new provider or database access is introduced. The previous cohort is the immediately preceding inclusive period of equal length. Response outcomes use all recorded events, not only events inside the cohort window. Persisted Russian status values remain API/domain data, separate from RU/EN presentation dictionaries. Version grouping reflects the current application-to-version link, not a reconstructed historical assignment.
+
+### Workspace response validation 0.10
+WorkspaceSchema is shared by the server read boundary and browser state installation. Required values are validated without coercion/defaults; nested unknown fields are retained for compatibility. A malformed read becomes a generic 502 on the server. A malformed response to a browser mutation has unknown commit outcome, so the existing recovery flow blocks repeat writes until explicit reload. Original drafts remain in React memory. This does not replace RLS, database transition validators, or evidence verification.

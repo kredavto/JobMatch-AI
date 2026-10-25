@@ -1,3 +1,4 @@
+import {WorkspaceSchema} from './workspace-schema';
 import {ui} from './i18n';
 /** Never retry mutations: a lost response does not prove a failed write. */
 export class RequestError extends Error {
@@ -11,3 +12,5 @@ export async function requestJson<T>(url:string,init?:RequestInit):Promise<T>{
  if(!response.ok)throw new RequestError(typeof data?.error==='string'?data.error:ui.request.failed,response.status);
  return data as T;
 }
+
+export function validatedWorkspace(data:unknown){const result=WorkspaceSchema.safeParse(data);if(!result.success)throw new RequestError(ui.request.invalid);return result.data;}

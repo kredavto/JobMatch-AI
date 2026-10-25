@@ -11,3 +11,8 @@ it('reads normalized snapshot through owner-bound RPC',async()=>{const fetch=vi.
 it('returns empty workspace for a new owner',async()=>{vi.stubGlobal('fetch',vi.fn().mockResolvedValue(Response.json(null)));const {readWorkspace,empty}=await import('../lib/db');expect(await readWorkspace({id:'owner',token:'jwt'})).toEqual(empty());});
 it('fails closed when normalized RPC schema drifts',async()=>{vi.stubGlobal('fetch',vi.fn().mockResolvedValue(Response.json({revision:1,facts:'invalid'})));const {readWorkspace}=await import('../lib/db');await expect(readWorkspace({id:'owner',token:'jwt'})).rejects.toMatchObject({status:502});});
 it('maps rejected database transition to safe validation error',async()=>{vi.stubGlobal('fetch',vi.fn().mockResolvedValue(Response.json({message:'INVALID_WRITE'},{status:400})));await expect(supabase('/rest/v1/rpc/save_workspace','POST',{})).rejects.toMatchObject({status:400});});
+it('rejects malformed nested normalized entities without leaking upstream data',async()=>{
+ vi.stubGlobal('fetch',vi.fn().mockResolvedValue(Response.json({revision:4,original:'SQL',facts:[],versions:[{id:'v',text:{private:'secret'}}],applications:[],vacancy:'',goal:''})));
+ const {readWorkspace}=await import('../lib/db');
+ await expect(readWorkspace({id:'owner',token:'jwt'})).rejects.toMatchObject({status:502,message:'Некорректный ответ хранилища. Повторите позже.'});
+});
