@@ -1,10 +1,14 @@
 type AnalyticsMessages={
+ monthlyTitle:string;monthlyExplanation:string;monthlyEmpty:string;monthlyCaution:string;monthlyExport:string;monthlyHeaders:string[];
  period:string;title:string;from:string;to:string;version:string;all:string;unlinked:string;versionName:string;unknownVersion:string;reset:string;
  invalid:string;reversed:string;cohort:string;outcomes:string;counts:string;sent:string;responses:string;interviews:string;responseRate:string;interviewRate:string;
  responseDenominator:string;interviewDenominator:string;empty:string;comparison:string;noComparison:string;previous:string;current:string;
  breakdown:string;export:string;definitions:string;definitionText:string;limitation:string;csvHeaders:string[];
 };
 export const analyticsRu:AnalyticsMessages={
+ monthlyTitle:'Результаты по месяцам отправки',monthlyExplanation:'Месяц первого зарегистрированного события после планирования, в UTC. Используются текущие фильтры периода и версии; результат учитывает всю историю выбранных откликов, в том числе события позднее месяца отправки.',
+ monthlyEmpty:'Нет отправленных откликов для помесячной сводки.',monthlyCaution:'Просмотры, приглашения и офферы считаются только по явно записанным событиям; поздний статус не доказывает наличие всех предыдущих этапов. Один отклик может входить в несколько колонок. Повторы статуса не увеличивают счетчик. Планируемые вакансии и месяцы без откликов не показаны. При фильтре дат крайние месяцы могут быть неполными. Недавние отклики имели меньше времени получить ответ; причинный эффект правок не установлен.',monthlyExport:'Скачать помесячную сводку CSV',
+ monthlyHeaders:['Месяц отправки (UTC)','Отправленные','Просмотрены','Приглашены','Интервью / оффер','Офферы','С ответом','Ответы / отправленные (%)','Интервью или офферы / отправленные (%)'],
  period:'Период',title:'Период и версия резюме',from:'Начало периода (UTC)',to:'Конец периода (UTC)',version:'Версия резюме',all:'Все версии',unlinked:'Без привязки',versionName:'Версия',unknownVersion:'Недоступная версия',reset:'Сбросить фильтры',
  invalid:'Введите корректные даты.',reversed:'Начало периода не может быть позже окончания.',
  cohort:'Период включает оба дня и отбирает отклики по первому событию после «Планируется» (UTC), а не по дате добавления вакансии. Без периода показаны также запланированные вакансии.',
@@ -18,6 +22,9 @@ export const analyticsRu:AnalyticsMessages={
  csvHeaders:['Вакансия','Статус','Создано','Первое событие после планирования (UTC)','ID версии']
 };
 export const analyticsEn:AnalyticsMessages={
+ monthlyTitle:'Results by submission month',monthlyExplanation:'Month of the first recorded event after planning, in UTC. Current date and version filters apply; outcomes use the full selected application history, including events after the submission month.',
+ monthlyEmpty:'No submitted applications for the monthly summary.',monthlyCaution:'Views, invitations and offers count only explicitly recorded events; a later stage does not imply all earlier stages. One application can appear in multiple columns. Repeated statuses do not increase counts. Planned applications and empty months are omitted. Date filters may leave partial boundary months. Recent applications have had less time to receive responses; no causal effect of edits is established.',monthlyExport:'Download monthly summary CSV',
+ monthlyHeaders:['Submission month (UTC)','Sent','Viewed','Invited','Interview / offer','Offers','With response','Responses / sent (%)','Interviews or offers / sent (%)'],
  period:'Period',title:'Period and resume version',from:'Start date (UTC)',to:'End date (UTC)',version:'Resume version',all:'All versions',unlinked:'Unlinked',versionName:'Version',unknownVersion:'Unavailable version',reset:'Reset filters',
  invalid:'Enter valid dates.',reversed:'Start date must not be after end date.',
  cohort:'Both dates are inclusive. Applications are selected by their first event after Planned (UTC), not when the vacancy was added. With no date filter, planned vacancies are included.',

@@ -22,7 +22,7 @@ test('cohort comparison, version filtering and exported selection work on mobile
  const csv=await readFile(path!,'utf8');expect(csv).toContain('Текущий отклик');expect(csv).not.toContain('Предыдущий отклик');expect(csv).toContain('v1');
  await page.screenshot({path:'/tmp/jobmatch-analytics-mobile.png',fullPage:true});
  await page.getByLabel('Версия резюме',{exact:true}).selectOption('unlinked');
- await expect(page.getByRole('status')).toHaveText('По этим фильтрам нет вакансий.');
+ await expect(page.getByRole('status').filter({hasText:'По этим фильтрам'})).toHaveText('По этим фильтрам нет вакансий.');
  await page.getByLabel('Начало периода (UTC)').fill('2026-10-12');
  await expect(page.getByRole('alert').filter({hasText:'Начало периода'})).toHaveText('Начало периода не может быть позже окончания.');
  await expect(page.getByRole('button',{name:'Экспорт выборки CSV'})).toHaveCount(0);

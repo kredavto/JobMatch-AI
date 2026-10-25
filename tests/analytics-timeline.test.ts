@@ -1,0 +1,10 @@
+import {it,expect} from 'vitest';
+import {monthlyResults,monthlyCsv} from '../lib/analytics-timeline';
+import {selectApplications} from '../lib/analytics';
+import type {Application} from '../lib/db';
+const app=(id:string,events:Application['events'],version='v1'):Application=>({id,title:'Демо',created:'2026-01-01',status:'Планируется',note:'',events,resumeVersionId:version});
+it('groups UTC cohorts, counts later results and deduplicates repeated statuses',()=>{const rows=monthlyResults([app('a',[{status:'Отклик отправлен',date:'2026-10-01T00:30:00+03:00'},{status:'Приглашение',date:'2026-10-02'},{status:'Приглашение',date:'2026-10-03'},{status:'Оффер',date:'2026-11-01'}])]);expect(rows).toHaveLength(1);expect(rows[0]).toMatchObject({month:'2026-09',sent:1,invited:1,viewed:0,offers:1,interviews:1,responseRate:100});});
+it('does not infer missing stages from an offer',()=>expect(monthlyResults([app('a',[{status:'Оффер',date:'2026-10-05'}])])[0]).toMatchObject({viewed:0,invited:0,offers:1}));
+it('omits planned or invalid-date-only records and sorts recorded months',()=>{const result=monthlyResults([app('a',[{status:'Отклик отправлен',date:'2026-10-01'}]),app('b',[{status:'Просмотрено',date:'2026-08-01'}]),app('c',[{status:'Планируется',date:'2026-09-01'}]),app('d',[{status:'Оффер',date:'bad'}])]);expect(result.map(r=>r.month)).toEqual(['2026-08','2026-10']);});
+it('respects period/version selection before aggregation',()=>{const rows=[app('a',[{status:'Отклик отправлен',date:'2026-10-01'}]),app('b',[{status:'Оффер',date:'2026-10-02'}],'v2')];const selected=selectApplications(rows,{from:'2026-10-01',to:'2026-10-31',versionId:'v1'});expect(monthlyResults(selected)[0]).toMatchObject({sent:1,offers:0,responseRate:0});});
+it('exports numeric rates with safe headers and handles empty data',()=>{const rows=monthlyResults([app('a',[{status:'Оффер',date:'2026-10-01'}])]);const csv=monthlyCsv(rows,['=FORMULA','quote"']);expect(csv).toContain('"\'=FORMULA"');expect(csv).toContain('"quote"""');expect(csv).toContain('"2026-10","1","0","0","1","1","1","100","100"');expect(monthlyResults([])).toEqual([]);});
