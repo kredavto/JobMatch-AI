@@ -1,4 +1,5 @@
 import {z} from 'zod';
+import {evidenceIssue} from './evidence-review';
 export const FactSchema=z.object({id:z.string(),text:z.string().min(1).max(2000),source:z.string(),verified:z.boolean()});
 export type Fact=z.infer<typeof FactSchema>;
 export const categories=['mandatory','experience','skills','context','clarity'] as const;
@@ -10,7 +11,7 @@ export const aliases:Record<string,string[]>={sql:['sql'],crm:['crm','срм'],b
 export const normalize=(s:string)=>s.toLowerCase().replace(/ё/g,'е').replace(/\s+/g,' ').trim();
 function hasTerm(text:string,term:string){const n=normalize(text);return aliases[term].some(a=>new RegExp('(^|[^\\p{L}\\p{N}])'+a.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'($|[^\\p{L}\\p{N}])','u').test(n));}
 export const terms=(text:string)=>Object.keys(aliases).filter(k=>hasTerm(text,k));
-const risky=(s:string)=>/ignore|system prompt|игнорир|инструкци|<script|не (имею|знаю|использовал|владею)|без опыта|изучаю|планирую|нет опыта|no experience|not familiar/i.test(s);
+const risky=(s:string)=>evidenceIssue(s)!==null;
 export function parseFacts(text:string,source='Введено пользователем'):Fact[]{return text.split(/\r?\n/).map(t=>t.trim()).filter(Boolean).map((text,i)=>({id:`ev-${i+1}`,text,source,verified:false}));}
 export function parseVacancy(text:string):Requirement[]{
  const seen=new Set<string>();let section:Category='context';let required=false;
@@ -24,6 +25,8 @@ export function parseVacancy(text:string):Requirement[]{
 }
 export function match(facts:Fact[],requirements:Requirement[]){
  const rows:Match[]=requirements.map(requirement=>{const valid=facts.filter(f=>f.verified&&!risky(f.text));
+ const excluded=facts.filter(f=>f.verified&&risky(f.text)&&requirement.terms.some(t=>hasTerm(f.text,t)));
+ if(risky(requirement.quote)||excluded.length)return {requirement,status:'unknown' as const,confidence:0,evidence_ids:[],reason:excluded.length?'Связанные подтвержденные строки содержат отрицание, намерение или инструкции. Уточните противоречие; они не доказывают навык.':'Формулировка требования нуждается в ручной проверке.'};
  const exact=valid.filter(f=>normalize(f.text)===normalize(requirement.quote));
  if(exact.length)return {requirement,status:'matched',confidence:1,evidence_ids:exact.map(f=>f.id),reason:'Дословное подтверждение всей формулировки.'};
  const supporting=valid.filter(f=>requirement.terms.some(t=>hasTerm(f.text,t)));
