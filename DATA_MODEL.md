@@ -40,3 +40,16 @@ ResumeVersion: evidence_snapshot (копии выбранных подтверж
 `public.fact_history` хранит id, user_id (FK auth.users, ON DELETE CASCADE), workspace_revision, kind (baseline/change), facts JSONB, captured_at. Это независимая таблица снимков; текущая модель workspace пока не полностью нормализована. AFTER-триггер в private использует узкое SECURITY DEFINER для append-only записи, проверяет auth.uid и активную сессию. История создается атомарно при изменении массива facts; неизмененные факты не дают лишнего снимка. RLS позволяет только SELECT владельцу с активной сессией; клиентские INSERT/UPDATE/DELETE запрещены grants. Администратор БД по-прежнему обладает привилегиями — это не криптографический журнал.
 
 Начальные записи baseline означают дату фиксации состояния, не время подтверждения. `/api/fact-history` читает по 20 снимков с курсором id; `?export=1` передает NDJSON по страницам. Последняя запись `{"complete":true}` подтверждает полное завершение; при прерывании/таймауте файл нужно скачать повторно. JSON-экспорт профиля содержит ссылку на отдельный экспорт истории. Для полного архива нужны оба файла. История хранится до удаления аккаунта; автоматического сокращения срока хранения пока нет. На время экспорта новые снимки после начала не включаются.
+
+
+## Реляционные сущности (0.4)
+| Таблица | Данные | Ключ и связи |
+| --- | --- | --- |
+| profile_facts | text, source, verified, position | PK user_id + id; FK workspace |
+| resume_versions | text, vacancy, score, created, evidence_ids, position | PK user_id + id; FK workspace |
+| applications | title, status, note, created, resume_version_id, position | PK user_id + id; FK workspace; составной FK версии |
+| application_events | status, date, position | PK user_id + application_id + position; FK отклика |
+
+ID имеют тип text для совместимости с ранними ev-N и UUID. Даты сохраняются дословно в text, без преобразования часового пояса. Поле extra JSONB сохраняет необязательные поля старых/новых версий (например evidence_snapshot, restored_from) и неизвестные расширения. Отсутствующий resumeVersionId отличается от явного null через version_link_present. Снимки evidence не связаны FK с текущими фактами: повторный импорт не должен удалять старые доказательства.
+
+`read_workspace()` — SECURITY INVOKER, без входного user_id, один SQL-запрос со стабильным снимком и RLS. Он реконструирует прежний контракт API из реляционных таблиц и верхних полей workspace. Запись пока проходит через прежний save_workspace с optimistic revision и атомарный триггер. JSON payload остается совместимым представлением записи, не независимым вторым писателем; прямой клиентский INSERT/UPDATE/DELETE нормализованных таблиц запрещен. Это expand-фаза миграции, не окончательный отказ от JSON.

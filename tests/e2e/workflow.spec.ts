@@ -11,4 +11,7 @@ test('confirmed facts → analysis → immutable version',async({page})=>{
  await page.getByText('Подтвержденные факты этой версии',{exact:true}).first().click();await expect(page.getByText('Вел продажи B2B с использованием Битрикс24.',{exact:false}).first()).toBeVisible();
  const applicationTitle='Тестовая вакансия '+Date.now();await page.getByRole('button',{name:'Отклики',exact:false}).click();await page.getByLabel('Вакансия / компания').fill(applicationTitle);await page.getByLabel('Версия резюме для отклика').selectOption({index:1});await page.getByRole('button',{name:'Добавить в трекер'}).click();await expect(page.getByRole('heading',{name:applicationTitle})).toBeVisible();await expect(page.getByLabel('Связанная версия резюме').last()).not.toHaveValue('');
 
+ await page.reload();await expect(page.getByRole('heading',{name:'Следующий шаг в карьере'})).toBeVisible();
+ await page.getByRole('button',{name:'Отклики',exact:false}).click();await expect(page.getByRole('heading',{name:applicationTitle})).toBeVisible();await expect(page.getByLabel('Связанная версия резюме').last()).not.toHaveValue('');
+ await page.getByRole('button',{name:'Мой профиль',exact:false}).click();await page.getByRole('button',{name:'Обновить историю фактов'}).click();await expect(page.getByText(/Ревизия .* ·/).first()).toBeVisible();
 });
