@@ -48,3 +48,6 @@ lib/body.ts ограничивает поток запроса до разбор
 
 ## PWA (0.6)
 Client Connectivity подписывается на online/offline через useSyncExternalStore и регистрирует /sw.js только в production. Navigator.onLine — подсказка состояния сети, не проверка доступности сервера; ошибки API по-прежнему обрабатывает client-api. Worker не кеширует Next.js приложение: offline.html самодостаточен, без JS и данных профиля. Успешная первая онлайн-загрузка нужна для установки; если браузер запрещает service worker, сетевой режим продолжает работать. Manifest и четыре публичных файла — единственные ресурсы офлайн-сценария. Установка зависит от браузера; собственный install prompt не навязывается.
+
+### Analytics 0.9
+AnalyticsPanel calculates read-only aggregates from the authenticated workspace already loaded by the application. lib/analytics.ts contains pure UTC cohort/filter/summary/CSV functions; no new provider or database access is introduced. The previous cohort is the immediately preceding inclusive period of equal length. Response outcomes use all recorded events, not only events inside the cohort window. Persisted Russian status values remain API/domain data, separate from RU/EN presentation dictionaries. Version grouping reflects the current application-to-version link, not a reconstructed historical assignment.
