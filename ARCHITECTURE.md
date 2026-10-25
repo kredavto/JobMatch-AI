@@ -57,3 +57,8 @@ WorkspaceSchema is shared by the server read boundary and browser state installa
 
 ### Analysis integrity boundary 0.11
 analysis-response.ts validates the response structure and compares the complete rules-v1 result with a reconstruction from the request's facts/vacancy snapshot. Object key order is ignored; ordered arrays, evidence, quotes, scores, blockers and reasons must agree. Unknown protocol fields are ignored. Edits also pass gate before state installation. A mismatch clears the old editor result and enters explicit reload recovery. This is a deterministic provider integrity check, not independent semantic validation. Server-side version generation and database write gates remain authoritative.
+
+### Personal export 0.12
+personal-export.ts reads a workspace, records an application-server cutoff, pages the owner-bound audit log by ascending UUID, reads consent and rechecks the workspace revision. Queries use created <= cutoff and the current user's token. It continues to an empty page even when a provider returns fewer than 200 rows. Failed reads, nonadvancing cursors or revision conflicts produce no JSON archive. Memory/time bounds are 10,000 audit rows and 51 page requests; exceeding either fails explicitly. A future streaming exporter is required above those limits.
+
+ExportSchema defines jobmatch-personal-data-v1 with complete=true scoped only to workspace-audit-consent. Browser download is gated on validation. Fact-history remains a separate NDJSON stream; the two downloads are not a single transactional snapshot. The application-server cutoff is not a database snapshot identifier. No credentials/tokens are included.
