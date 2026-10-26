@@ -195,3 +195,9 @@
 - 312 Vitest PASS; lint/typecheck/build PASS. Прочие браузерные сценарии используют mocks.
 - Временные сессии и аккаунты удалены; SQL подтвердил 0 оставшихся auth.users для двух точных fixture UUID. Файл пароля удален. Инфраструктурные журналы не очищались.
 - SMTP/recovery, полный authenticated сценарий на домене Vercel и восстановление резервной копии не проверены. Эти пункты не объявляются завершенными.
+
+## 0.33 — восстановление пароля (26 октября 2026)
+- 322 unit tests passed; lint, typecheck and production build passed.
+- New recovery route tests cover origin/PKCE cookie/config checks, malformed grants, token redaction, update and separate logout failure.
+- Browser recovery tests use mocks; real SMTP delivery, PKCE exchange and new-password login remain pending. Previous 0.32 live acceptance does not cover recovery.
+- Targeted browser checks: 8 passed (3 password recovery + 5 existing auth failures); no actual email sent.

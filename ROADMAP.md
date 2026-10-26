@@ -246,3 +246,8 @@
 - Черновики живут в памяти вкладки при фильтрации и переходах между разделами; logout/delete их очищают.
 - При несовпадении исходной серверной заметки показаны предупреждение и сохраненный текст. Отмена правки явная; автоматических повторов нет.
 - Черновики не переживают перезагрузку/закрытие вкладки и не записываются в localStorage.
+
+## 0.33 — password recovery implementation
+- Separate request/link verification/password forms; PKCE S256 with HttpOnly recovery cookies, no browser token storage, no automatic mutation retry.
+- Canonical APP_URL only; no user-controlled redirect. Global sign-out result reported separately from password update.
+- Requires exact Supabase redirect allowlist and live mail acceptance; see docs/PASSWORD_RECOVERY.md. SMTP saved per owner report, delivery not verified.
