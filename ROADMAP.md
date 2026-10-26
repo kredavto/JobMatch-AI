@@ -230,3 +230,9 @@
 - Search saved title/notes, filter current status and associated resume version (including unlinked), combine criteria, reset and show matching/total counts.
 - Empty states, mobile controls and RU/EN filter dictionaries; existing edit actions retained.
 - Filters are in-memory view state only, with no server writes and no impact on calendar or analytics. Unsaved note drafts are not searched; permanent reminders/tasks and specialty analytics remain planned.
+
+## 0.31 — completed: comparison of saved resume versions
+- Select two saved versions; exact line differences, labeled additions/removals, same-version and empty states, mobile layout.
+- Stored score comparison with explicit guard for incompatible/missing rule metadata or different vacancy text; no recalculation or causal claims.
+- Bounded line alignment and rendered row count with visible fallback notices; full versions remain downloadable in history.
+- Unit reconstruction checks and mobile E2E cover repeated lines, whitespace, large inputs, incompatible scores and absence of writes.

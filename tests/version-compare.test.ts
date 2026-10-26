@@ -1,0 +1,8 @@
+import {it,expect} from 'vitest';
+import {compareText,scoresComparable} from '../lib/version-compare';
+import {matchMetadata} from '../lib/match-config';
+import type {Version} from '../lib/db';
+it('preserves repeated lines, whitespace and exact evidence text',()=>{const before='SQL\n SQL\nSQL\nPython',after='SQL\nPython\nSQL';const {lines}=compareText(before,after);expect(lines.filter(l=>l.kind!=='added').map(l=>l.text).join('\n')).toBe(before);expect(lines.filter(l=>l.kind!=='removed').map(l=>l.text).join('\n')).toBe(after);expect(lines.some(l=>l.kind==='removed'&&l.text===' SQL')).toBe(true);});
+it('normalizes line endings only',()=>{expect(compareText('SQL\r\nPython','SQL\nPython').lines.every(l=>l.kind==='same')).toBe(true);expect(compareText('SQL','sql').lines.map(l=>l.kind)).toEqual(['removed','added']);});
+it('bounds alignment work for large documents without dropping text',()=>{const a=Array(800).fill('a').join('\n'),b=Array(800).fill('b').join('\n');const result=compareText(a,b);expect(result.simplified).toBe(true);expect(result.lines).toHaveLength(1600);});
+it('only compares scores for identical vacancy and saved rules',()=>{const a:Version={id:'a',created:'2026-10-26',text:'SQL',vacancy:'SQL',score:50,evidence_ids:[],engine_version:'rules-v1',match_metadata:matchMetadata([])};expect(scoresComparable(a,{...a,score:60})).toBe(true);expect(scoresComparable(a,{...a,vacancy:'Python'})).toBe(false);expect(scoresComparable(a,{...a,match_metadata:undefined})).toBe(false);expect(scoresComparable(a,{...a,engine_version:'other'})).toBe(false);expect(scoresComparable(a,{...a,match_metadata:{...a.match_metadata!,rules_revision:'other'}})).toBe(false);});
