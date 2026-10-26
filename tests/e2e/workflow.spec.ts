@@ -1,4 +1,6 @@
 import {assertDisposableAccounts} from '../live-accounts';
+import {readFile} from 'node:fs/promises';
+import mammoth from 'mammoth';
 import {test,expect} from '@playwright/test';
 const email=process.env.TEST_EMAIL;const password=process.env.TEST_PASSWORD;
 test('landing on mobile has no horizontal overflow',async({page})=>{await page.setViewportSize({width:390,height:844});await page.goto('/');await expect(page.getByRole('heading',{name:'Создать аккаунт'})).toBeVisible();expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);});
@@ -11,6 +13,7 @@ test('confirmed facts → analysis → immutable version',async({page})=>{
  const checks=page.locator('.fact input');for(let i=0;i<await checks.count();i++){await checks.nth(i).click();await expect(checks.nth(i)).toBeChecked();await expect(page.getByText('Сохранено',{exact:true})).toBeVisible();}
  await page.getByRole('button',{name:'Анализ вакансии',exact:false}).click();await page.getByRole('button',{name:'Менеджер B2B · Демо Орбита'}).click();await page.getByRole('button',{name:'Сохранить вакансию'}).click();await expect(page.getByRole('button',{name:'Проанализировать →'})).toBeEnabled();await page.getByRole('button',{name:'Проанализировать →'}).click();await expect(page.getByRole('heading',{name:'Требования и доказательства'})).toBeVisible();
  await page.getByRole('button',{name:'Принять все подтвержденные'}).click();await expect(page.getByText(/Перенесено в начало:/)).toBeVisible();await page.getByRole('button',{name:'Подтверждаю · сохранить версию'}).click();await expect(page.getByRole('heading',{name:'История резюме'})).toBeVisible();const download=page.waitForEvent('download');await page.getByRole('button',{name:'Скачать TXT',exact:true}).first().click();expect((await download).suggestedFilename()).toBe('jobmatch-resume.txt');
+ const docxPending=page.waitForEvent('download');await page.getByRole('button',{name:'Скачать DOCX',exact:true}).first().click();const docx=await docxPending;expect(docx.suggestedFilename()).toBe('jobmatch-resume.docx');const exported=await mammoth.extractRawText({buffer:await readFile((await docx.path())!)});expect(exported.value).toContain('Вел продажи B2B с использованием Битрикс24.');
  await page.getByText('Подтвержденные факты этой версии',{exact:true}).first().click();await expect(page.getByText('Вел продажи B2B с использованием Битрикс24.',{exact:false}).first()).toBeVisible();
  const applicationTitle='Тестовая вакансия '+Date.now();await page.getByRole('button',{name:'Отклики',exact:false}).click();await page.getByLabel('Вакансия / компания').fill(applicationTitle);await page.getByLabel('Версия резюме для отклика').selectOption({index:1});await page.getByRole('button',{name:'Добавить в трекер'}).click();await expect(page.getByRole('heading',{name:applicationTitle})).toBeVisible();await expect(page.getByLabel('Связанная версия резюме').last()).not.toHaveValue('');
 

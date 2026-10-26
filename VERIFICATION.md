@@ -188,3 +188,10 @@
 - Защита тестового harness от реальных адресов покрыта unit-тестом. Общий test timeout live-сценариев увеличен до 15 минут из-за внешней задержки в среде; HTTP-таймауты приложения не менялись.
 - Ограничения: браузерный localhost с production-сборкой, не полный authenticated прогон на домене Vercel; второй независимый клиент проверен через APIRequestContext, не физическое устройство. Регистрация с email, SMTP/password recovery, импорт реальных персональных файлов и доставка календарных уведомлений не тестировались.
 - Финальные проверки: ESLint, TypeScript, 260 unit/route/provider/client/schema/stream/harness тестов и production build PASS. Security advisors: прежние INFO о deny-all private.request_quotas и WARN об отключенной leaked password protection; новых schema/RLS изменений не было. Настройка защиты паролей остается эксплуатационной задачей.
+
+## Итоговая приемка 0.32 — 26 октября 2026
+- 54 Playwright PASS без skipped (7,5 мин), включая два живых сценария Supabase Auth/PostgreSQL через локальную production-сборку.
+- Изоляция, отзыв сессии, удаление профиля, подтверждения фактов, анализ, версия, TXT/DOCX с обратным чтением Mammoth, отклик, reload и история прошли.
+- 312 Vitest PASS; lint/typecheck/build PASS. Прочие браузерные сценарии используют mocks.
+- Временные сессии и аккаунты удалены; SQL подтвердил 0 оставшихся auth.users для двух точных fixture UUID. Файл пароля удален. Инфраструктурные журналы не очищались.
+- SMTP/recovery, полный authenticated сценарий на домене Vercel и восстановление резервной копии не проверены. Эти пункты не объявляются завершенными.
