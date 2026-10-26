@@ -3,7 +3,7 @@ export type DiffLine={kind:'same'|'removed'|'added';text:string};
 /** Exact line comparison; line endings normalize, whitespace and repeated lines do not. */
 export function compareText(before:string,after:string):{lines:DiffLine[];simplified:boolean}{
  const a=before.replace(/\r\n?/g,'\n').split('\n'),b=after.replace(/\r\n?/g,'\n').split('\n');
- if(before===after)return {lines:a.map(text=>({kind:'same',text})),simplified:false};
+ if(a.length===b.length&&a.every((line,index)=>line===b[index]))return {lines:a.map(text=>({kind:'same',text})),simplified:false};
  if((a.length+1)*(b.length+1)>500000)return {lines:[...a.map(text=>({kind:'removed' as const,text})),...b.map(text=>({kind:'added' as const,text}))],simplified:true};
  const width=b.length+1,table=new Uint32Array((a.length+1)*width);
  for(let i=a.length-1;i>=0;i--)for(let j=b.length-1;j>=0;j--)table[i*width+j]=a[i]===b[j]?1+table[(i+1)*width+j+1]:Math.max(table[(i+1)*width+j],table[i*width+j+1]);

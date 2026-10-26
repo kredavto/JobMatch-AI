@@ -236,3 +236,7 @@
 - Stored score comparison with explicit guard for incompatible/missing rule metadata or different vacancy text; no recalculation or causal claims.
 - Bounded line alignment and rendered row count with visible fallback notices; full versions remain downloadable in history.
 - Unit reconstruction checks and mobile E2E cover repeated lines, whitespace, large inputs, incompatible scores and absence of writes.
+
+## Исправление после 0.31: переносы строк в сравнении
+- Большие документы с одинаковым текстом и разными CRLF/LF больше не показываются целиком как удаление и добавление.
+- Сообщение о совпадении текста использует тот же нормализованный результат, что и diff.

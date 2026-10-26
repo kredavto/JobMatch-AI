@@ -16,7 +16,7 @@ export default function VersionComparison({versions}:{versions:Version[]}){
  <details><summary>Вакансии выбранных версий</summary><h3>Исходная вакансия</h3><pre>{before.vacancy}</pre><h3>Сравниваемая вакансия</h3><pre>{after.vacancy}</pre></details>
  {diff.simplified?<p role="status">Большой документ: показаны полные тексты как удаление и добавление без построчного выравнивания.</p>:<p role="status">Добавлено строк: {diff.lines.filter(l=>l.kind==='added').length}; удалено: {diff.lines.filter(l=>l.kind==='removed').length}.</p>}
  {diff.lines.length>1000&&<p>Показаны первые 1000 строк сравнения. Полные тексты доступны для скачивания в истории ниже.</p>}
- {before.text===after.text?<p>Текст версий совпадает.</p>:<div className="version-diff" role="region" tabIndex={0} aria-label="Изменения текста">{diff.lines.slice(0,1000).map((line,i)=><div key={i} className={'diff-'+line.kind}><span className="diff-label">{line.kind==='added'?'Добавлено':line.kind==='removed'?'Удалено':'Без изменений'}</span><pre>{line.text||'\u00a0'}</pre></div>)}</div>}
+ {diff.lines.every(line=>line.kind==='same')?<p>Текст версий совпадает.</p>:<div className="version-diff" role="region" tabIndex={0} aria-label="Изменения текста">{diff.lines.slice(0,1000).map((line,i)=><div key={i} className={'diff-'+line.kind}><span className="diff-label">{line.kind==='added'?'Добавлено':line.kind==='removed'?'Удалено':'Без изменений'}</span><pre>{line.text||'\u00a0'}</pre></div>)}</div>}
  </>}
  </section>;
 }
