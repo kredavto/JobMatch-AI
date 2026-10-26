@@ -84,3 +84,6 @@ The tracker supports search across saved vacancy/company titles and notes, curre
 
 ### 0.31 — saved-version comparison
 My Versions lets you select two saved resumes and inspect an exact line diff. Added/removed lines have text labels as well as colors; moves appear as removal plus addition. Only line endings normalize. Saved scores display side by side; a numeric delta is shown only for the same vacancy text, engine, rules revision, weights and contributions. This is not evidence of causality or hiring success. Large comparisons fall back to whole-text removal/addition above 500,000 alignment cells; UI displays at most 1,000 diff rows and directs users to full downloads below. Comparison is read-only and local; selections reset on leaving the tab.
+
+### 0.32 — explicit note saves
+Tracker notes now use an explicit Save button. Unsaved notes survive list filters, tab navigation and failed writes in the current page memory. Status/version changes are disabled until the note is saved or discarded, preventing blur/status write races. If the server note changed, the original saved text is available for comparison. Logout and account deletion clear note drafts. Reloading or closing the page loses drafts; no browser persistent storage is used.
