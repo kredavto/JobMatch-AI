@@ -102,11 +102,13 @@ def main():
                 raise ValueError('Expected late migration rollback')
             stage = 'late rollback schema and contents'
             run(old_boundary, upgrade)
-            run(manifest + ['snapshot', str(after_upgrade)], upgrade)
-            run(manifest + ['compare', str(before_upgrade), str(after_upgrade)], upgrade)
+            after_late_failure = folder / 'after-late-failure.json'
+            run(manifest + ['snapshot', str(after_late_failure)], upgrade)
+            run(manifest + ['compare', str(before_upgrade), str(after_late_failure)], upgrade)
             stage = 'populated migration'
             for filename in migrations[boundary:]:
                 run(['psql', '-X', '-w', '-v', 'ON_ERROR_STOP=1', '-f', str(filename)], upgrade)
+            stage = 'populated migration contents'
             run(manifest + ['snapshot', str(after_upgrade)], upgrade)
             run(manifest + ['compare', str(before_upgrade), str(after_upgrade)], upgrade)
             stage = 'upgraded parity'
