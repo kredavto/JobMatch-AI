@@ -43,3 +43,24 @@ jobs:
           JOBMATCH_PARSER_CONTAINER_TEST: '1'
           PARSER_TEST_IMAGE: jobmatch-parser:test
         run: node worker/tests/container-smoke.mjs
+
+  antivirus:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Install encrypted archive and PDF fixture tools
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends zip qpdf
+      - name: Build parser and observer image
+        run: docker build -f worker/Dockerfile -t jobmatch-parser:test .
+      - name: Build pinned isolated scanner image
+        run: docker build -f worker/scanner/Dockerfile -t jobmatch-scanner:test .
+      - name: Verify real scanner and signed observer gate
+        env:
+          JOBMATCH_ANTIVIRUS_CONTAINER_TEST: '1'
+        run: node worker/tests/antivirus-container.mjs
