@@ -1,0 +1,48 @@
+services:
+  parser:
+    build:
+      context: ..
+      dockerfile: worker/Dockerfile
+    restart: always
+    user: '10001:10001'
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
+    mem_limit: 512m
+    memswap_limit: 512m
+    cpus: 1.0
+    pids_limit: 64
+    ulimits:
+      core: 0
+      nofile: 128
+    tmpfs: ['/tmp:rw,noexec,nosuid,size=32m,mode=1777']
+    expose: ['8080']
+    networks: [parser_private]
+    stop_grace_period: 2s
+  gateway:
+    build:
+      context: ..
+      dockerfile: worker/Dockerfile
+    command: ['node', '--disable-sigusr1', '--max-old-space-size=64', 'compiled/worker/gateway.cjs']
+    restart: unless-stopped
+    user: '10001:10001'
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
+    mem_limit: 128m
+    memswap_limit: 128m
+    cpus: 0.25
+    pids_limit: 32
+    ulimits:
+      core: 0
+      nofile: 128
+    tmpfs: ['/tmp:rw,noexec,nosuid,size=8m,mode=1777']
+    environment:
+      PARSER_WORKER_TOKEN: ${PARSER_WORKER_TOKEN:?Set an independent gateway-only token}
+    ports: ['127.0.0.1:8081:8080']
+    networks: [parser_private, parser_ingress]
+    stop_grace_period: 2s
+networks:
+  parser_private:
+    internal: true
+  parser_ingress: {}

@@ -212,7 +212,7 @@
 - Reject duplicate/case-folded/NFC-equivalent part names, directory/file collisions, dot and encoded traversal-like segments, control characters and Unix symlink entries before extraction.
 - Reject standard word/embeddings and word/activeX parts, and VBA binary parts; ordinary images remain allowed.
 - Real multipart route tests with synthetic generated DOCX cover successful text extraction, rejected objects, owner authentication and safe errors; database identity/quota are mocked.
-- This is a conservative package filter, not antivirus, content-type inspection or parser isolation. Nonstandard disguised payloads and resource isolation require the planned isolated worker. Users can remove embedded objects or paste text manually.
+- This is a conservative package filter, not antivirus, content-type inspection or parser isolation. Nonstandard disguised payloads still require scanning. Optional resource isolation is implemented in docs/ISOLATED_PARSER.md; inline mode remains the default. Users can remove embedded objects or paste text manually.
 
 ## 0.28 — completed: request-body deadlines and cancellation
 - Shared boundedBody now limits total streaming read time to 15 seconds for service JSON and file upload bodies, in addition to existing byte limits.
@@ -312,3 +312,9 @@
 - Отчёт v2 проверяет структуру, не сравнивает значения с отсутствующим mirror. Checker умеет требовать режим; отдельный logical manifest проверяет сохранность всех 13 таблиц между форматами. Default raw backup остаётся прежним.
 - Явный rollback восстанавливает актуальный mirror и прежние SQL-определения, сохраняя новые команды/legacy, ревизии, историю и аудит. Ранний/поздний отказ обоих направлений атомарен. План Supabase history/repair отделён от изменения данных.
 - Локально 33 Python и матрица 10 mirror / 8 compact SQL-suite PASS в PGlite. PostgreSQL 17 CI run 40687678032 SUCCESS: те же фазы, raw/logical fingerprints 13 таблиц, реальные concurrent probes, rollback/reapply и отрицательные checks. Vercel preview build SUCCESS. Provider Auth/history/restore и production-выпуск ещё не выполнены. Контракт: docs/COMPACT_WORKSPACE_STORAGE.md.
+
+## Необязательный изолированный parser — 28 октября 2026 (зависимая ветка)
+
+- TXT/DOCX/PDF worker и отдельный credential gateway реализованы после PR #10. Worker не получает токен, JWT, owner ID или имя файла; private network, cgroup CPU/RAM/PIDs, prlimit CPU, независимый wall kill, один job на жизнь контейнера. Никаких DB writes: только текст на проверку.
+- Inline сохранён по умолчанию; worker-режим не делает fallback при ошибке. Контракт, проверки и условия включения: docs/ISOLATED_PARSER.md, VERIFICATION.md.
+- OCR, карантин/антивирус, собственный endpoint/TLS, операторские решения по размещению и живой приёмочный прогон остаются открыты. Новый сервис не развёрнут, production не менялся.

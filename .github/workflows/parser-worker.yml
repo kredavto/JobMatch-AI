@@ -1,0 +1,41 @@
+name: Isolated document parser
+on:
+  pull_request:
+    paths:
+      - 'worker/**'
+      - 'lib/**'
+      - 'app/api/import/**'
+      - 'tests/**'
+      - 'package*.json'
+      - 'tsconfig.json'
+      - '.dockerignore'
+      - '.github/workflows/parser-worker.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  parser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm run test:parser-worker
+      - run: npm test
+      - run: npm run lint
+      - run: npm run typecheck
+      - name: Validate deployment configuration (synthetic token only)
+        env:
+          PARSER_WORKER_TOKEN: synthetic_configuration_token_000000000000
+        run: docker compose -f worker/compose.yaml config --quiet
+      - name: Build disposable parser image
+        run: docker build -f worker/Dockerfile -t jobmatch-parser:test .
+      - name: Verify real container limits and one-job lifetime
+        env:
+          JOBMATCH_PARSER_CONTAINER_TEST: '1'
+          PARSER_TEST_IMAGE: jobmatch-parser:test
+        run: node worker/tests/container-smoke.mjs
