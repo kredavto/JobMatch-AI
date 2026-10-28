@@ -72,4 +72,4 @@ PGSERVICE=jobmatch_restored python3 scripts/check_projection_parity.py --expect-
 
 Локальный PGlite-прогон проверяет 13 таблиц, прямой переход/точный raw rollback без новых записей, все девять команд и legacy после cutover, сохранение их логического состояния при rollback/reapply, ранние/поздние отказы обоих направлений и совпадение функций/grants/constraints между clean/incremental путями. Синтетические исправления повреждений явные и откатываемые. Native PostgreSQL 17 drill подготовлен для той же цепочки, pg_dump/pg_restore, raw/logical fingerprint и реальных concurrent probes в обоих режимах. Фактические результаты указаны в VERIFICATION.md.
 
-Это ещё не production-приёмка: нужны native CI нового этапа, копия реального провайдера с его Auth/migration history, окно остановки запросов, живой multi-account сценарий, подтверждённый rollback/repair и отдельное разрешение на объединение/выпуск зависимой цепочки.
+Это ещё не production-приёмка: нужны копия реального провайдера с его Auth/migration history, окно остановки запросов, живой multi-account сценарий, подтверждённый rollback/repair и отдельное разрешение на объединение/выпуск зависимой цепочки.
