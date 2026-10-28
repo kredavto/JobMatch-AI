@@ -1,10 +1,16 @@
 import {createServer,type ServerResponse} from 'node:http';
+import {guardedExtraction} from './scan-gate.js';
+import {scanStream} from './clamav.js';
 import {timingSafeEqual} from 'node:crypto';
 import {assertContainerLimits} from './container-limits.js';
 import {MAX_FILE_BYTES,MAX_PARSER_RESPONSE_BYTES,PARSER_ERRORS,ParserResponseSchema,type ParserResponse,validParserToken} from '../lib/parser-contract.js';
 const token=process.env.PARSER_WORKER_TOKEN;
 if(!validParserToken(token)){process.stderr.write('Invalid gateway configuration\n');process.exit(1);}
 try{assertContainerLimits();}catch{process.stderr.write('Required container limits unavailable\n');process.exit(1);}
+const scanMode=process.env.PARSER_SCAN_MODE??'off';
+if(!['off','required'].includes(scanMode)){process.stderr.write('Invalid scanner configuration\n');process.exit(1);}
+// Required mode remains unavailable until real engine/freshness attestation is implemented.
+const scannerReady=async()=>false;
 const expected=Buffer.from('Bearer '+token),backend='http://parser:8080';let active=false;
 function respond(res:ServerResponse,result:ParserResponse){res.writeHead(result.ok?200:PARSER_ERRORS[result.code].status,{'Content-Type':'application/json','Cache-Control':'no-store','Connection':'close','X-Content-Type-Options':'nosniff'});res.end(JSON.stringify(result));}
 async function readJson(response:Response,maximum:number):Promise<unknown>{
@@ -18,7 +24,7 @@ async function readJson(response:Response,maximum:number):Promise<unknown>{
 }
 const server=createServer(async(req,res)=>{
  if(req.url==='/health'&&req.method==='GET'){
-  let ready=false;try{if(!active){const response=await fetch(backend+'/health',{signal:AbortSignal.timeout(500),redirect:'error'});if(response.ok){const data=await readJson(response,128);ready=typeof data==='object'&&data!==null&&Object.keys(data).length===1&&'ok' in data&&data.ok===true;}}}catch{}
+  let ready=false;try{if(scanMode==='required'&&!await scannerReady())throw new Error('Scanner unavailable');if(!active){const response=await fetch(backend+'/health',{signal:AbortSignal.timeout(500),redirect:'error'});if(response.ok){const data=await readJson(response,128);ready=typeof data==='object'&&data!==null&&Object.keys(data).length===1&&'ok' in data&&data.ok===true;}}}catch{}
   res.writeHead(ready?200:503,{'Content-Type':'application/json','Cache-Control':'no-store','Connection':'close'});res.end(JSON.stringify({ok:ready}));return;
  }
  const supplied=Buffer.from(typeof req.headers.authorization==='string'?req.headers.authorization:'');
@@ -42,10 +48,15 @@ const server=createServer(async(req,res)=>{
    if(bytes<=MAX_FILE_BYTES){
     operationTimer=setTimeout(()=>{expired=true;controller.abort();},18000);
     // The service credential, original filename and all client headers stop here.
-    const response=await fetch(backend+'/extract',{method:'POST',headers:{'Content-Type':'application/octet-stream','X-File-Extension':ext},
-     body:new Uint8Array(Buffer.concat(chunks)),redirect:'error',cache:'no-store',signal:controller.signal});
-    result=ParserResponseSchema.parse(await readJson(response,MAX_PARSER_RESPONSE_BYTES));
-    if((result.ok&&!response.ok)||(!result.ok&&response.status!==PARSER_ERRORS[result.code].status))throw new Error('Status mismatch');
+    const parse=async(data:Buffer):Promise<ParserResponse>=>{
+     const response=await fetch(backend+'/extract',{method:'POST',headers:{'Content-Type':'application/octet-stream','X-File-Extension':ext},
+      body:new Uint8Array(data),redirect:'error',cache:'no-store',signal:controller.signal});
+     const parsed=ParserResponseSchema.parse(await readJson(response,MAX_PARSER_RESPONSE_BYTES));
+     if((parsed.ok&&response.status!==200)||(!parsed.ok&&response.status!==PARSER_ERRORS[parsed.code].status))throw new Error('Status mismatch');
+     return parsed;
+    };
+    const data=Buffer.concat(chunks);
+    result=scanMode==='required'?await guardedExtraction(data,controller.signal,{ready:scannerReady,scan:bytes=>scanStream(bytes,controller.signal),parse}):await parse(data);
    }
   }
  }catch{result={ok:false,code:expired?'TIMEOUT':'UNAVAILABLE'};}
