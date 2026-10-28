@@ -1,0 +1,17 @@
+import {beforeEach,it,expect,vi} from 'vitest';
+import {NextRequest} from 'next/server';
+const db=vi.hoisted(()=>({identity:vi.fn(),consumeQuota:vi.fn(),readWorkspace:vi.fn()}));
+const ai=vi.hoisted(()=>({aiConfig:vi.fn(),aiReview:vi.fn()}));
+vi.mock('../lib/db',()=>db);vi.mock('../lib/ai-provider',()=>ai);
+import {POST} from '../app/api/ai-review/route';
+const owner='11111111-1111-4111-8111-111111111111',other='22222222-2222-4222-8222-222222222222';
+const body={consent:true,revision:1,expectedOwnerId:owner};
+const request=(data:unknown=body,origin='https://app.test')=>new NextRequest('https://app.test/api/ai-review',{method:'POST',headers:{origin},body:JSON.stringify(data)});
+beforeEach(()=>{vi.clearAllMocks();db.identity.mockResolvedValue({id:owner,token:'fixture'});db.readWorkspace.mockResolvedValue({revision:1,facts:[],vacancy:'SQL'});ai.aiReview.mockResolvedValue({requirements:[]});});
+it('returns owner-bound revision, never saves workspace',async()=>{const response=await POST(request());expect(await response.json()).toEqual({ownerId:owner,revision:1,review:{requirements:[]}});expect(response.headers.get('cache-control')).toBe('no-store');expect(db.consumeQuota).toHaveBeenCalledWith({id:owner,token:'fixture'},'analysis');});
+it('rejects foreign owner before reading or inference',async()=>{db.identity.mockResolvedValue({id:other,token:'fixture'});expect((await POST(request())).status).toBe(409);expect(db.readWorkspace).not.toHaveBeenCalled();expect(ai.aiReview).not.toHaveBeenCalled();});
+it('requires explicit consent',async()=>{expect((await POST(request({...body,consent:false}))).status).toBe(400);expect(ai.aiReview).not.toHaveBeenCalled();});
+it('rejects stale revision',async()=>{expect((await POST(request({...body,revision:0}))).status).toBe(409);expect(ai.aiReview).not.toHaveBeenCalled();});
+it('rejects unauthenticated requests',async()=>{db.identity.mockRejectedValue(new Error('AUTH'));expect((await POST(request())).status).toBe(401);expect(db.readWorkspace).not.toHaveBeenCalled();});
+it('checks origin before authentication or inference',async()=>{expect((await POST(request(body,'https://evil.test'))).status).toBe(403);expect(db.identity).not.toHaveBeenCalled();});
+it('never accepts browser-supplied vacancy/facts/endpoint',async()=>{expect((await POST(request({...body,endpoint:'https://evil.test',vacancy:'invented'}))).status).toBe(400);expect(ai.aiReview).not.toHaveBeenCalled();});

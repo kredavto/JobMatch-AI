@@ -1,7 +1,7 @@
 import {UserError} from './errors';
 export const BODY_TIMEOUT_MS=15000;
 /** Bound total wall time and bytes, even without Content-Length. Never await an untrusted cancel hook. */
-export async function boundedBody(request:Request,maxBytes:number,timeoutMs=BODY_TIMEOUT_MS):Promise<Uint8Array>{
+export async function boundedBody(request:Pick<Request,'headers'|'signal'|'body'>,maxBytes:number,timeoutMs=BODY_TIMEOUT_MS):Promise<Uint8Array>{
  const declared=request.headers.get('content-length');
  if(declared&&(!/^\d+$/.test(declared)||Number(declared)>maxBytes))throw new UserError('Запрос слишком большой',413);
  if(request.signal.aborted)throw new UserError('Загрузка прервана. Повторите попытку.',408);
