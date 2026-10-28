@@ -7,7 +7,7 @@ COPY worker ./worker
 RUN npm run build:parser-worker
 
 FROM node:24-bookworm-slim AS runtime
-RUN apt-get update && apt-get install -y --no-install-recommends util-linux libfontconfig1 fonts-dejavu-core \
+RUN apt-get update && apt-get install -y --no-install-recommends util-linux libfontconfig1 fonts-dejavu-core poppler-utils tesseract-ocr tesseract-ocr-eng tesseract-ocr-rus \
  && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY package.json package-lock.json ./

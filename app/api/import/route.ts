@@ -10,6 +10,6 @@ export async function POST(req:NextRequest){try{
  const bytes=await boundedBody(req,4_100_000);
  const form=await new Response(bytes as BodyInit,{headers:{'Content-Type':req.headers.get('content-type')||''}}).formData();
  const file=form.get('file');if(!(file instanceof File))throw new UserError('Выберите файл резюме');
- const text=await parseImport(file.name,Buffer.from(await file.arrayBuffer()),req.signal);
- return NextResponse.json({text},{headers:{'Cache-Control':'no-store'}});
+ const result=await parseImport(file.name,Buffer.from(await file.arrayBuffer()),req.signal);
+ return NextResponse.json(result,{headers:{'Cache-Control':'no-store'}});
 }catch(e){return failure(e);}}

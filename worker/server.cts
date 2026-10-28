@@ -4,6 +4,7 @@ import {assertContainerLimits} from './container-limits.js';
 import {MAX_FILE_BYTES,PARSER_ERRORS,type ParserResponse} from '../lib/parser-contract.js';
 if(Object.keys(process.env).some(key=>/TOKEN|SECRET|SUPABASE|DATABASE_URL/i.test(key))){process.stderr.write('Credentials are forbidden in parser container\n');process.exit(1);}
 try{assertContainerLimits();}catch{process.stderr.write('Required container limits unavailable\n');process.exit(1);}
+if(process.env.PARSER_WORKER_OCR!==undefined&&!['true','false'].includes(process.env.PARSER_WORKER_OCR)){process.stderr.write('Invalid OCR configuration\n');process.exit(1);}
 let active=false;
 function respond(res:ServerResponse,result:ParserResponse){res.writeHead(result.ok?200:PARSER_ERRORS[result.code].status,{'Content-Type':'application/json','Cache-Control':'no-store','Connection':'close','X-Content-Type-Options':'nosniff'});res.end(JSON.stringify(result));}
 const server=createServer(async(req,res)=>{

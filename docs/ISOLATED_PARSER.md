@@ -26,7 +26,7 @@ The parser accepts one job per container lifetime, starts an extraction subproce
 
 Both entrypoints inspect cgroup v2 limits and refuse absent, unlimited or looser than the worker ceilings (512 MiB, 1 CPU, 64 PIDs, zero swap). The gateway has stricter Compose budgets; CI checks its actual 128 MiB allocation. V8 heap flags are additional measures, not total memory limits. Nonroot UID 10001, dropped capabilities, no-new-privileges and Docker's default seccomp remain enabled. Node's SIGUSR1 inspector activation is disabled. All stderr from untrusted extraction is discarded; protocol errors are fixed codes and never contain document data or raw parser diagnostics. The DOCX archive and format validation from inline mode are reused inside the child.
 
-This is process/container isolation, not antivirus, OCR or a quarantine service. No file is deliberately persisted, but host/platform logging, swap, crash collection, reverse proxy buffering and backup policy need an operator decision. A compromised host/kernel is outside this boundary. Private network access to the gateway is authenticated; never attach other services or credentials to the parser network/container.
+This is process/container isolation, not antivirus or a quarantine service. Optional PDF OCR is described in [SCANNED_PDF_OCR.md](SCANNED_PDF_OCR.md); it remains off by default. No file is deliberately persisted, but host/platform logging, swap, crash collection, reverse proxy buffering and backup policy need an operator decision. A compromised host/kernel is outside this boundary. Private network access to the gateway is authenticated; never attach other services or credentials to the parser network/container.
 
 ## Provisioning and enabling
 
@@ -48,4 +48,4 @@ Gateway errors: `INVALID` 400, `TOO_LARGE` 413, `TIMEOUT` 408, `BUSY`/`UNAVAILAB
 
 To disable worker mode, explicitly choose whether returning to the previous inline risk boundary is acceptable. Set `IMPORT_PARSER_MODE=inline` and redeploy only after that decision, or leave worker mode unavailable and offer manual text entry. Stop Compose with `docker compose -f worker/compose.yaml down`, remove/rotate the gateway token and remove the TLS route. No database rollback is necessary. Do not weaken cgroup or network settings to make a failing deployment serve requests.
 
-The complete roadmap item stays open until OCR, quarantine/scanning, owned deployment, operator privacy decisions and live acceptance are done.
+The complete roadmap item stays open until quarantine/scanning, owned deployment, operator privacy decisions and live acceptance are done. Optional RU/EN OCR is implemented in the dependent OCR stage; deployment and accuracy acceptance remain open.

@@ -24,7 +24,11 @@ jobs:
           node-version: '24'
           cache: npm
       - run: npm ci --ignore-scripts
+      - name: Install local OCR test engines
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends poppler-utils tesseract-ocr tesseract-ocr-eng tesseract-ocr-rus fonts-dejavu-core
       - run: npm run test:parser-worker
+        env:
+          JOBMATCH_REQUIRE_OCR_TESTS: '1'
       - run: npm test
       - run: npm run lint
       - run: npm run typecheck
