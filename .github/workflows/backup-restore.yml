@@ -18,6 +18,7 @@ jobs:
   restore:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    container: postgres:17
     services:
       postgres:
         image: postgres:17
@@ -26,23 +27,23 @@ jobs:
         ports:
           - 5432:5432
         options: >-
-          --health-cmd pg_isready
+          --health-cmd "pg_isready -U postgres"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
     env:
-      PGHOST: 127.0.0.1
+      PGHOST: postgres
       PGPORT: 5432
       PGUSER: postgres
       PGPASSWORD: local-fixture-only
       JOBMATCH_LOCAL_RESTORE: '1'
     steps:
       - uses: actions/checkout@v4
-      - name: Install PostgreSQL 17 client
+      - name: Install Python in PostgreSQL 17 client container
         run: |
-          sudo apt-get update
-          sudo apt-get install -y postgresql-client-17
-          echo '/usr/lib/postgresql/17/bin' >> "$GITHUB_PATH"
+          apt-get update
+          apt-get install -y --no-install-recommends python3
+          pg_dump --version
       - name: Create roles in disposable service
         run: psql -X -w -v ON_ERROR_STOP=1 -d postgres -c 'CREATE ROLE anon NOLOGIN; CREATE ROLE authenticated NOLOGIN;'
       - name: Unit tests

@@ -18,8 +18,10 @@ def run(command, environment, **kwargs):
 
 def main():
     # Never accept hosted projects, sockets or libpq service/URI overrides here.
+    local = os.environ.get('PGHOST') in ('127.0.0.1', '::1')
+    ci_service = os.environ.get('GITHUB_ACTIONS') == 'true' and os.environ.get('PGHOST') == 'postgres'
     if (os.environ.get('JOBMATCH_LOCAL_RESTORE') != '1'
-            or os.environ.get('PGHOST') not in ('127.0.0.1', '::1')
+            or not (local or ci_service)
             or any(os.environ.get(key) for key in ('PGSERVICE', 'PGHOSTADDR', 'PGSERVICEFILE'))):
         print('FAIL: enable JOBMATCH_LOCAL_RESTORE=1 with a disposable loopback PostgreSQL instance.', file=sys.stderr)
         return 2
