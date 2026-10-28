@@ -27,7 +27,7 @@ def fingerprint(lines):
     return {'rows': count, 'sha256': digest.hexdigest()}
 
 
-def snapshot(output):
+def snapshot(output, logical_workspaces=False):
     # Use standard PG* environment / PGSERVICE and .pgpass. Never place passwords
     # in command-line arguments or echo database errors (which can contain PII).
     statements = ['BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY;',
@@ -37,7 +37,11 @@ def snapshot(output):
                   "SET LOCAL bytea_output = 'hex';"]
     for table in TABLES:
         statements.append(f"SELECT 'JOBMATCH_TABLE:{table}';")
-        statements.append(f'SELECT row_to_json(t)::text FROM {table} t ORDER BY row_to_json(t)::text COLLATE "C";')
+        source = table
+        if logical_workspaces and table == 'public.workspaces':
+            source = "(SELECT w.user_id,w.revision,(w.payload-ARRAY['facts','versions','applications']) " \
+                     "|| private.workspace_entities(w.user_id) AS payload,w.updated_at FROM public.workspaces w)"
+        statements.append(f'SELECT row_to_json(t)::text FROM {source} t ORDER BY row_to_json(t)::text COLLATE "C";')
     statements.extend(['COMMIT;', "SELECT 'JOBMATCH_COMPLETE';"])
     environment = dict(os.environ)
     environment.setdefault('PGCONNECT_TIMEOUT', '15')
@@ -77,7 +81,7 @@ def snapshot(output):
             tables[current] = {'rows': count, 'sha256': digest.hexdigest()}
         if process.wait() != 0 or not complete or set(tables) != set(TABLES):
             raise ValueError('Database snapshot failed; check connection, privileges and schema locally')
-        report = {'format': 'jobmatch-backup-manifest-v1',
+        report = {'format': 'jobmatch-backup-logical-v2' if logical_workspaces else 'jobmatch-backup-manifest-v1',
                   'created_at': datetime.now(timezone.utc).isoformat(), 'tables': tables}
         # Publish a complete file atomically, without overwriting a baseline.
         destination = os.path.abspath(output)
@@ -107,7 +111,7 @@ def compare(baseline, restored):
     for manifest in (baseline, restored):
         if not isinstance(manifest, dict) or not isinstance(manifest.get('tables'), dict):
             raise ValueError('Invalid manifest')
-        if manifest.get('format') != 'jobmatch-backup-manifest-v1' or set(manifest.get('tables', {})) != set(TABLES):
+        if manifest.get('format') not in ('jobmatch-backup-manifest-v1', 'jobmatch-backup-logical-v2') or set(manifest.get('tables', {})) != set(TABLES):
             raise ValueError('Invalid or incomplete manifest')
         for item in manifest['tables'].values():
             if not isinstance(item, dict):
@@ -116,20 +120,24 @@ def compare(baseline, restored):
                     or not isinstance(item['sha256'], str) or len(item['sha256']) != 64
                     or any(c not in '0123456789abcdef' for c in item['sha256'])):
                 raise ValueError('Invalid table fingerprint')
+    if baseline['format'] != restored['format']:
+        raise ValueError('Incompatible manifest formats')
     return [table for table in TABLES if baseline['tables'][table] != restored['tables'][table]]
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest='command', required=True)
-    commands.add_parser('snapshot').add_argument('output')
+    create = commands.add_parser('snapshot')
+    create.add_argument('output')
+    create.add_argument('--logical-workspaces', action='store_true')
     check = commands.add_parser('compare')
     check.add_argument('baseline')
     check.add_argument('restored')
     args = parser.parse_args()
     try:
         if args.command == 'snapshot':
-            snapshot(args.output)
+            snapshot(args.output, args.logical_workspaces)
             print('Manifest created; no database rows saved.')
         else:
             with open(args.baseline) as handle:

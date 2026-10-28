@@ -306,3 +306,9 @@
 - Старый save_workspace и полный JSON mirror сохранены. Прямой административный SQL больше не синхронизирует сущности/историю автоматически; fixture-инициализация теперь явная. Клиентские права не расширены.
 - Контракт и границы rollback: docs/EXPLICIT_WORKSPACE_WRITES.md. Хранимые массивы, новый режим checker, контролируемый cutover, проверенный rollback удаления и конкуренция writers остаются следующими этапами.
 - PostgreSQL 17 CI run 40675684285 SUCCESS: десять SQL-suite, synthetic dump/restore 13 непустых таблиц, неизменные manifest при заполненной миграции, ранний/поздний rollback и отрицательные проверки целостности. Vercel preview build SUCCESS. Публикация разрешена владельцем; объединение и production-выпуск не выполнялись.
+
+## Следующий зависимый этап — compact storage (локальная ветка)
+- Поверх PR #9 подготовлены `20261028120140_workspace_entity_snapshot.sql` и `20261028120214_compact_workspace_storage.sql`. Под ACCESS EXCLUSIVE preflight удаляются дублирующие JSON-массивы; новый CHECK и явный полный byte budget защищают последующие записи. RPC возвращают прежний полный профиль.
+- Отчёт v2 проверяет структуру, не сравнивает значения с отсутствующим mirror. Checker умеет требовать режим; отдельный logical manifest проверяет сохранность всех 13 таблиц между форматами. Default raw backup остаётся прежним.
+- Явный rollback восстанавливает актуальный mirror и прежние SQL-определения, сохраняя новые команды/legacy, ревизии, историю и аудит. Ранний/поздний отказ обоих направлений атомарен. План Supabase history/repair отделён от изменения данных.
+- Локально 33 Python и матрица 10 mirror / 8 compact SQL-suite PASS в PGlite. Native CI нового этапа, provider Auth/history/restore и production-выпуск ещё не выполнены. Контракт: docs/COMPACT_WORKSPACE_STORAGE.md.

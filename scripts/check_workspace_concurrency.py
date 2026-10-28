@@ -112,10 +112,11 @@ COMMIT;
   OR (SELECT count(*) FROM public.audit_log WHERE user_id='%s')<>%d
   OR (SELECT count(*) FROM public.fact_history WHERE user_id='%s')<>1
   OR (SELECT count(*) FROM public.consent_records WHERE user_id='%s')<>1
-  OR s->'facts' IS DISTINCT FROM '[]'::jsonb OR s->'versions' IS DISTINCT FROM '[]'::jsonb
-  OR s->'applications' IS DISTINCT FROM '[]'::jsonb THEN RAISE EXCEPTION 'QA_STATE'; END IF;
+  OR (SELECT count(*) FROM public.profile_facts WHERE user_id='%s')<>0
+  OR (SELECT count(*) FROM public.resume_versions WHERE user_id='%s')<>0
+  OR (SELECT count(*) FROM public.applications WHERE user_id='%s')<>0 THEN RAISE EXCEPTION 'QA_STATE'; END IF;
  IF (private.workspace_projection_report()->'ok') IS DISTINCT FROM 'true'::jsonb THEN RAISE EXCEPTION 'QA_PARITY';END IF;
-END;$$;""" % (uid, uid, revision, uid, audits, uid, uid))
+END;$$;""" % (uid, uid, revision, uid, audits, uid, uid, uid, uid, uid))
 
     def race(self, revision):
         self.stage = 'new workspace race' if revision == 0 else 'existing workspace race'
