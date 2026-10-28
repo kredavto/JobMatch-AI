@@ -1,4 +1,5 @@
 import {createServer,type ServerResponse} from 'node:http';
+import {observerReady} from './scanner-observer-client.js';
 import {guardedExtraction} from './scan-gate.js';
 import {scanStream} from './clamav.js';
 import {timingSafeEqual} from 'node:crypto';
@@ -9,8 +10,9 @@ if(!validParserToken(token)){process.stderr.write('Invalid gateway configuration
 try{assertContainerLimits();}catch{process.stderr.write('Required container limits unavailable\n');process.exit(1);}
 const scanMode=process.env.PARSER_SCAN_MODE??'off';
 if(!['off','required'].includes(scanMode)){process.stderr.write('Invalid scanner configuration\n');process.exit(1);}
-// Required mode remains unavailable until real engine/freshness attestation is implemented.
-const scannerReady=async()=>false;
+const scannerKey=process.env.PARSER_SCANNER_PUBLIC_KEY??'',scannerEngines=(process.env.PARSER_SCANNER_ENGINES??'').split(',').filter(Boolean);
+if(scanMode==='required'&&(!scannerKey||scannerEngines.length===0||scannerEngines.some(value=>!/^\d+\.\d+\.\d+$/.test(value)))){process.stderr.write('Missing scanner trust configuration\n');process.exit(1);}
+const scannerReady=()=>observerReady(scannerKey,scannerEngines);
 const expected=Buffer.from('Bearer '+token),backend='http://parser:8080';let active=false;
 function respond(res:ServerResponse,result:ParserResponse){res.writeHead(result.ok?200:PARSER_ERRORS[result.code].status,{'Content-Type':'application/json','Cache-Control':'no-store','Connection':'close','X-Content-Type-Options':'nosniff'});res.end(JSON.stringify(result));}
 async function readJson(response:Response,maximum:number):Promise<unknown>{
