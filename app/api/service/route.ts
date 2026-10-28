@@ -1,9 +1,10 @@
+import {WorkspaceCommandSchema} from '../../../lib/workspace-command';
 import {matchMetadata} from '../../../lib/match-config';
 import {parseProviderAuth} from '../../../lib/auth-contract';
 import {personalExport} from '../../../lib/personal-export';
 import {boundedBody} from '../../../lib/body';import {UserError} from '../../../lib/errors';
 import {NextRequest,NextResponse} from 'next/server';import {z} from 'zod';import {randomUUID} from 'node:crypto';
-import {supabase,readWorkspace,saveWorkspace,consumeQuota,identity} from '../../../lib/db';
+import {supabase,readWorkspace,saveWorkspace,consumeQuota,identity,applyWorkspaceCommand} from '../../../lib/db';
 import {parseFacts,parseVacancy,match,propose,renderVersion,DEMO_RESUME,DEMO_VACANCIES} from '../../../lib/engine';import {sameOrigin,userOf,rateLimit,failure} from '../../../lib/http';
 export const runtime='nodejs';export const dynamic='force-dynamic';
 const ok=(data:unknown)=>NextResponse.json(data,{headers:{'Cache-Control':'no-store'}});
@@ -17,12 +18,13 @@ export async function POST(req:NextRequest){try{sameOrigin(req);rateLimit('globa
  const user=await userOf(req);rateLimit(user.id);if(b.expectedOwnerId!==undefined&&z.uuid().parse(b.expectedOwnerId)!==user.id)throw new UserError('Аккаунт изменился. Обновите данные перед записью.',409);
  if(action==='delete'){if(b.confirm!=='УДАЛИТЬ')throw new UserError('Введите УДАЛИТЬ');await supabase('/rest/v1/rpc/delete_my_account','POST',{},user.token);const res=ok({ok:true});res.cookies.delete('jm_access');res.cookies.delete('jm_refresh');return res;}
  if(action==='export'){await consumeQuota(user,'service');return ok(await personalExport(user));}
- await consumeQuota(user,action==='analyze'?'analysis':'service');const state=await readWorkspace(user);const rev=z.number().int().nonnegative().parse(b.revision);if(rev!==state.revision)throw new Error('CONFLICT');
+ await consumeQuota(user,action==='analyze'?'analysis':'service');const rev=z.number().int().nonnegative().parse(b.revision);
+ if(action==='goal'||action==='vacancy'||action==='verify'){const command=action==='verify'?{action,ids:b.ids,verified:b.verified}:{action,text:b.text};return ok({...await applyWorkspaceCommand(user,rev,WorkspaceCommandSchema.parse(command)),ownerId:user.id});}
+ const state=await readWorkspace(user);if(rev!==state.revision)throw new Error('CONFLICT');
  if(action==='import'||action==='demo'){state.original=action==='demo'?DEMO_RESUME:z.string().min(1).max(100000).parse(b.text);state.facts=parseFacts(state.original).map(f=>({...f,id:randomUUID()}));if(state.facts.length>500||state.facts.some(f=>f.text.length>2000))throw new UserError('Не более 500 строк, до 2000 знаков каждая');state.vacancy=action==='demo'?DEMO_VACANCIES[0].text:'';}
- else if(action==='verify'){const ids=z.array(z.string()).max(500).parse(b.ids);const verified=z.boolean().parse(b.verified);state.facts=state.facts.map(f=>ids.includes(f.id)?{...f,verified}:f);}
+
  else if(action==='fact'){const text=z.string().min(2).max(2000).parse(b.text);if(state.facts.length>=500)throw new UserError('Лимит фактов');state.facts.push({id:randomUUID(),text,verified:false,source:'Уточнение пользователя'});state.original+='\n'+text;}
- else if(action==='vacancy'){state.vacancy=z.string().min(5).max(30000).parse(b.text);}
- else if(action==='goal'){state.goal=z.string().max(1000).parse(b.text);}
+
  else if(action==='analyze'){if(!state.original||!state.vacancy)throw new UserError('Добавьте резюме и текст вакансии');return ok({analysis:match(state.facts,parseVacancy(state.vacancy)),edits:propose(state.facts,parseVacancy(state.vacancy))});}
  else if(action==='version'){if(!state.original||!state.vacancy)throw new UserError('Добавьте резюме и вакансию');if(state.versions.length>=100)throw new UserError('Лимит 100 версий');const ids=z.array(z.string()).parse(b.ids);const candidates=propose(state.facts,parseVacancy(state.vacancy));if(ids.some(id=>!candidates.some(e=>e.id===id)))throw new UserError('Правка устарела');const selected=candidates.filter(e=>ids.includes(e.id));const analysis=match(state.facts,parseVacancy(state.vacancy));state.versions.push({id:randomUUID(),created:new Date().toISOString(),text:renderVersion(state.original,selected,state.facts),vacancy:state.vacancy,evidence_ids:selected.flatMap(e=>e.evidence_ids),score:analysis.score,evidence_snapshot:state.facts.filter(f=>selected.some(e=>e.evidence_ids.includes(f.id))).map(f=>({...f})),profile_revision:state.revision,engine_version:"rules-v1",match_metadata:matchMetadata(analysis.rows)});}
  else if(action==='restore'){const v=state.versions.find(v=>v.id===b.id);if(!v)throw new UserError('Версия не найдена');if(state.versions.length>=100)throw new UserError('Лимит версий');state.versions.push({...v,id:randomUUID(),created:new Date().toISOString(),restored_from:v.id});}
