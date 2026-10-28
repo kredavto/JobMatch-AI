@@ -55,3 +55,5 @@ Workflow `.github/workflows/backup-restore.yml` запускает отдель�
 SQL-заменитель Auth моделирует только таблицы и функции JWT для тестирования прикладной схемы. Он не проверяет настоящие Supabase Auth, SMTP, пароли, структуру полной схемы auth или настройки провайдера. Успешный CI не закрывает эксплуатационную приёмку реальной копии Supabase.
 
 Локально запускать только на выделенном одноразовом PostgreSQL с заранее созданными NOLOGIN-ролями `anon` и `authenticated`. Требуются PostgreSQL 17 clients и Python 3; `PGHOST` — `127.0.0.1` или `::1`, `PGUSER` — администратор тестового кластера, `JOBMATCH_LOCAL_RESTORE=1`. В GitHub Actions допускается также hostname `postgres` для изолированного service-контейнера. PGSERVICE/PGHOSTADDR/PGSERVICEFILE запрещены. Инструмент не удаляет существующие базы: удаляются только уникальные базы, созданные им самим. Дамп не публикуется как CI artifact.
+
+Подтверждённый синтетический прогон: [GitHub Actions 40645763293](https://github.com/kredavto/JobMatch-AI/actions/runs/40645763293), SUCCESS, 28 октября 2026. Полный результат и ограничения записаны в `VERIFICATION.md`.
