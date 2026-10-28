@@ -117,6 +117,47 @@ class ParityTests(unittest.TestCase):
             self.assertNotIn('secret', errors.getvalue())
             self.assertNotIn('resume', errors.getvalue())
 
+class StorageFormatTests(unittest.TestCase):
+    def compact(self):
+        value = report()
+        value['format'] = 'jobmatch-workspace-storage-v2'
+        value['mismatches']['guard_rows'] = 0
+        for key in ('facts', 'versions', 'applications'):
+            del value['mismatches'][key]
+        return value
+
+    def test_each_format_has_an_exact_schema(self):
+        self.assertTrue(validate(self.compact(), 'compact')['ok'])
+        self.assertTrue(validate(report(), 'mirror')['ok'])
+        for bad in ({**report(), 'format': 'jobmatch-workspace-storage-v2'},
+                    {**self.compact(), 'format': 'jobmatch-projection-parity-v1'}):
+            with self.assertRaises(ValueError):
+                validate(bad)
+
+    def test_expected_mode_cannot_silently_change(self):
+        for value, expected in ((report(), 'compact'), (self.compact(), 'mirror')):
+            with self.assertRaises(ValueError):
+                validate(value, expected)
+
+    def test_structural_mismatches_are_still_fail_closed(self):
+        for key in self.compact()['mismatches']:
+            bad = self.compact()
+            bad['mismatches'][key] = 1
+            with self.assertRaises(ValueError):
+                validate(bad)
+            bad['ok'] = False
+            self.assertFalse(validate(bad)['ok'])
+
+    @patch('check_projection_parity.subprocess.run')
+    def test_cli_checks_requested_mode_without_printing_wrong_report(self, run):
+        run.return_value = subprocess.CompletedProcess([], 0, json.dumps(self.compact()) + '\n' + COMPLETE + '\n')
+        output, errors = io.StringIO(), io.StringIO()
+        with redirect_stdout(output), redirect_stderr(errors):
+            self.assertEqual(main(['--expect-format', 'mirror']), 2)
+        self.assertEqual(output.getvalue(), '')
+        with redirect_stdout(io.StringIO()):
+            self.assertEqual(main(['--expect-format', 'compact']), 0)
+
 
 if __name__ == '__main__':
     unittest.main()

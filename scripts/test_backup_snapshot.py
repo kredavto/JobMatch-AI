@@ -110,6 +110,21 @@ class SnapshotTests(unittest.TestCase):
             with self.subTest(bad=bad), self.assertRaises(ValueError):
                 compare(bad, bad)
 
+class LogicalSnapshotTests(unittest.TestCase):
+    def test_logical_snapshot_is_explicit_private_read_only_and_hash_only(self):
+        process = Process(output())
+        with tempfile.TemporaryDirectory() as folder, patch('backup_manifest.subprocess.Popen', return_value=process):
+            path = Path(folder) / 'logical.json'
+            snapshot(path, logical_workspaces=True)
+            manifest = json.loads(path.read_text())
+            self.assertEqual(manifest['format'], 'jobmatch-backup-logical-v2')
+            self.assertEqual(compare(manifest, manifest), [])
+            self.assertNotIn('пример', path.read_text())
+            sql = process.stdin.saved.decode()
+            self.assertIn('REPEATABLE READ READ ONLY', sql)
+            self.assertIn('private.workspace_entities(w.user_id)', sql)
+            self.assertIn('w.updated_at', sql)
+
 
 if __name__ == '__main__':
     unittest.main()

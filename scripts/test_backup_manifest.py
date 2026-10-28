@@ -39,6 +39,15 @@ class ManifestTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 compare(manifest, self.manifest())
 
+class LogicalManifestTests(unittest.TestCase):
+    def test_raw_and_logical_formats_cannot_be_compared(self):
+        raw = ManifestTests().manifest()
+        logical = copy.deepcopy(raw)
+        logical['format'] = 'jobmatch-backup-logical-v2'
+        self.assertEqual(compare(logical, logical), [])
+        with self.assertRaises(ValueError):
+            compare(raw, logical)
+
 
 if __name__ == '__main__':
     unittest.main()
