@@ -201,3 +201,22 @@
 - New recovery route tests cover origin/PKCE cookie/config checks, malformed grants, token redaction, update and separate logout failure.
 - Browser recovery tests use mocks; real SMTP delivery, PKCE exchange and new-password login remain pending. Previous 0.32 live acceptance does not cover recovery.
 - Targeted browser checks: 8 passed (3 password recovery + 5 existing auth failures); no actual email sent.
+
+## Подготовка резервного восстановления — 28 октября 2026
+- Живой read-only запрос к каталогу JobMatch-AI: на 8 таблицах public и private.request_quotas включён RLS; anon SELECT и authenticated прямой INSERT/UPDATE/DELETE отсутствуют. Пользовательские строки не читались, схема и данные не менялись.
+- Security advisor: INFO deny-all private.request_quotas без политик (ожидаемо); WARN Leaked Password Protection Disabled остаётся открытым. Настройка не изменялась.
+- 11 Python-тестов инструмента manifest PASS: сравнение содержимого, полнота 13 таблиц, потоковый протокол, отказ при сбое/неполном выводе, атомарный файл 0600, сохранность эталона, очистка временных файлов и процесса. psql в тестах подменён; это не живой restore.
+- Инструмент фиксирует UTF-8, DateStyle/UTC и bytea_output; читает в read-only repeatable-read транзакции, требует маркер успешного завершения после COMMIT. Полные строки не сохраняются в manifest.
+- PRODUCT_SPEC актуализирован: шаблонные письма, coach, ICS и DOCX уже реализованы; генеративный AI/HH write остаются вне MVP.
+- Регистрация/SMTP/recovery и реальный restore в этом прогоне не проверялись; прежние 9/11 пунктов приёмки не изменены. Lint/typecheck/build приложения повторно не запускались: runtime приложения не менялся.
+
+## Автоматизация синтетического restore — продолжение 28 октября 2026
+- Подготовлен workflow с отдельным PostgreSQL 17, реальными pg_dump/pg_restore и 13 заполненными таблицами, тремя SQL-suite и отрицательной проверкой изменения содержимого.
+- Локально повторно пройдены 11 Python-тестов. Защитный отказ drill без явного разрешения и loopback-хоста проверен. Полный PostgreSQL-прогон в текущем окружении недоступен: установка системного сервера ограничена окружением; результат CI фиксируется отдельно после запуска.
+- Supabase Auth заменён минимальным SQL fixture только в тестовой базе. Рабочая база, SMTP и настройки провайдера не изменяются.
+
+### Результат реального CI PostgreSQL 17
+- GitHub Actions run 40645763293: SUCCESS (28 октября 2026), https://github.com/kredavto/JobMatch-AI/actions/runs/40645763293 . Проверен commit 28e1126bddbe176761c095faa71bc52c39f224a5.
+- 11 Python-тестов PASS. Реальные pg_dump/pg_restore, совпадение 13 непустых таблиц, fact_history.sql / normalized_entities.sql / write_gates.sql на восстановленной базе и обнаружение намеренно изменённой строки PASS. Созданные базы удалены; service-контейнеры остановлены.
+- Первый CI run 40645561652 остановился при установке отсутствующего в Ubuntu пакета клиента 17, до запуска тестов. Исправлено использованием официального PostgreSQL 17 job-контейнера с подходящими клиентами; повторный полный прогон прошёл.
+- Это подтверждает синтетический restore прикладной схемы и инструментов. Эксплуатационное восстановление Supabase с настоящей схемой Auth, SMTP и реальными настройками провайдера не выполнялось; пункты MVP остаются открытыми.

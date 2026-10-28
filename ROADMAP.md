@@ -251,3 +251,12 @@
 - Separate request/link verification/password forms; PKCE S256 with HttpOnly recovery cookies, no browser token storage, no automatic mutation retry.
 - Canonical APP_URL only; no user-controlled redirect. Global sign-out result reported separately from password update.
 - Requires exact Supabase redirect allowlist and live mail acceptance; see docs/PASSWORD_RECOVERY.md. SMTP saved per owner report, delivery not verified.
+## Продолжение после 0.32 — протокол восстановления
+- Добавлен `BACKUP_RESTORE.md`: согласованный эталон, восстановление в изолированную базу, проверка данных, RLS/команд и браузерная приёмка.
+- `scripts/backup_manifest.py` читает 13 таблиц в read-only repeatable-read транзакции и сравнивает количества и SHA-256 без сохранения строк/секретов.
+- 11 локальных проверок сравнения и потокового протокола пройдены (28 октября 2026). Реальное восстановление, SMTP и решение о размещении персональных данных пока не подтверждены; пункты MVP остаются открытыми.
+
+## Автоматизация тестового резервного восстановления
+- Подготовлен CI PostgreSQL 17: synthetic seed → pg_dump → pg_restore → сравнение всех 13 таблиц → три SQL-suite → обнаружение порчи данных.
+- Прогон не использует рабочие секреты; базы и временные копии очищаются. Это тест инструментов и прикладной схемы, а не эксплуатационное восстановление Supabase.
+- Подтверждён успешный полный CI-прогон PostgreSQL 17, run 40645763293: копирование/восстановление, 13 непустых таблиц, три SQL-suite и обнаружение изменения содержимого.
