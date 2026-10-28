@@ -41,16 +41,41 @@ def main():
             run(['psql', '-X', '-w', '-v', 'ON_ERROR_STOP=1', '-f', str(ROOT / filename)], source)
         parity = [sys.executable, str(ROOT / 'scripts/check_projection_parity.py')]
         run(parity, source)
-        # Prove the incremental path as well as the consolidated clean install.
-        for filename in [ROOT / 'scripts/restore_fixture.sql',
-                         *sorted((ROOT / 'supabase/migrations').glob('*.sql')),
+        # Apply the new boundary to populated old storage, not an empty database.
+        migrations = sorted((ROOT / 'supabase/migrations').glob('*.sql'))
+        boundary = migrations.index(ROOT / 'supabase/migrations/20261028110005_canonical_workspace_reads.sql')
+        for filename in [ROOT / 'scripts/restore_fixture.sql', *migrations[:boundary],
                          ROOT / 'scripts/restore_seed.sql']:
             run(['psql', '-X', '-w', '-v', 'ON_ERROR_STOP=1', '-f', str(filename)], upgrade)
-        run(parity, upgrade)
         with tempfile.TemporaryDirectory(prefix='jobmatch-drill-') as folder:
             folder = Path(folder)
             baseline, restored, changed = (folder / name for name in ('baseline.json', 'restored.json', 'changed.json'))
             manifest = [sys.executable, str(ROOT / 'scripts/backup_manifest.py')]
+            # A failed preflight must leave old data and old function definitions intact.
+            run(['psql', '-X', '-w', '-v', 'ON_ERROR_STOP=1', '-c',
+                 "update public.profile_facts set text='Dirty synthetic fact' where id='f1'"], upgrade)
+            dirty_before, dirty_after = folder / 'dirty-before.json', folder / 'dirty-after.json'
+            run(manifest + ['snapshot', str(dirty_before)], upgrade)
+            result = subprocess.run(['psql', '-X', '-w', '-v', 'ON_ERROR_STOP=1', '-f',
+                                     str(migrations[boundary])], env=upgrade,
+                                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=180)
+            if result.returncode != 3:
+                raise ValueError('Expected migration preflight rejection')
+            run(manifest + ['snapshot', str(dirty_after)], upgrade)
+            run(manifest + ['compare', str(dirty_before), str(dirty_after)], upgrade)
+            run(['psql', '-X', '-w', '-v', 'ON_ERROR_STOP=1', '-c',
+                 "do $$begin if to_regprocedure('private.locked_workspace(integer)') is not null then "
+                 "raise exception 'Partial migration'; end if; end;$$"], upgrade)
+            # Explicit synthetic fixture repair; production code has no automatic repair path.
+            run(['psql', '-X', '-w', '-v', 'ON_ERROR_STOP=1', '-c',
+                 "update public.profile_facts set text='SQL' where id='f1'"], upgrade)
+            before_upgrade, after_upgrade = folder / 'before-upgrade.json', folder / 'after-upgrade.json'
+            run(manifest + ['snapshot', str(before_upgrade)], upgrade)
+            for filename in migrations[boundary:]:
+                run(['psql', '-X', '-w', '-v', 'ON_ERROR_STOP=1', '-f', str(filename)], upgrade)
+            run(manifest + ['snapshot', str(after_upgrade)], upgrade)
+            run(manifest + ['compare', str(before_upgrade), str(after_upgrade)], upgrade)
+            run(parity, upgrade)
             run(manifest + ['snapshot', str(baseline)], source)
             run(['pg_dump', '-Fc', '-f', str(folder / 'synthetic.dump')], source)
             run(['pg_restore', '--exit-on-error', '--dbname', names[1], str(folder / 'synthetic.dump')], target)
@@ -62,7 +87,7 @@ def main():
             if not all(item['rows'] > 0 for item in data['tables'].values()):
                 raise ValueError('Fixture must populate all 13 tables')
             for database in (target, upgrade):
-                for test in ('fact_history.sql', 'normalized_entities.sql', 'write_gates.sql', 'workspace_commands.sql', 'application_commands.sql', 'profile_commands.sql', 'version_commands.sql', 'projection_parity.sql'):
+                for test in ('fact_history.sql', 'normalized_entities.sql', 'write_gates.sql', 'workspace_commands.sql', 'application_commands.sql', 'profile_commands.sql', 'version_commands.sql', 'projection_parity.sql', 'canonical_workspace.sql'):
                     run(['psql', '-X', '-w', '-v', 'ON_ERROR_STOP=1', '-f', str(ROOT / 'supabase/tests' / test)], database)
                 run(parity, database)
             # Same number of rows, changed content: the manifest must detect it.
@@ -77,7 +102,7 @@ def main():
                                     stderr=subprocess.DEVNULL, timeout=180)
             if result.returncode != 1:
                 raise ValueError('Expected parity mismatch detection')
-        print('PASS: synthetic PostgreSQL dump/restore, 13 populated tables, 8 SQL suites on restored/incremental databases, projection parity and corruption detection.')
+        print('PASS: synthetic PostgreSQL dump/restore, 13 populated tables, 9 SQL suites on restored/populated-upgrade databases, unchanged migration row hashes, rejected dirty preflight, projection parity and corruption detection.')
     except (OSError, ValueError, subprocess.SubprocessError):
         print('FAIL: local restore drill failed; no credentials or row data printed.', file=sys.stderr)
         failed = True
