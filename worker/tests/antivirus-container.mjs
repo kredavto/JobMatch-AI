@@ -31,7 +31,14 @@ try{
  const second=await run('parser_second',['--network',parserNet,'--network-alias','parser',...limits('512m'),'--user','10001:10001','jobmatch-parser:test']);await ready();
  stage='missing real observer blocks transmission';await docker(['stop','-t','1',observer]);assert.equal((await request('Synthetic withheld resume SQL')).status,503);assert.equal((await inspect(second)).State.Running,true);
  stage='missing real scanner blocks readiness';await docker(['stop','-t','1',scanner]);assert.equal((await fetch(root+'/health',{signal:AbortSignal.timeout(1500)})).status,503);
-}catch{failed=true;process.stderr.write('FAIL: antivirus integration at '+stage+'; no file data or keys printed.\n');}
+}catch{failed=true;process.stderr.write('FAIL: antivirus integration at '+stage+'; no file data or keys printed.\n');
+ if(stage==='real signed scanner readiness')for(const suffix of ['scanner','observer','gateway','parser']){
+  const name=prefix+'_'+suffix;try{const value=await inspect(name);process.stderr.write(JSON.stringify({service:suffix,status:value.State.Status,exit:value.State.ExitCode,oom:value.State.OOMKilled})+'\n');}catch{}
+  // Startup only: no upload has been transmitted at this stage. Never dump env/inspect or keys.
+  if(suffix==='scanner'||suffix==='observer')try{const log=await exec('docker',['logs','--tail','20',name],{timeout:5000,maxBuffer:10000});process.stderr.write((log.stdout+log.stderr).slice(-3000)+'\n');}catch{}
+  if(suffix==='observer')try{const metadata=await docker(['exec',name,'node','-e',"require('./compiled/worker/scanner-measurement.js').measureLoadedVersion().then(value=>console.log(JSON.stringify(value)))"]);process.stderr.write('Loaded engine observation: '+metadata.slice(0,1024)+'\n');}catch{}
+ }
+}
 finally{for(const name of containers)try{await docker(['rm','-f','-v',name]);}catch{failed=true;}for(const name of networks)try{await docker(['network','rm',name]);}catch{failed=true;}await rm(directory,{recursive:true,force:true});}
 if(!failed)process.stdout.write('PASS: real ClamAV loaded database, signed observer, blocked harmless test string before parser, clean extraction, unavailable observer/scanner refusal, private network/secret separation; synthetic resources removed.\n');
 process.exitCode=failed?1:0;
