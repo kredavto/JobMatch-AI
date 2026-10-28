@@ -11,7 +11,7 @@
     "lint": "eslint .",
     "test:e2e": "playwright test",
     "build:parser-worker": "tsc -p worker/tsconfig.json",
-    "test:parser-worker": "npm run build:parser-worker && node --test worker/tests/supervisor.test.mjs"
+    "test:parser-worker": "npm run build:parser-worker && node --test worker/tests/supervisor.test.mjs worker/tests/ocr.test.mjs"
   },
   "dependencies": {
     "@napi-rs/canvas": "0.1.80",

@@ -3,7 +3,7 @@ import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
 import {randomBytes} from 'node:crypto';
 import {setTimeout as pause} from 'node:timers/promises';
-import {docx,pdf} from './documents.mjs';
+import {docx,pdf,rasterPdf} from './documents.mjs';
 if(process.env.JOBMATCH_PARSER_CONTAINER_TEST!=='1'){process.stderr.write('Enable the synthetic parser container test explicitly.\n');process.exit(2);}
 const exec=promisify(execFile),image=process.env.PARSER_TEST_IMAGE||'jobmatch-parser:test';
 const prefix='jobmatch_parser_'+randomBytes(6).toString('hex'),network=prefix+'_private',ingress=prefix+'_ingress',token=randomBytes(32).toString('hex');
@@ -11,7 +11,7 @@ const containers=[];let stage='network setup',failed=false,root='';
 async function docker(args,timeout=30000){try{return (await exec('docker',args,{timeout,maxBuffer:1_000_000})).stdout.trim();}catch{throw new Error('Synthetic container operation failed');}}
 function limits(memory=512,cpus='1',pids='64'){return ['--memory',memory+'m','--memory-swap',memory+'m','--cpus',cpus,'--pids-limit',pids,'--read-only','--tmpfs','/tmp:rw,noexec,nosuid,size=32m,mode=1777','--cap-drop','ALL','--security-opt','no-new-privileges:true','--user','10001:10001','--ulimit','core=0'];}
 async function inspect(name){return JSON.parse(await docker(['inspect',name]))[0];}
-async function create(suffix,command=[],privateWorker=false,restart=false){const name=prefix+'_'+suffix;containers.push(name);await docker(['run','-d','--name',name,'--network',privateWorker?network:'none',...(privateWorker?['--network-alias','parser']:[]),...limits(),...(restart?['--restart','always']:[]),image,...command]);return name;}
+async function create(suffix,command=[],privateWorker=false,restart=false,ocr=false){const name=prefix+'_'+suffix;containers.push(name);await docker(['run','-d','--name',name,'--network',privateWorker?network:'none',...(privateWorker?['--network-alias','parser']:[]),...limits(),...(restart?['--restart','always']:[]),...(ocr?['-e','PARSER_WORKER_OCR='+String(ocr)]:[]),image,...command]);return name;}
 async function createGateway(){const name=prefix+'_gateway';containers.push(name);await docker(['run','-d','--name',name,'--network',ingress,...limits(128,'0.25','32'),'-e','PARSER_WORKER_TOKEN='+token,'-p','127.0.0.1::8080',image,'node','--disable-sigusr1','--max-old-space-size=64','compiled/worker/gateway.cjs']);await docker(['network','connect',network,name]);const port=await docker(['port',name,'8080/tcp']);assert.match(port,/^127\.0\.0\.1:\d+$/);root='http://'+port;return name;}
 async function ready(){const deadline=Date.now()+15000;while(Date.now()<deadline){try{const response=await fetch(root+'/health',{signal:AbortSignal.timeout(1000)});if(response.ok&&JSON.parse(await response.text()).ok===true)return;}catch{}await pause(100);}throw new Error('Synthetic parser did not become ready');}
 async function wait(name){return Number(await docker(['wait',name],30000));}
@@ -35,6 +35,12 @@ try{
  stage='DOCX job and retirement';const word=await extract(await create('word',[],true),'docx',await docx());assert.equal(word.status,200);assert.equal(word.result.ok,true);assert.match(word.result.text,/Synthetic resume SQL/);
  stage='PDF job and retirement';const document=await extract(await create('pdf',[],true),'pdf',pdf());assert.equal(document.status,200);assert.equal(document.result.ok,true);assert.match(document.result.text,/Synthetic resume SQL/);
  stage='unsupported DOCX rejection and retirement';assert.deepEqual(await extract(await create('badword',[],true),'docx',await docx('word/embeddings/oleObject1.bin')),{status:400,result:{ok:false,code:'INVALID'}});
+ stage='invalid OCR flag refuses startup';assert.equal(await wait(await create('ocr_bad_setting',[],true,false,'invalid')),1);
+ stage='default-disabled OCR';assert.deepEqual(await extract(await create('ocr_off',[],true),'pdf',await rasterPdf()),{status:400,result:{ok:false,code:'INVALID'}});
+ stage='bilingual scanned PDF OCR';const scanned=await extract(await create('ocr_on',[],true,false,true),'pdf',await rasterPdf());assert.equal(scanned.status,200);assert.equal(scanned.result.ocrPages,1);assert.match(scanned.result.text,/Alex Example SQL/);assert.match(scanned.result.text,/Иван Тестов/);
+ stage='mixed embedded and scanned PDF';const mixed=await extract(await create('ocr_mixed',[],true,false,true),'pdf',await rasterPdf({pages:2,mixed:true}));assert.equal(mixed.status,200);assert.equal(mixed.result.ocrPages,1);assert.match(mixed.result.text,/Embedded engineering experience/);assert.match(mixed.result.text,/Иван Тестов/);
+ stage='OCR page budget rejects entire draft';assert.deepEqual(await extract(await create('ocr_limit',[],true,false,true),'pdf',await rasterPdf({pages:4})),{status:400,result:{ok:false,code:'OCR_LIMIT'}});
+ stage='blank scanned PDF is rejected';assert.deepEqual(await extract(await create('ocr_blank',[],true,false,true),'pdf',await rasterPdf({blank:true})),{status:400,result:{ok:false,code:'INVALID'}});
  stage='restart policy and fresh tmpfs';const recycled=await create('recycle',[],true,true);await ready();const firstPid=(await inspect(recycled)).State.Pid;
  await docker(['exec',recycled,'node','-e',"require('node:fs').writeFileSync('/tmp/previous-job','synthetic')"]);
  assert.deepEqual(await send('txt',Buffer.from('First independent resume')),{status:200,result:{ok:true,text:'First independent resume'}});await ready();const restarted=await inspect(recycled);assert.ok(restarted.RestartCount>=1);assert.notEqual(restarted.State.Pid,firstPid);
@@ -48,5 +54,5 @@ finally{
  for(const name of containers){try{await docker(['rm','-f',name]);}catch{process.stderr.write('FAIL: synthetic parser container cleanup.\n');failed=true;}}
  for(const name of [network,ingress])try{await docker(['network','rm',name]);}catch{process.stderr.write('FAIL: synthetic parser network cleanup.\n');failed=true;}
 }
-if(!failed)process.stdout.write('PASS: credential gateway, real TXT/DOCX/PDF HTTP jobs, one-job retirement/restart with fresh tmpfs, private network/readonly/caps/PIDs, kernel CPU/RAM ceilings; all containers/networks removed.\n');
+if(!failed)process.stdout.write('PASS: credential gateway, real TXT/DOCX/PDF HTTP jobs, bilingual/mixed OCR and page limits, one-job retirement/restart with fresh tmpfs, private network/readonly/caps/PIDs, kernel CPU/RAM ceilings; all containers/networks removed.\n');
 process.exitCode=failed?1:0;

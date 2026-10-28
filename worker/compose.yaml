@@ -3,6 +3,8 @@ services:
     build:
       context: ..
       dockerfile: worker/Dockerfile
+    environment:
+      PARSER_WORKER_OCR: ${PARSER_WORKER_OCR:-false}
     restart: always
     user: '10001:10001'
     read_only: true
