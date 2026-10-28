@@ -1,8 +1,8 @@
 import {fromBuffer,type Entry} from 'yauzl';
 import {UserError} from './errors';
 import {readPdfTask} from './pdf-lifecycle';
-export const MAX_FILE_BYTES=4_000_000;
-export const MAX_TEXT_CHARS=100_000;
+import {MAX_FILE_BYTES,MAX_TEXT_CHARS} from './parser-contract';
+export {MAX_FILE_BYTES,MAX_TEXT_CHARS} from './parser-contract';
 /** Validate central directory AND actual inflated bytes before handing the archive to a parser. */
 export function validateDocx(data:Buffer):Promise<void>{return new Promise((resolve,reject)=>{
  fromBuffer(data,{lazyEntries:true,validateEntrySizes:true,strictFileNames:true},(error,zip)=>{
