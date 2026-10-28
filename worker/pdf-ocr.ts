@@ -19,13 +19,18 @@ export const runOcrCommand:Command=(file,args)=>new Promise((resolve,reject)=>{
 });
 /** Lazy private tmpfs workspace. The whole container is also retired on timeout/cancellation. */
 export function createPdfOcr(data:Buffer,options:{run?:Command;root?:string;languages?:'eng'|'eng+rus'}={}){
- let directory:string|undefined,pages=0;
+ let directory:string|undefined,pages=0,languagesChecked=false;
  const run=options.run??runOcrCommand;
  return {
   get pages(){return pages;},
   async readPage(page:number):Promise<string>{
    if(!Number.isInteger(page)||page<1||page>30||data.length>MAX_FILE_BYTES)throw new UserError('Invalid OCR input');
    if(pages>=MAX_OCR_PAGES)throw new OcrLimitError();
+   if(!languagesChecked){
+    const available=(await run('/usr/bin/tesseract',['--list-langs'])).split(/\r?\n/).map(value=>value.trim());
+    if((options.languages??'eng+rus').split('+').some(language=>!available.includes(language)))throw new UserError('OCR unavailable',503);
+    languagesChecked=true;
+   }
    if(!directory){directory=await mkdtemp(join(options.root??tmpdir(),'jobmatch-ocr-'));await writeFile(join(directory,'input.pdf'),data,{flag:'wx',mode:0o600});}
    const input=join(directory,'input.pdf'),image=join(directory,'page.pgm');
    try{
