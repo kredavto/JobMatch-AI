@@ -1,0 +1,51 @@
+name: Synthetic PostgreSQL restore
+on:
+  pull_request:
+    paths:
+      - 'scripts/**'
+      - 'supabase/**'
+      - '.github/workflows/backup-restore.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/**'
+      - 'supabase/**'
+      - '.github/workflows/backup-restore.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  restore:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: local-fixture-only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: local-fixture-only
+      JOBMATCH_LOCAL_RESTORE: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install PostgreSQL 17 client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client-17
+          echo '/usr/lib/postgresql/17/bin' >> "$GITHUB_PATH"
+      - name: Create roles in disposable service
+        run: psql -X -w -v ON_ERROR_STOP=1 -d postgres -c 'CREATE ROLE anon NOLOGIN; CREATE ROLE authenticated NOLOGIN;'
+      - name: Unit tests
+        run: python3 -m unittest discover -s scripts -p 'test_*.py'
+      - name: Dump, restore and verify
+        run: python3 scripts/local_restore_drill.py
