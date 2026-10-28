@@ -89,3 +89,6 @@ My Versions lets you select two saved resumes and inspect an exact line diff. Ad
 Tracker notes now use an explicit Save button. Unsaved notes survive list filters, tab navigation and failed writes in the current page memory. Status/version changes are disabled until the note is saved or discarded, preventing blur/status write races. If the server note changed, the original saved text is available for comparison. Logout and account deletion clear note drafts. Reloading or closing the page loses drafts; no browser persistent storage is used.
 
 Восстановление пароля: `/recover`, обязательная серверная `APP_URL` и точный redirect allowlist Supabase. Настройка и приемка: [docs/PASSWORD_RECOVERY.md](docs/PASSWORD_RECOVERY.md). Доставка письма требует отдельной живой проверки.
+
+## 0.34 — собственный AI-разбор требований
+Необязательная панель в редакторе: отправка сохранённой вакансии и подтверждённых фактов на собственный Ollama endpoint по отдельному согласию. Выключена на сервере по умолчанию. Результат содержит только точные цитаты/ссылки на факты, требует ручной проверки и не меняет score или версию. Для работы нужен собственный сервер модели и защищённый шлюз; live модель ещё не принята. Настройка и ограничения: [SELF_HOSTED_AI.md](docs/SELF_HOSTED_AI.md). Полный план: [COMPLETION_PLAN.md](COMPLETION_PLAN.md).
