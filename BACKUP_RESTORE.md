@@ -38,9 +38,16 @@ python3 scripts/backup_manifest.py compare /secure/baseline.json /secure/restore
 PGSERVICE=jobmatch_restored psql -X -w -v ON_ERROR_STOP=1 -f supabase/tests/fact_history.sql
 PGSERVICE=jobmatch_restored psql -X -w -v ON_ERROR_STOP=1 -f supabase/tests/normalized_entities.sql
 PGSERVICE=jobmatch_restored psql -X -w -v ON_ERROR_STOP=1 -f supabase/tests/write_gates.sql
+PGSERVICE=jobmatch_restored psql -X -w -v ON_ERROR_STOP=1 -f supabase/tests/workspace_commands.sql
+PGSERVICE=jobmatch_restored psql -X -w -v ON_ERROR_STOP=1 -f supabase/tests/application_commands.sql
+PGSERVICE=jobmatch_restored psql -X -w -v ON_ERROR_STOP=1 -f supabase/tests/profile_commands.sql
+PGSERVICE=jobmatch_restored psql -X -w -v ON_ERROR_STOP=1 -f supabase/tests/version_commands.sql
+PGSERVICE=jobmatch_restored psql -X -w -v ON_ERROR_STOP=1 -f supabase/tests/projection_parity.sql
 ```
 
 Они создают синтетические данные и завершаются ROLLBACK; запуск на production не предусмотрен. Затем проведите браузерную приёмку с вымышленными аккаунтами на приложении, подключённом только к тестовому проекту: вход, чтение/сохранение версии, история, экспорт, изоляция двух владельцев, отзыв сессии и удаление. Настройки Auth, SMTP и восстановление пароля проверяются отдельным согласованным почтовым тестом.
+
+При схеме, содержащей migration `20261028110004_projection_parity.sql`, отдельно проверьте совпадение snapshot и нормализованных таблиц командой `PGSERVICE=jobmatch_restored python3 scripts/check_projection_parity.py`. Она возвращает только счётчики в одной read-only транзакции; коды 0/1/2 означают паритет/расхождения/ошибку. Это дополняет, но не заменяет сравнение исходной и восстановленной копий. Полный контракт и ограничения: docs/PROJECTION_PARITY.md. На более ранней восстановленной схеме функцию нельзя считать доступной; не применяйте новые миграции до первичного manifest comparison той же точки восстановления.
 
 ## Результат приёмки
 
