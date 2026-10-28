@@ -1,11 +1,11 @@
 import {WorkspaceCommandSchema} from '../../../lib/workspace-command';
-import {matchMetadata} from '../../../lib/match-config';
+import {prepareVersionCommand} from '../../../lib/version-command';
 import {parseProviderAuth} from '../../../lib/auth-contract';
 import {personalExport} from '../../../lib/personal-export';
 import {boundedBody} from '../../../lib/body';import {UserError} from '../../../lib/errors';
-import {NextRequest,NextResponse} from 'next/server';import {z} from 'zod';import {randomUUID} from 'node:crypto';
-import {supabase,readWorkspace,saveWorkspace,consumeQuota,identity,applyWorkspaceCommand} from '../../../lib/db';
-import {parseVacancy,match,propose,renderVersion,DEMO_RESUME,DEMO_VACANCIES} from '../../../lib/engine';import {sameOrigin,userOf,rateLimit,failure} from '../../../lib/http';
+import {NextRequest,NextResponse} from 'next/server';import {z} from 'zod';
+import {supabase,readWorkspace,consumeQuota,identity,applyWorkspaceCommand} from '../../../lib/db';
+import {parseVacancy,match,propose,DEMO_RESUME,DEMO_VACANCIES} from '../../../lib/engine';import {sameOrigin,userOf,rateLimit,failure} from '../../../lib/http';
 export const runtime='nodejs';export const dynamic='force-dynamic';
 const ok=(data:unknown)=>NextResponse.json(data,{headers:{'Cache-Control':'no-store'}});
 export async function GET(req:NextRequest){try{const user=await userOf(req);await consumeQuota(user,'service');return ok({...await readWorkspace(user),ownerId:user.id});}catch(e){return failure(e);}}
@@ -19,12 +19,12 @@ export async function POST(req:NextRequest){try{sameOrigin(req);rateLimit('globa
  if(action==='delete'){if(b.confirm!=='УДАЛИТЬ')throw new UserError('Введите УДАЛИТЬ');await supabase('/rest/v1/rpc/delete_my_account','POST',{},user.token);const res=ok({ok:true});res.cookies.delete('jm_access');res.cookies.delete('jm_refresh');return res;}
  if(action==='export'){await consumeQuota(user,'service');return ok(await personalExport(user));}
  await consumeQuota(user,action==='analyze'?'analysis':'service');const rev=z.number().int().nonnegative().parse(b.revision);
+ if(action==='restore')return ok({...await applyWorkspaceCommand(user,rev,WorkspaceCommandSchema.parse({action,id:b.id})),ownerId:user.id});
  if(action==='import'||action==='demo'||action==='fact'){const command=action==='demo'?{action,text:DEMO_RESUME,vacancy:DEMO_VACANCIES[0].text}:{action,text:b.text};return ok({...await applyWorkspaceCommand(user,rev,WorkspaceCommandSchema.parse(command)),ownerId:user.id});}
  if(action==='application'){const command={action,status:b.status,note:b.note,...(b.id===undefined?{title:b.title}:{id:b.id}),...(b.resumeVersionId===undefined?{}:{resumeVersionId:b.resumeVersionId})};return ok({...await applyWorkspaceCommand(user,rev,WorkspaceCommandSchema.parse(command)),ownerId:user.id});}
  if(action==='goal'||action==='vacancy'||action==='verify'){const command=action==='verify'?{action,ids:b.ids,verified:b.verified}:{action,text:b.text};return ok({...await applyWorkspaceCommand(user,rev,WorkspaceCommandSchema.parse(command)),ownerId:user.id});}
  const state=await readWorkspace(user);if(rev!==state.revision)throw new Error('CONFLICT');
  if(action==='analyze'){if(!state.original||!state.vacancy)throw new UserError('Добавьте резюме и текст вакансии');return ok({analysis:match(state.facts,parseVacancy(state.vacancy)),edits:propose(state.facts,parseVacancy(state.vacancy))});}
- else if(action==='version'){if(!state.original||!state.vacancy)throw new UserError('Добавьте резюме и вакансию');if(state.versions.length>=100)throw new UserError('Лимит 100 версий');const ids=z.array(z.string()).parse(b.ids);const candidates=propose(state.facts,parseVacancy(state.vacancy));if(ids.some(id=>!candidates.some(e=>e.id===id)))throw new UserError('Правка устарела');const selected=candidates.filter(e=>ids.includes(e.id));const analysis=match(state.facts,parseVacancy(state.vacancy));state.versions.push({id:randomUUID(),created:new Date().toISOString(),text:renderVersion(state.original,selected,state.facts),vacancy:state.vacancy,evidence_ids:selected.flatMap(e=>e.evidence_ids),score:analysis.score,evidence_snapshot:state.facts.filter(f=>selected.some(e=>e.evidence_ids.includes(f.id))).map(f=>({...f})),profile_revision:state.revision,engine_version:"rules-v1",match_metadata:matchMetadata(analysis.rows)});}
- else if(action==='restore'){const v=state.versions.find(v=>v.id===b.id);if(!v)throw new UserError('Версия не найдена');if(state.versions.length>=100)throw new UserError('Лимит версий');state.versions.push({...v,id:randomUUID(),created:new Date().toISOString(),restored_from:v.id});}
- else throw new UserError('Неизвестная операция');return ok({...await saveWorkspace(user,state,rev,action),ownerId:user.id});
+ if(action==='version')return ok({...await applyWorkspaceCommand(user,rev,prepareVersionCommand(state,b.ids)),ownerId:user.id});
+ throw new UserError('Неизвестная операция');
  }catch(e){return failure(e);}}
