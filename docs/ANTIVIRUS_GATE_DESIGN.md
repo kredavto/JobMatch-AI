@@ -78,3 +78,9 @@ The antivirus job builds the pinned scanner and observer images and runs `JOBMAT
 ## Freshness failure and updater correction
 
 First real-engine attempts refused readiness as designed: ClamAV 1.4.6 was running with loaded DB28164 built2026-10-25T06:24:12Z, while CI ran2026-10-28. The24h policy was not weakened. A dedicated FreshClam service now owns a named signature volume read-write; scanner mounts it read-only and reloads via SelfCheck10. Updater has a separate egress network, no user document path or credentials, bounded CPU/PIDs/tmpfs and a4GiB ceiling with TestDatabases enabled. The initial real-engine CI now updates signatures before starting scanner, preserving the same freshness policy. CDN access/update/reload acceptance is still pending, not assumed from configuration. Earlier descriptions of no updater/preloaded-only signature operation are superseded. Runbook: ANTIVIRUS_OPERATIONS.md.
+
+## First successful real-engine acceptance
+
+CI40732876214 SUCCESS on aad433d7f1e2decb235d5460bc7b95031ef270fd: FreshClam completed a real signature update, scanner loaded a fresh database, observer issued a verified signed report, the harmless standard antivirus test string was blocked before parser consumption, clean extraction succeeded and missing observer/scanner denied readiness. Parser/OCR/isolation job also passed. All synthetic resources were removed. This corrects the preceding stale-image readiness failure without weakening age checks.
+
+The next acceptance extension adds actual archive-contained detection, decompressed file limit, encrypted ZIP/PDF rejection, live custom-signature reload and independently restoring observer before testing scanner loss. These extended cases are pending CI and are not claimed from the first success. The reload fixture adds only a synthetic signature rule to the test volume; no real user document is stored there.
