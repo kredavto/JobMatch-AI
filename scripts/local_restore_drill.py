@@ -132,6 +132,10 @@ def main():
                 for test in ('fact_history.sql', 'normalized_entities.sql', 'write_gates.sql', 'workspace_commands.sql', 'application_commands.sql', 'profile_commands.sql', 'version_commands.sql', 'projection_parity.sql', 'canonical_workspace.sql', 'explicit_workspace_writes.sql'):
                     stage = 'SQL suite ' + test
                     run(['psql', '-X', '-w', '-v', 'ON_ERROR_STOP=1', '-f', str(ROOT / 'supabase/tests' / test)], database)
+                stage = 'real concurrent writer probes'
+                # This child emits only its fixed stage/status, never psql diagnostics.
+                subprocess.run([sys.executable, str(ROOT / 'scripts/check_workspace_concurrency.py')],
+                               env=database, check=True, stdout=subprocess.DEVNULL, timeout=90)
                 stage = 'post-suite parity'
                 run(parity, database)
             stage = 'negative content and parity checks'
@@ -147,7 +151,7 @@ def main():
                                     stderr=subprocess.DEVNULL, timeout=180)
             if result.returncode != 1:
                 raise ValueError('Expected parity mismatch detection')
-        print('PASS: synthetic PostgreSQL dump/restore, 13 populated tables, 10 SQL suites on restored/populated-upgrade databases, unchanged migration row hashes, rejected dirty preflight and late migration rollback, projection parity and corruption detection.')
+        print('PASS: synthetic PostgreSQL dump/restore, 13 populated tables, 10 SQL suites on restored/populated-upgrade databases, unchanged migration row hashes, rejected dirty preflight and late migration rollback, real concurrent writers/session revocation/table gate, projection parity and corruption detection.')
     except (OSError, ValueError, subprocess.SubprocessError):
         print('FAIL: local restore drill failed at ' + stage + '; no credentials or row data printed.', file=sys.stderr)
         failed = True
