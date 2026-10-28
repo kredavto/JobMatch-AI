@@ -54,3 +54,9 @@ it('never retries a conflict or falls back to snapshot writes',async()=>{
  await expect(applyWorkspaceCommand({id:'owner',token:'jwt'},2,{action:'verify',ids:['f'],verified:true})).rejects.toThrow('CONFLICT');
  expect(fetch).toHaveBeenCalledTimes(1);
 });
+
+it('stops on projection mismatch with a safe unavailable response and no retry',async()=>{
+ const fetch=vi.fn().mockResolvedValue(Response.json({message:'PROJECTION_CONFLICT',details:'sensitive internal data'},{status:400}));vi.stubGlobal('fetch',fetch);
+ await expect(applyWorkspaceCommand({id:'owner',token:'jwt'},2,{action:'goal',text:'Analyst'})).rejects.toMatchObject({status:503,message:'Проверка целостности хранилища не пройдена. Запись остановлена. Обратитесь к администратору.'});
+ expect(fetch).toHaveBeenCalledTimes(1);
+});
