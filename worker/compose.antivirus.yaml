@@ -25,7 +25,37 @@ services:
     tmpfs: ['/tmp:rw,noexec,nosuid,size=64m,mode=1777']
     environment:
       TZ: UTC
+    volumes:
+      - type: volume
+        source: scanner_signatures
+        target: /var/lib/clamav
+        read_only: true
     networks: [scanner_private]
+  signature-updater:
+    build:
+      context: ..
+      dockerfile: worker/scanner/Dockerfile
+    command: ['/usr/local/bin/jobmatch-freshclam', '--daemon', '--stdout', '--config-file=/etc/clamav/jobmatch-freshclam.conf']
+    restart: unless-stopped
+    user: clamav
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
+    mem_limit: 4g
+    memswap_limit: 4g
+    cpus: 0.5
+    pids_limit: 64
+    ulimits:
+      core: 0
+      nofile: 128
+    tmpfs: ['/tmp:rw,noexec,nosuid,size=64m,mode=1777']
+    environment:
+      TZ: UTC
+    volumes:
+      - type: volume
+        source: scanner_signatures
+        target: /var/lib/clamav
+    networks: [scanner_updates]
   scanner-observer:
     build:
       context: ..
@@ -49,7 +79,10 @@ services:
       SCANNER_ALLOWED_ENGINES: '1.4.6'
     secrets: [scanner_observer_key]
     networks: [scanner_private, observer_private]
+volumes:
+  scanner_signatures: {}
 networks:
+  scanner_updates: {}
   scanner_private:
     internal: true
   observer_private:
