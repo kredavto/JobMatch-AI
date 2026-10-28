@@ -43,7 +43,7 @@ def main():
         run(parity, source)
         # Apply the new boundary to populated old storage, not an empty database.
         migrations = sorted((ROOT / 'supabase/migrations').glob('*.sql'))
-        boundary = migrations.index(ROOT / 'supabase/migrations/20261028110005_canonical_workspace_reads.sql')
+        boundary = migrations.index(ROOT / 'supabase/migrations/20261028110006_explicit_workspace_writes.sql')
         for filename in [ROOT / 'scripts/restore_fixture.sql', *migrations[:boundary],
                          ROOT / 'scripts/restore_seed.sql']:
             run(['psql', '-X', '-w', '-v', 'ON_ERROR_STOP=1', '-f', str(filename)], upgrade)
@@ -63,14 +63,38 @@ def main():
                 raise ValueError('Expected migration preflight rejection')
             run(manifest + ['snapshot', str(dirty_after)], upgrade)
             run(manifest + ['compare', str(dirty_before), str(dirty_after)], upgrade)
-            run(['psql', '-X', '-w', '-v', 'ON_ERROR_STOP=1', '-c',
-                 "do $$begin if to_regprocedure('private.locked_workspace(integer)') is not null then "
-                 "raise exception 'Partial migration'; end if; end;$$"], upgrade)
+            # Verify that the pre-stage triggers and commit body survived unchanged in shape.
+            old_boundary = [
+                'psql', '-X', '-w', '-v', 'ON_ERROR_STOP=1', '-c',
+                "do $$begin if (select count(*) from pg_trigger where tgrelid='public.workspaces'::regclass "
+                "and tgname in ('workspace_capture_facts','workspace_capture_initial_facts','workspace_sync_entities'))<>3 "
+                "or to_regprocedure('private.capture_fact_history()') is null "
+                "or to_regprocedure('private.sync_workspace_entities()') is null "
+                "or position('private.project_workspace' in pg_get_functiondef('private.commit_workspace(integer,jsonb,text)'::regprocedure))>0 "
+                "then raise exception 'Partial migration'; end if; end;$$"]
+            run(old_boundary, upgrade)
             # Explicit synthetic fixture repair; production code has no automatic repair path.
             run(['psql', '-X', '-w', '-v', 'ON_ERROR_STOP=1', '-c',
                  "update public.profile_facts set text='SQL' where id='f1'"], upgrade)
             before_upgrade, after_upgrade = folder / 'before-upgrade.json', folder / 'after-upgrade.json'
             run(manifest + ['snapshot', str(before_upgrade)], upgrade)
+            # Force failure AFTER function replacement and trigger/function removal.
+            # The migration must be one atomic statement even under psql autocommit.
+            original_sql = migrations[boundary].read_text()
+            marker = '\nend;\n$migration$;'
+            if original_sql.count(marker) != 1:
+                raise ValueError('Unexpected atomic migration wrapper')
+            late_failure = folder / 'late-failure.sql'
+            late_failure.write_text(original_sql.replace(
+                marker, "\n raise exception 'QA_LATE_MIGRATION';" + marker))
+            result = subprocess.run(['psql', '-X', '-w', '-v', 'ON_ERROR_STOP=1', '-f',
+                                     str(late_failure)], env=upgrade,
+                                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=180)
+            if result.returncode != 3:
+                raise ValueError('Expected late migration rollback')
+            run(old_boundary, upgrade)
+            run(manifest + ['snapshot', str(after_upgrade)], upgrade)
+            run(manifest + ['compare', str(before_upgrade), str(after_upgrade)], upgrade)
             for filename in migrations[boundary:]:
                 run(['psql', '-X', '-w', '-v', 'ON_ERROR_STOP=1', '-f', str(filename)], upgrade)
             run(manifest + ['snapshot', str(after_upgrade)], upgrade)
@@ -87,7 +111,7 @@ def main():
             if not all(item['rows'] > 0 for item in data['tables'].values()):
                 raise ValueError('Fixture must populate all 13 tables')
             for database in (target, upgrade):
-                for test in ('fact_history.sql', 'normalized_entities.sql', 'write_gates.sql', 'workspace_commands.sql', 'application_commands.sql', 'profile_commands.sql', 'version_commands.sql', 'projection_parity.sql', 'canonical_workspace.sql'):
+                for test in ('fact_history.sql', 'normalized_entities.sql', 'write_gates.sql', 'workspace_commands.sql', 'application_commands.sql', 'profile_commands.sql', 'version_commands.sql', 'projection_parity.sql', 'canonical_workspace.sql', 'explicit_workspace_writes.sql'):
                     run(['psql', '-X', '-w', '-v', 'ON_ERROR_STOP=1', '-f', str(ROOT / 'supabase/tests' / test)], database)
                 run(parity, database)
             # Same number of rows, changed content: the manifest must detect it.
@@ -102,7 +126,7 @@ def main():
                                     stderr=subprocess.DEVNULL, timeout=180)
             if result.returncode != 1:
                 raise ValueError('Expected parity mismatch detection')
-        print('PASS: synthetic PostgreSQL dump/restore, 13 populated tables, 9 SQL suites on restored/populated-upgrade databases, unchanged migration row hashes, rejected dirty preflight, projection parity and corruption detection.')
+        print('PASS: synthetic PostgreSQL dump/restore, 13 populated tables, 10 SQL suites on restored/populated-upgrade databases, unchanged migration row hashes, rejected dirty preflight and late migration rollback, projection parity and corruption detection.')
     except (OSError, ValueError, subprocess.SubprocessError):
         print('FAIL: local restore drill failed; no credentials or row data printed.', file=sys.stderr)
         failed = True

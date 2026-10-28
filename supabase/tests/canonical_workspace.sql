@@ -78,16 +78,18 @@ select public.apply_workspace_command(0,'{"action":"import","text":"Healthy owne
 reset role;
 select set_config('request.jwt.claims',jsonb_build_object('sub',a,'session_id',sa)::text,true) from qa_canonical;
 do $$begin perform private.project_workspace(auth.uid(),(select payload from public.workspaces where user_id=auth.uid()));end;$$;
--- Prove history compares normalized old facts, not OLD.payload. These are administrative fixtures.
+-- Raw administrative SQL no longer has history/projection side effects.
 do $$declare s jsonb;n bigint;begin
  select count(*) into n from public.fact_history where user_id=auth.uid();
  update public.profile_facts set text='Canonical SQL' where user_id=auth.uid();s:=public.read_workspace();
  update public.workspaces set payload=s-'revision' where user_id=auth.uid();
- if (select count(*) from public.fact_history where user_id=auth.uid())<>n then raise exception 'history read stale payload';end if;
+ if (select count(*) from public.fact_history where user_id=auth.uid())<>n then raise exception 'raw SQL captured history';end if;
  update public.profile_facts set text='Different SQL' where user_id=auth.uid();
  update public.workspaces set payload=payload where user_id=auth.uid();
- if (select count(*) from public.fact_history where user_id=auth.uid())<>n+1
-  or (select text from public.profile_facts where user_id=auth.uid())<>'Canonical SQL' then raise exception 'canonical history/projection comparison skipped';end if;
+ if (select count(*) from public.fact_history where user_id=auth.uid())<>n
+  or (select text from public.profile_facts where user_id=auth.uid())<>'Different SQL' then raise exception 'raw SQL triggered synchronization';end if;
+ perform pg_temp.assert_blocked();
+ perform private.project_workspace(auth.uid(),(select payload from public.workspaces where user_id=auth.uid()));
  if (private.workspace_projection_report()->'ok') is distinct from 'true'::jsonb then raise exception 'fixture parity';end if;
 end;$$;
 delete from auth.sessions where id in(select sa from qa_canonical);
@@ -97,4 +99,4 @@ do $$begin
 end;$$;
 reset role;
 rollback;
-select 'PASS: canonical boundary, exact history capture, legacy compatibility, atomic corruption rejection, owner isolation, normalized trigger inputs and private grants' as result;
+select 'PASS: canonical boundary, exact history capture, legacy compatibility, atomic corruption rejection, owner isolation, explicit raw-fixture setup and private grants' as result;
