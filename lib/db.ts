@@ -1,3 +1,4 @@
+import {WorkspaceCommandSchema,type WorkspaceCommand} from './workspace-command';
 import type {MatchMetadata} from './match-config';
 import {z} from 'zod';
 import {WorkspaceSchema} from './workspace-schema';
@@ -32,3 +33,12 @@ export async function saveWorkspace(user:Identity,state:Workspace,revision:numbe
 export async function identity(token:string):Promise<Identity>{if(!token)throw new Error('AUTH');const u=await supabase('/auth/v1/user','GET',undefined,token);const active=await supabase('/rest/v1/rpc/session_is_active','POST',{},token);if(active!==true||!z.string().uuid().safeParse(u?.id).success)throw new Error('AUTH');return {id:u.id,email:u.email,token};}
 
 export async function consumeQuota(user:Identity,bucket:'service'|'import'|'analysis'){const allowed=await supabase('/rest/v1/rpc/consume_quota','POST',{p_bucket:bucket},user.token);if(allowed===false)throw new Error('RATE');if(allowed!==true)throw new UserError('Некорректный ответ сервиса квот',502);}
+
+/** Commands never send the workspace snapshot. The RPC returns its own atomic result. */
+export async function applyWorkspaceCommand(user:Identity,revision:number,command:WorkspaceCommand):Promise<Workspace>{
+ const parsed=WorkspaceCommandSchema.parse(command);
+ const result=await supabase('/rest/v1/rpc/apply_workspace_command','POST',{p_revision:revision,p_command:parsed},user.token);
+ const state=WorkspaceSchema.safeParse(result);
+ if(!state.success||state.data.revision!==revision+1||(state.data.ownerId!==undefined&&state.data.ownerId!==user.id))throw new UserError('Некорректный ответ записи. Обновите данные перед повтором.',502);
+ return state.data;
+}
