@@ -4,6 +4,8 @@ import concurrent.futures
 import hashlib
 import hmac
 import os
+import json
+import selectors
 import subprocess
 import time
 
@@ -36,7 +38,35 @@ def main():
         raise ValueError('Concurrent subject limit failed')
     if query("select count from private.auth_quotas where scope='credentials' and subject='*'") != '20':
         raise ValueError('Global charge failed')
-    print('PASS: Node-compatible HMAC, 20 real connections, exactly 10 allowed / 10 denied; no Auth calls.')
+    metrics = query("select allowed::text||':'||denied_subject::text||':'||denied_global::text from private.auth_quota_outcomes where scope='credentials'")
+    if metrics != '10:10:0':
+        raise ValueError('Concurrent metrics failed')
+    # Maintenance must skip an expired row locked by another transaction.
+    bucket = int(time.time() // 60) - 1500
+    query(f"insert into private.auth_quotas values('mail',repeat('c',64),{bucket},1),('mail',repeat('d',64),{bucket},1)")
+    locker = subprocess.Popen(['psql', '-X', '-w', '-qAt', '-v', 'ON_ERROR_STOP=1'],
+                              stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                              stderr=subprocess.DEVNULL, text=True)
+    try:
+        locker.stdin.write(f"begin;select 1 from private.auth_quotas where scope='mail' and subject=repeat('c',64) for update;\n")
+        locker.stdin.flush()
+        with selectors.DefaultSelector() as selector:
+            selector.register(locker.stdout, selectors.EVENT_READ)
+            if not selector.select(5) or locker.stdout.readline().strip() != '1':
+                raise ValueError('Lock fixture unavailable')
+        result = json.loads(query('select private.purge_auth_quotas(2)'))
+        if result['deleted_counters'] != 1:
+            raise ValueError('Purge did not skip locked expired row')
+        if query(f"select count(*) from private.auth_quotas where bucket={bucket}") != '1':
+            raise ValueError('Locked fixture unexpectedly removed')
+        locker.communicate('rollback;\n', timeout=5)
+        if json.loads(query('select private.purge_auth_quotas(2)'))['deleted_counters'] != 1:
+            raise ValueError('Unlocked expired row not purged')
+    finally:
+        if locker.poll() is None:
+            locker.kill()
+        locker.wait()
+    print('PASS: SKIP LOCKED purge, atomic aggregate outcomes; Node-compatible HMAC, 20 real connections, exactly 10 allowed / 10 denied; no Auth calls.')
 
 
 if __name__ == '__main__':

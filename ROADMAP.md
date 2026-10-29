@@ -285,3 +285,9 @@
 - Режим required отказывает до Auth при недоступности/подмене квоты, без retry/fallback. Default local сохраняет совместимость и не называется распределённой защитой.
 - RLS/no grants на private config/counters; narrow RPC доступен anon/authenticated только с серверной подписью. Миграция не содержит ключа. Нужна отдельно разрешённая provisioning/приёмка/активация.
 - WAF/доверенный ingress/direct provider Auth, key rotation, purge/monitoring, hosting/privacy и эксплуатационная приёмка остаются открытыми. Контракт docs/CENTRAL_AUTH_QUOTA.md.
+
+
+## Операционные инструменты квот — зависимая ветка, 29 октября 2026
+- Агрегированные исходы signed quota RPC пишутся атомарно без identity/signature/key, включая subject/global denial. Ошибка метрики откатывает charge и закрывает Auth gate.
+- Private admin status за 60 минут и bounded expired-only SKIP LOCKED purge, без public API/client grants; CLI требует отдельные approvals и проверяет COMMIT/строгий report без DB diagnostics.
+- Production scheduler/мониторинг/alerts/retention и provider-copy/load/security приёмка остаются отдельными задачами. docs/AUTH_QUOTA_OPERATIONS.md.
