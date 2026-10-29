@@ -248,3 +248,10 @@
 - Кандидат не закрывает live email acceptance, restore копии провайдера, решение оператора о данных и полный живой сценарий финального Vercel-релиза. 100% публичную готовность не заявляем.
 
 - Первый application CI run 40837901259 прошёл lint/types/402 unit/build, но остановился до browser tests: ubuntu-latest разрешился в Ubuntu 26.04, не поддерживаемую установленным Playwright 1.58.2. Runner закреплён на ubuntu-24.04; результат повторного прогона смотреть в checks PR #15. Это ошибка окружения CI, не успешный браузерный прогон.
+
+
+## Централизованные pre-auth квоты — 29 октября 2026
+- Свежий main 38117e007909d13cc87a73e3efe488a6c134aba9, планы/приёмка/ROADMAP/VERIFICATION и открытые PR #4–16 прочитаны. Ветка feat/central-auth-quota-20261029 создана поверх актуального PR #15 d47613f4d724d15efceb6c02f20395d216a8708f, чтобы покрыть новый resend. Независимая цепочка PR #4–14/#16 не объединяется. PR #1/#2 остаются отмеченными по отдельному разрешению.
+- Реализованы signed HMAC quota client/RPC, пять scopes, shared mail budget, bounded minute counters/lazy expiry, RLS/private configuration и public EXECUTE только с проверкой подписи. Ключа в миграции нет; production/данные/настройки SMTP не менялись, письма не отправлялись.
+- Локальные unit/route tests проверяют signed payload без raw identity, fail-closed/no retry, отсутствие Auth/cookies при denial, shared normalized mail identity, порядок credentials/mail/signup и Origin/consent/config gates. Первый signup fixture имел неверную форму вложенного user; исправлен на действующий raw provider contract. Финальные результаты ниже.
+- Native PostgreSQL 17 CI подготовлен для clean/incremental схемы с synthetic seed, forged/missing/stale signature/grants/RLS/limits/expiry/fault rollback и 20 параллельных соединений; локального PostgreSQL нет, SQL результат до CI не заявляется. Это не provider-copy/restore/SMTP/WAF/load приёмка.

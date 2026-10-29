@@ -1,0 +1,64 @@
+name: Central pre-auth quota (synthetic PostgreSQL)
+on:
+  pull_request:
+    paths:
+      - 'lib/auth-quota.ts'
+      - 'app/api/**'
+      - 'supabase/**'
+      - 'scripts/auth_quota_concurrency.py'
+      - '.github/workflows/auth-quota.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  postgres:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: synthetic-only
+        ports: ['5432:5432']
+        options: --health-cmd pg_isready --health-interval 5s --health-retries 10
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: '5432'
+      PGUSER: postgres
+      PGPASSWORD: synthetic-only
+      JOBMATCH_LOCAL_AUTH_QUOTA_TEST: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+      - name: Create disposable roles and databases
+        run: |
+          psql -v ON_ERROR_STOP=1 -c 'create role anon; create role authenticated;'
+          createdb quota_clean
+          createdb quota_upgrade
+          psql -v ON_ERROR_STOP=1 -d quota_clean -c 'create schema private;'
+          psql -v ON_ERROR_STOP=1 -d quota_clean -f supabase/migrations/20261029080555_central_auth_quota.sql
+          psql -v ON_ERROR_STOP=1 -d quota_clean -f supabase/tests/auth_quota.sql
+          psql -v ON_ERROR_STOP=1 -d quota_upgrade -f scripts/restore_fixture.sql
+          sed '/^-- Opt-in server-signed pre-auth quota/,$d' supabase/schema.sql > /tmp/quota-baseline.sql
+          psql -v ON_ERROR_STOP=1 -d quota_upgrade -f /tmp/quota-baseline.sql
+          psql -v ON_ERROR_STOP=1 -d quota_upgrade -f scripts/restore_seed.sql
+          psql -v ON_ERROR_STOP=1 -d quota_upgrade -f supabase/migrations/20261029080555_central_auth_quota.sql
+          psql -v ON_ERROR_STOP=1 -d quota_upgrade -f supabase/tests/auth_quota.sql
+      - name: Concurrent signed quota (retry only minute-boundary fixture preflight)
+        run: |
+          for attempt in 1 2 3; do
+            # Use fresh databases: never erase or reuse user data.
+            createdb quota_parallel_$attempt
+            psql -v ON_ERROR_STOP=1 -d quota_parallel_$attempt -c 'create schema private;'
+            psql -v ON_ERROR_STOP=1 -d quota_parallel_$attempt -f supabase/migrations/20261029080555_central_auth_quota.sql
+            if [ "$(date +%S)" -gt 45 ]; then sleep 16; fi
+            PGDATABASE=quota_parallel_$attempt python3 scripts/auth_quota_concurrency.py && break
+            exit 1
+          done
+      - name: Clean synthetic databases
+        if: always()
+        run: |
+          for db in quota_clean quota_upgrade quota_parallel_1 quota_parallel_2 quota_parallel_3; do
+            dropdb --if-exists --force "$db"
+          done

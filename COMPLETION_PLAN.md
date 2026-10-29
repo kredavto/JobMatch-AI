@@ -28,6 +28,8 @@
 
 ## 4. Надёжность и безопасность
 - [ ] Централизованный anti-abuse для публичной авторизации, WAF, защита от скомпрометированных паролей при поддержке тарифа.
+  - [x] Подготовлен opt-in signed PostgreSQL RPC с общими global/subject квотами для credentials/mail/refresh/exchange/update; HMAC вместо raw email/token, fail-closed до Auth, RLS/grants и concurrency suite. Контракт docs/CENTRAL_AUTH_QUOTA.md; SQL CI ещё ожидается, production не включён.
+  - [ ] Provider-copy/PostgREST/роль/advisors/key provisioning/rotation/purge и live приёмка; доверенный ingress/WAF, direct Supabase Auth protection и настройка защиты паролей остаются открытыми.
 - [ ] Изолированный parser/OCR worker с жёсткими CPU/RAM/time limits, карантин/сканирование и безопасным возвратом текста на подтверждение.
 - [ ] Завершить переход с дублирующего JSON snapshot на команды сущностей, с планом совместимости/отката и SQL-тестами.
   - [x] В отдельной ветке реализованы команды goal/vacancy/verify: компактный payload, единая блокировка с legacy writers, атомарный ответ и SQL-suite. Рабочая БД не мигрирована; merge/публикация этого изменения не выполнены.
