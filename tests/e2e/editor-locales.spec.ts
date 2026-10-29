@@ -2,6 +2,7 @@ import {test,expect,type Page} from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import {match,parseVacancy,propose,renderVersion} from '../../lib/engine';
 import {editorCopy} from '../../lib/i18n/editor';
+import {versionsCopy} from '../../lib/i18n/versions';
 import {ru,en} from '../../lib/i18n';
 import {build,stop} from 'esbuild';
 import {createServer,type Server} from 'node:http';
@@ -46,8 +47,8 @@ for(const locale of ['ru','en'] as const)test(locale+' editor keeps quotes, choi
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
   const screenshot=await panel.screenshot({path:'test-results/editor-en-mobile.png'});console.log('JOBMATCH_SYNTHETIC_EDITOR_PNG '+screenshot.toString('base64'));
  }
- await panel.getByRole('button',{name:t.save,exact:true}).click();await expect(page.getByRole('heading',{name:'История резюме',exact:true})).toBeVisible();
- const downloaded=page.waitForEvent('download');await page.getByRole('button',{name:'Скачать JSON + evidence',exact:true}).click();const download=await downloaded,path=await download.path();expect(path).toBeTruthy();expect(JSON.parse(await readFile(path!,'utf8'))).toEqual(version());expect(versions).toBe(1);expect(analyses).toBe(1);expect(reads).toBe(1);
+ await panel.getByRole('button',{name:t.save,exact:true}).click();await expect(page.getByRole('heading',{name:versionsCopy[locale].historyTitle,exact:true})).toBeVisible();
+ const downloaded=page.waitForEvent('download');await page.getByRole('button',{name:versionsCopy[locale].json,exact:true}).click();const download=await downloaded,path=await download.path();expect(path).toBeTruthy();expect(JSON.parse(await readFile(path!,'utf8'))).toEqual(version());expect(versions).toBe(1);expect(analyses).toBe(1);expect(reads).toBe(1);
 });
 test('unsaved sources block analysis and version selection without losing saved context or chosen edits',async({page})=>{
  let analyses=0,writes=0;
