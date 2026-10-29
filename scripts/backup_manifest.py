@@ -16,6 +16,7 @@ TABLES = (
     'public.audit_log', 'public.consent_records', 'private.request_quotas',
 )
 
+STRUCTURED_TABLES = TABLES + ('public.structured_profiles', 'public.structured_profile_entries')
 
 def fingerprint(lines):
     digest = hashlib.sha256()
@@ -27,7 +28,10 @@ def fingerprint(lines):
     return {'rows': count, 'sha256': digest.hexdigest()}
 
 
-def snapshot(output, logical_workspaces=False):
+def snapshot(output, logical_workspaces=False, include_structured=False):
+    if logical_workspaces and include_structured:
+        raise ValueError('Structured snapshot requires physical full-schema mode')
+    selected_tables = STRUCTURED_TABLES if include_structured else TABLES
     # Use standard PG* environment / PGSERVICE and .pgpass. Never place passwords
     # in command-line arguments or echo database errors (which can contain PII).
     statements = ['BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY;',
@@ -35,7 +39,7 @@ def snapshot(output, logical_workspaces=False):
                   "SET LOCAL timezone = 'UTC';", "SET LOCAL row_security = off;",
                   "SET LOCAL client_encoding = 'UTF8';", "SET LOCAL DateStyle = 'ISO, YMD';",
                   "SET LOCAL bytea_output = 'hex';"]
-    for table in TABLES:
+    for table in selected_tables:
         statements.append(f"SELECT 'JOBMATCH_TABLE:{table}';")
         source = table
         if logical_workspaces and table == 'public.workspaces':
@@ -66,7 +70,7 @@ def snapshot(output, logical_workspaces=False):
                 if current is not None:
                     tables[current] = {'rows': count, 'sha256': digest.hexdigest()}
                 name = line.decode().strip().split(':', 1)[1]
-                expected = TABLES[len(tables)] if len(tables) < len(TABLES) else None
+                expected = selected_tables[len(tables)] if len(tables) < len(selected_tables) else None
                 if name != expected:
                     raise ValueError('Unexpected or duplicate table')
                 current = name
@@ -79,9 +83,9 @@ def snapshot(output, logical_workspaces=False):
                 raise ValueError('Unexpected database output')
         if current is not None:
             tables[current] = {'rows': count, 'sha256': digest.hexdigest()}
-        if process.wait() != 0 or not complete or set(tables) != set(TABLES):
+        if process.wait() != 0 or not complete or set(tables) != set(selected_tables):
             raise ValueError('Database snapshot failed; check connection, privileges and schema locally')
-        report = {'format': 'jobmatch-backup-logical-v2' if logical_workspaces else 'jobmatch-backup-manifest-v1',
+        report = {'format': 'jobmatch-backup-structured-v3' if include_structured else 'jobmatch-backup-logical-v2' if logical_workspaces else 'jobmatch-backup-manifest-v1',
                   'created_at': datetime.now(timezone.utc).isoformat(), 'tables': tables}
         # Publish a complete file atomically, without overwriting a baseline.
         destination = os.path.abspath(output)
@@ -111,7 +115,7 @@ def compare(baseline, restored):
     for manifest in (baseline, restored):
         if not isinstance(manifest, dict) or not isinstance(manifest.get('tables'), dict):
             raise ValueError('Invalid manifest')
-        if manifest.get('format') not in ('jobmatch-backup-manifest-v1', 'jobmatch-backup-logical-v2') or set(manifest.get('tables', {})) != set(TABLES):
+        if manifest.get('format') not in ('jobmatch-backup-manifest-v1', 'jobmatch-backup-logical-v2', 'jobmatch-backup-structured-v3') or set(manifest.get('tables', {})) != set(STRUCTURED_TABLES if manifest.get('format') == 'jobmatch-backup-structured-v3' else TABLES):
             raise ValueError('Invalid or incomplete manifest')
         for item in manifest['tables'].values():
             if not isinstance(item, dict):
@@ -122,7 +126,7 @@ def compare(baseline, restored):
                 raise ValueError('Invalid table fingerprint')
     if baseline['format'] != restored['format']:
         raise ValueError('Incompatible manifest formats')
-    return [table for table in TABLES if baseline['tables'][table] != restored['tables'][table]]
+    return [table for table in baseline['tables'] if baseline['tables'][table] != restored['tables'][table]]
 
 
 def main():
@@ -131,13 +135,14 @@ def main():
     create = commands.add_parser('snapshot')
     create.add_argument('output')
     create.add_argument('--logical-workspaces', action='store_true')
+    create.add_argument('--include-structured', action='store_true')
     check = commands.add_parser('compare')
     check.add_argument('baseline')
     check.add_argument('restored')
     args = parser.parse_args()
     try:
         if args.command == 'snapshot':
-            snapshot(args.output, args.logical_workspaces)
+            snapshot(args.output, args.logical_workspaces, args.include_structured)
             print('Manifest created; no database rows saved.')
         else:
             with open(args.baseline) as handle:
@@ -148,7 +153,7 @@ def main():
             if differences:
                 print('FAIL: differing tables: ' + ', '.join(differences))
                 return 1
-            print('PASS: all 13 table fingerprints match. Schema/RLS and Auth delivery still require separate checks.')
+            print(f"PASS: all {len(baseline['tables'])} table fingerprints match. Schema/RLS and Auth delivery still require separate checks.")
     except (OSError, ValueError):
         print('FAIL: cannot complete verification. Check local inputs, PostgreSQL client, connection, privileges and schema.', file=sys.stderr)
         return 2

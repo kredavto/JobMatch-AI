@@ -1,0 +1,94 @@
+name: Structured profile acceptance
+on:
+  pull_request:
+    paths:
+      - 'app/**'
+      - 'lib/**'
+      - 'tests/**'
+      - 'supabase/**'
+      - 'scripts/**'
+      - 'package*.json'
+      - '.github/workflows/structured-profile.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  postgres:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    container: postgres:17
+    services:
+      postgres:
+        image: postgres:17
+        env: {POSTGRES_PASSWORD: synthetic-only}
+        options: --health-cmd pg_isready --health-interval 5s --health-retries 10
+    env:
+      PGHOST: postgres
+      PGUSER: postgres
+      PGPASSWORD: synthetic-only
+    steps:
+      - uses: actions/checkout@v4
+      - run: apt-get update && apt-get install -y python3
+      - name: Test full and populated incremental schemas
+        run: |
+          psql -v ON_ERROR_STOP=1 -c 'create role anon; create role authenticated;'
+          createdb structured_full
+          createdb structured_upgrade
+          createdb structured_restore
+          psql -v ON_ERROR_STOP=1 -d structured_full -f scripts/restore_fixture.sql
+          psql -v ON_ERROR_STOP=1 -d structured_full -f supabase/schema.sql
+          psql -v ON_ERROR_STOP=1 -d structured_full -f scripts/restore_seed.sql
+          psql -v ON_ERROR_STOP=1 -d structured_full -f supabase/tests/structured_profile.sql
+          sed '/^-- Independent derived profile/,$d' supabase/schema.sql > /tmp/baseline.sql
+          psql -v ON_ERROR_STOP=1 -d structured_upgrade -f scripts/restore_fixture.sql
+          psql -v ON_ERROR_STOP=1 -d structured_upgrade -f /tmp/baseline.sql
+          psql -v ON_ERROR_STOP=1 -d structured_upgrade -f scripts/restore_seed.sql
+          psql -v ON_ERROR_STOP=1 -d structured_upgrade -f supabase/migrations/20261029084434_structured_profile.sql
+          psql -v ON_ERROR_STOP=1 -d structured_upgrade -f supabase/tests/structured_profile.sql
+      - name: Concurrent profile writers
+        env: {JOBMATCH_LOCAL_STRUCTURED_TEST: '1', PGDATABASE: structured_upgrade}
+        run: python3 scripts/structured_profile_concurrency.py
+      - name: Verify fifteen populated table fingerprints and restored profile
+        run: |
+          psql -v ON_ERROR_STOP=1 -d structured_full -f scripts/structured_profile_seed.sql
+          PGDATABASE=structured_full python3 scripts/backup_manifest.py snapshot /tmp/structured-before.json --include-structured
+          python3 -c "import json; d=json.load(open('/tmp/structured-before.json')); assert len(d['tables'])==15 and all(v['rows']>0 for v in d['tables'].values())"
+          pg_dump -Fc -d structured_full -f /tmp/structured.dump
+          pg_restore --exit-on-error -d structured_restore /tmp/structured.dump
+          PGDATABASE=structured_restore python3 scripts/backup_manifest.py snapshot /tmp/structured-after.json --include-structured
+          python3 scripts/backup_manifest.py compare /tmp/structured-before.json /tmp/structured-after.json
+          psql -v ON_ERROR_STOP=1 -d structured_restore -f supabase/tests/structured_profile.sql
+          psql -v ON_ERROR_STOP=1 -d structured_restore -c "update public.structured_profile_entries set fields=jsonb_set(fields,'{title,quote}','\"Changed\"')"
+          PGDATABASE=structured_restore python3 scripts/backup_manifest.py snapshot /tmp/structured-changed.json --include-structured
+          set +e
+          python3 scripts/backup_manifest.py compare /tmp/structured-before.json /tmp/structured-changed.json
+          result=$?
+          set -e
+          test "$result" -eq 1
+      - name: Cleanup synthetic databases
+        if: always()
+        run: |
+          dropdb --if-exists --force structured_full
+          dropdb --if-exists --force structured_upgrade
+          dropdb --if-exists --force structured_restore
+  app:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '24', cache: npm}
+      - run: npm ci --ignore-scripts
+      - run: npm test
+      - run: python3 -m unittest discover -s scripts -p 'test_*.py'
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - name: Production browser regression (synthetic requests)
+        run: |
+          npm start >/tmp/structured-app.log 2>&1 &
+          server=$!
+          trap 'kill "$server" || true' EXIT
+          for attempt in $(seq 1 60); do curl -fsS http://127.0.0.1:3000/ >/dev/null && break || sleep 1; done
+          npm run test:e2e

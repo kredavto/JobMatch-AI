@@ -23,5 +23,5 @@ export async function personalExport(user:Identity){
  if(!consent.success)throw new UserError('Некорректный ответ экспорта. Повторите скачивание.',502);
  const latest=await readWorkspace(user);
  if(latest.revision!==workspace.revision)throw new Error('CONFLICT');
- return ExportSchema.parse({format:'jobmatch-personal-data-v1',complete:true,scope:'workspace-audit-consent',exported_at:cutoff,fact_history_export:'/api/fact-history?export=1',user:{id:user.id,...(user.email?{email:user.email}:{})},workspace,audit,consent:consent.data});
+ return ExportSchema.parse({format:'jobmatch-personal-data-v1',complete:true,scope:'workspace-audit-consent',exported_at:cutoff,fact_history_export:'/api/fact-history?export=1',structured_profile_export:'/api/structured-profile?export=1',user:{id:user.id,...(user.email?{email:user.email}:{})},workspace,audit,consent:consent.data});
 }

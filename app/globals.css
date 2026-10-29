@@ -10,3 +10,5 @@ mark{background:#d9f2e8;color:#174b3f;padding:2px 0}
 
 .table-wrap:focus-visible{outline:3px solid #0a8c85;outline-offset:3px}
 .version-diff{max-height:650px;overflow:auto;margin-top:16px}.version-diff>div{padding:8px 12px;border-bottom:1px solid #d7e2e8}.version-diff pre{margin:0}.diff-label{font-size:11px;font-weight:600}.diff-added{background:#e7f6ef;color:#155238}.diff-removed{background:#fff0ee;color:#842b25}.diff-same{background:#f7f9fb;color:#344759}
+
+.structured-entry{border-top:1px solid #d7e2e8;padding:16px 0}.structured-entry dd{margin:0 0 12px;overflow-wrap:anywhere}.structured-entry dt{font-weight:600}fieldset{min-width:0}fieldset dd{overflow-wrap:anywhere}
