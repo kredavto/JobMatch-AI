@@ -28,3 +28,6 @@ Typed RU/EN copy for source-backed profile/literal versions/saved tasks, semanti
 
 ## Authentication shell and mail forms
 `workspace-shell.ts` and `mail.ts` prepare typed RU/EN shell/sign-in/reauth/comparison/confirmation/recovery copy. Forms keep semantic feedback/status+stage, preserve fields/cooldown across locale changes and ignore late UI responses after unmount; recovery has a synchronous pending guard. This does not cancel an already submitted provider action or prove SMTP delivery/session revocation. Default production wrappers remain RU. See docs/AUTH_SHELL_LOCALIZATION.md for actual-component fixture scope, Next Link context limits and open global/bilingual/live gates.
+
+## Overview and vacancy
+Typed RU/EN overview/vacancy components preserve canonical commands, source text and Russian demo/example data. Demo guards cover saved facts and unsaved sources; late import/demo/fact replies preserve newer source drafts, and a late demo does not override later navigation. Vacancy ID/result state is local, resets on edit and makes no hh.ru request; example selection is draft-only. Production remains RU. See docs/OVERVIEW_VACANCY_LOCALIZATION.md for evidence and remaining bilingual/live gates.
