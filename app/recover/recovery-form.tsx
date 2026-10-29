@@ -1,7 +1,8 @@
 'use client';
 import {useEffect,useState} from 'react';
 import Link from 'next/link';
-import {requestJson} from '../../lib/client-api';
+import {requestJson,RequestError} from '../../lib/client-api';
+import {mailFailure} from '../../lib/mail-feedback';
 import {z} from 'zod';
 export default function RecoveryForm({initialCode,invalid}:{initialCode:string;invalid:boolean}){
  const [code,setCode]=useState(initialCode),[stage,setStage]=useState<'request'|'exchange'|'update'|'done'>(initialCode?'exchange':'request');
@@ -17,7 +18,7 @@ export default function RecoveryForm({initialCode,invalid}:{initialCode:string;i
    if(stage==='request')setNotice('Если для адреса доступно восстановление, придет письмо. Проверьте «Спам» и откройте последнюю ссылку в этом же браузере в течение 10 минут.');
    if(stage==='exchange'){setCode('');setStage('update');}
    if(stage==='update'){setStage('done');setNotice(ack.sessionsRevoked===true?'Пароль изменён. Войдите с новым паролем.':'Пароль изменён, но завершение остальных сессий не подтверждено. Войдите и выполните выход из приложения для повторной попытки завершить сессии.');}
-  }catch{setError('Не удалось завершить действие. Возможно, ссылка истекла, превышен лимит запросов или сервис недоступен. После ошибки сохранения сначала попробуйте войти с новым паролем.');}
+  }catch(error){setError(mailFailure(error instanceof RequestError?error.status:502,stage));}
   finally{setPassword('');setRepeat('');setBusy(false);}
  }
  return <section className="card"><h1>Восстановление доступа</h1><p>Пароль меняется только после проверки ссылки из письма. Старый пароль не нужен.</p><form onSubmit={event=>{event.preventDefault();void submit();}}>
@@ -27,5 +28,5 @@ export default function RecoveryForm({initialCode,invalid}:{initialCode:string;i
  {error&&<p role="alert" className="error">{error}</p>}{notice&&<p role="status" className="notice">{notice}</p>}
  {stage!=='done'&&<button className="primary" disabled={busy}>{busy?'Обрабатываем…':stage==='request'?'Получить письмо':stage==='exchange'?'Проверить ссылку':'Сохранить новый пароль'}</button>}
  {stage!=='request'&&stage!=='done'&&<button type="button" disabled={busy} onClick={()=>{setCode('');setPassword('');setRepeat('');setError('');setStage('request');}}>Запросить новую ссылку</button>}
- </form><p><Link href="/">Вернуться ко входу</Link></p></section>;
+ </form><p><Link href="/">Вернуться ко входу</Link></p><p><Link href="/confirm-email">Не пришло письмо подтверждения регистрации?</Link></p></section>;
 }

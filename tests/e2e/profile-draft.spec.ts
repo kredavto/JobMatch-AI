@@ -1,0 +1,7 @@
+import {test,expect} from '@playwright/test';
+test('successful fact response preserves the next draft in the real workspace page',async({page})=>{
+ const ownerId='11111111-1111-4111-8111-111111111111',initial={ownerId,revision:1,goal:'',original:'SQL',vacancy:'',facts:[],versions:[],applications:[]};
+ let release!:()=>void;const held=new Promise<void>(resolve=>{release=resolve;});let writes=0;
+ await page.route('**/api/service',async route=>{if(route.request().method()==='GET')return route.fulfill({json:initial});writes++;expect(route.request().postDataJSON()).toEqual({action:'fact',text:'Первое уточнение',revision:1,expectedOwnerId:ownerId});await held;return route.fulfill({json:{...initial,revision:2,facts:[{id:'new-fact',text:'Первое уточнение',source:'Уточнение',verified:false}]}});});
+ await page.goto('/');await page.getByRole('navigation').getByRole('button',{name:'Мой профиль',exact:true}).click();const input=page.getByRole('textbox',{name:'Уточнение или дополнительный факт',exact:true});await input.fill('Первое уточнение');await page.getByRole('button',{name:'Добавить неподтвержденный факт',exact:true}).click();await expect.poll(()=>writes).toBe(1);await input.fill('Следующее уточнение');release();await expect(page.getByRole('status')).toHaveText('Сохранено');await expect(input).toHaveValue('Следующее уточнение');await expect(page.getByRole('checkbox',{name:/Первое уточнение/})).not.toBeChecked();expect(writes).toBe(1);
+});

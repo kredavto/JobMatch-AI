@@ -118,9 +118,5 @@ jobs:
       - run: npm run build
       - run: npx playwright install --with-deps chromium
       - name: Production browser regression (synthetic requests)
-        run: |
-          npm start >/tmp/structured-app.log 2>&1 &
-          server=$!
-          trap 'kill "$server" || true' EXIT
-          for attempt in $(seq 1 60); do curl -fsS http://127.0.0.1:3000/ >/dev/null && break || sleep 1; done
-          npm run test:e2e
+        # CI webServer in playwright.config.ts owns server startup/readiness/cleanup.
+        run: npm run test:e2e
