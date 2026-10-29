@@ -15,8 +15,8 @@ do $$declare n integer;result jsonb;item jsonb;active_count integer;begin
  if result::text like '%'||repeat('a',64)||'%' or result::text like '%'||repeat('b',64)||'%' or not(result->>'config_present')::boolean then raise exception 'PRIVATE_DATA';end if;
  if jsonb_array_length(result->'scopes')<>5 then raise exception 'SCOPE_COMPLETENESS';end if;
  -- Purge touches at most one expired row of each table; boundary/active rows stay.
- insert into private.auth_quotas select 'mail',repeat('e',63)||n::text,floor(extract(epoch from statement_timestamp())/60)-1440-n,1 from generate_series(1,3) n;
- insert into private.auth_quota_outcomes select 'mail',floor(extract(epoch from statement_timestamp())/60)-1440-n,1,0,0 from generate_series(1,3) n;
+ insert into private.auth_quotas select 'mail',repeat('e',63)||g.i::text,floor(extract(epoch from statement_timestamp())/60)-1440-g.i,1 from generate_series(1,3) g(i);
+ insert into private.auth_quota_outcomes select 'mail',floor(extract(epoch from statement_timestamp())/60)-1440-g.i,1,0,0 from generate_series(1,3) g(i);
  insert into private.auth_quotas values('mail',repeat('d',64),floor(extract(epoch from statement_timestamp())/60)-1440,1);
  active_count:=(select count(*) from private.auth_quotas where bucket>=floor(extract(epoch from statement_timestamp())/60)-1440);
  if private.purge_auth_quotas(1)<>jsonb_build_object('version',1,'deleted_counters',1,'deleted_outcomes',1) then raise exception 'BOUNDED_PURGE';end if;
