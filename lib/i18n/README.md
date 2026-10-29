@@ -37,3 +37,6 @@ Typed RU/EN overview/vacancy components preserve canonical commands, source text
 
 ## Ordinary version history and exports
 Typed RU/EN copy covers ordinary version history/comparison, historical score metadata and DOCX feedback. Explicit instants display in UTC; legacy date-only or offset-less values retain their recorded precision with an explicit warning rather than acquiring a device time zone. Locale changes preserve comparison IDs and pending downloads; owner/version changes reset and abort only the old read. Source text/snapshots/metadata/TXT/JSON/DOCX content and canonical restore commands stay unchanged. Production remains RU. See docs/VERSION_HISTORY_LOCALIZATION.md for fixture/CI evidence and remaining global/live gates.
+
+## AI review presentation
+Typed RU/EN AI-review copy stores semantic errors without rendering response/exception messages. Locale changes preserve consent, pending request and validated result; owner/revision changes invalidate them and abort the old request. Exact-citation/eligible-fact/envelope validation is unchanged and does not establish semantic correctness. Production remains RU and the model remains off by default. See docs/AI_REVIEW_LOCALIZATION.md; own-model live evaluation and operator approvals remain open.
