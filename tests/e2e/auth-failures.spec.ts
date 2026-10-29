@@ -41,3 +41,13 @@ test('refresh during draft reload binds original owner and offers reauthenticati
  await page.route('**/api/service',r=>{if(r.request().method()==='GET')return r.fulfill({status:expired?401:200,json:expired?{error:'Войдите'}:{...workspace,ownerId:owner}});const b=r.request().postDataJSON();if(b.action==='refresh'){expect(b.expectedOwnerId).toBe(owner);refreshes++;return r.fulfill({status:409,json:{error:'Другой аккаунт'}});}expired=true;return r.fulfill({status:409,json:{error:'Обновите данные'}});});
  await page.goto('/');await page.getByRole('navigation').getByRole('button',{name:'Мой профиль',exact:true}).click();const draft=page.getByLabel('Проверьте текст после импорта');await draft.fill('Открытый черновик');await page.getByRole('button',{name:'Сохранить мастер-профиль'}).click();await page.getByRole('button',{name:'Загрузить актуальные данные'}).click();await expect(page.getByRole('heading',{name:'Восстановить вход'})).toBeVisible();await expect(draft).toHaveValue('Открытый черновик');expect(refreshes).toBe(1);
 });
+test('signup confirmation is opaque and guides an existing account back to login',async({page})=>{
+ let signups=0;await page.route('**/api/service',route=>{
+  if(route.request().method()==='GET')return route.fulfill({status:401,json:{error:'Войдите'}});
+  const action=route.request().postDataJSON().action;
+  if(action==='register'){signups++;return route.fulfill({json:{confirmationRequired:true}});}
+  return route.fulfill({status:401,json:{error:'Войдите'}});
+ });
+ await page.goto('/');await page.getByLabel('Электронная почта').fill('existing@example.test');await page.getByLabel('Пароль · минимум 12 символов').fill('fixture-password-123');await page.getByRole('checkbox').check();await page.locator('form button.primary').click();
+ await expect(page.getByRole('status')).toContainText('Если аккаунт уже создан, войдите с прежним паролем');await expect(page.getByRole('status')).toContainText('Повторная регистрация не меняет пароль');expect(signups).toBe(1);await expect(page.getByRole('heading',{name:'С возвращением'})).toBeVisible();await expect(page.getByLabel('Пароль · минимум 12 символов')).toHaveValue('');
+});

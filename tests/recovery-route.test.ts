@@ -28,3 +28,5 @@ it('updates authenticated recovery owner then revokes sessions and clears cookie
 });
 it('reports successful password change separately from failed global logout',async()=>{db.identity.mockResolvedValue({id:'owner'});db.supabase.mockResolvedValueOnce({id:'owner'}).mockRejectedValueOnce(new Error('secret'));const r=await POST(req({action:'update',password:'new-password-123'},'jm_recovery_access=recovery'));expect(await r.json()).toEqual({ok:true,sessionsRevoked:false});});
 it('never reflects provider secrets',async()=>{db.supabase.mockRejectedValue(new Error('private-token'));const r=await POST(req({action:'exchange',code:'fixture'},'jm_recovery_verifier='+verifier));expect(r.status).toBe(500);expect(JSON.stringify(await r.json())).not.toContain('private-token');});
+
+it('refuses cross-domain recovery before issuing a verifier or email',async()=>{vi.stubEnv('APP_URL','https://canonical.example');const r=await POST(req({action:'request',email:'alias@example.test'}));expect(r.status).toBe(400);expect(r.headers.get('set-cookie')).toBeNull();expect(db.supabase).not.toHaveBeenCalled();});
