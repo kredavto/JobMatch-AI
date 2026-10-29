@@ -50,3 +50,9 @@ Monitor readiness failures, observed engine/database version/age, resource kills
 For a bad rollout, stop accepting file uploads and restore a reviewed working image/key pairing only if signatures remain fresh. An explicit decision to disable antivirus changes the security boundary; it is not automatic recovery. No persistent malware quarantine, operator document-download endpoint or raw-file retention is implemented. Establish separate access/privacy/retention/deletion policy before adding one.
 
 This runbook prepares an operation; it does not assert that an owned host, keys, refresh schedule, real acceptance or production deployment already exist.
+
+## Required ZIP policy provisioning
+
+The reviewed scanner image now seeds `jobmatch-policy.cdb` into **new** signature volumes. It blocks ZIP member metadata above 4 MiB because the pinned engine may otherwise truncate a member and report clean. This local policy is separate from vendor signatures; it does not establish complete scanning of malformed archives.
+
+An existing named volume is not reseeded when rebuilding an image. Before starting the new scanner, provision the reviewed `worker/scanner/jobmatch-policy.cdb` into that volume through the operator's maintenance procedure with the scanner stopped, retaining vendor databases and FreshClam state. Do not delete the volume or reset updater state. The default scanner command compares the volume rule to the immutable `/etc/clamav/jobmatch-policy.cdb` and exits on absence/mismatch. Preserve this command; overriding it bypasses the startup check. Verify missing/modified-policy refusal and direct boundary scans on the disposable host. Check the rule again after signature maintenance and reviewed image upgrades. Startup equality is not continuous integrity attestation: the signature updater/volume remain trusted components.

@@ -1,6 +1,6 @@
 # Antivirus gate: implementation contract
 
-Status: design only, following PR #12. No scanner, quarantine, deployment or antivirus guarantee is implemented by this document. The existing import path is unchanged.
+Status: opt-in implementation under review in PR #13 and its dependent fix. Basic real-engine CI passed; extended acceptance is pending. Production scanning remains disabled. Historical checkpoints below describe incremental implementation and are superseded by later entries.
 
 ## Placement and verdict
 
@@ -84,3 +84,13 @@ First real-engine attempts refused readiness as designed: ClamAV 1.4.6 was runni
 CI40732876214 SUCCESS on aad433d7f1e2decb235d5460bc7b95031ef270fd: FreshClam completed a real signature update, scanner loaded a fresh database, observer issued a verified signed report, the harmless standard antivirus test string was blocked before parser consumption, clean extraction succeeded and missing observer/scanner denied readiness. Parser/OCR/isolation job also passed. All synthetic resources were removed. This corrects the preceding stale-image readiness failure without weakening age checks.
 
 The next acceptance extension adds actual archive-contained detection, decompressed file limit, encrypted ZIP/PDF rejection, live custom-signature reload and independently restoring observer before testing scanner loss. These extended cases are pending CI and are not claimed from the first success. The reload fixture adds only a synthetic signature rule to the test volume; no real user document is stored there.
+
+## ZIP member policy correction — 29 October 2026
+
+Extended CI [40737521038](https://github.com/kredavto/JobMatch-AI/actions/runs/40737521038) exposed a real gap: a ZIP with a 5,000,000-byte member returned clean from ClamAV, reached the parser and was rejected there. Its HTTP 400 did **not** prove scanner rejection. The parser lifetime assertion caught this failure.
+
+Pinned ClamAV 1.4.6 [`libclamav/unzip.c::unz`](https://github.com/Cisco-Talos/clamav/blob/clamav-1.4.6/libclamav/unzip.c) trims DEFLATE/STORED output to `maxfilesize` without necessarily raising an exceeds-limit alert. `AlertExceedsMax` alone is therefore insufficient for this case. A bundled `jobmatch-policy.cdb` now rejects ZIP member metadata sizes 4,194,305–4,294,967,295 via the engine's container-metadata matcher before extraction. This is a local **policy** detection, not a vendor malware signature or proof of complete scanning. Its CDB range syntax and uncompressed-size field follow the pinned [`readdb.c::cli_loadcdb`](https://github.com/Cisco-Talos/clamav/blob/clamav-1.4.6/libclamav/readdb.c) and [`matcher.c::cli_matchmeta`](https://github.com/Cisco-Talos/clamav/blob/clamav-1.4.6/libclamav/matcher.c).
+
+The rule is seeded into new signature volumes and retained separately in the immutable image. Default scanner startup requires byte equality with the volume copy and refuses missing/changed rules. Existing volumes require explicit policy provisioning before restart; do not silently start without the rule. FreshClam maintains vendor signatures separately. No ZIP library, decompression or filename handling is added to the credential gateway.
+
+Real-engine acceptance now asserts direct clean/blocked results at 4 MiB / 4 MiB+1, nested ZIP rejection, missing-policy startup refusal, and the original assertion that blocked input does not consume the parser. Results must be recorded after CI. This targeted metadata rule does not prove rejection of every malformed/forged-size ZIP, ZIP64 variant, embedded PDF archive, unsupported format or every limit path. Keep isolated parser validation and budgets; broader adversarial and operator acceptance remain open.
