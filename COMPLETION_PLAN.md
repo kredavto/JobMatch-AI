@@ -35,7 +35,7 @@
   - [x] Команды goal/vacancy/verify объединены в main 38117e007909d13cc87a73e3efe488a6c134aba9 через PR #3 по отдельному разрешению владельца. Последующие этапы #4–14 и #16 находятся в независимой review-цепочке; разрешение не переносится на будущие merge/релизы.
   - [ ] Следом: команды import/fact/application/version/restore; затем проверка паритета и отдельная миграция удаления дублирующих массивов. Существующий snapshot остаётся для совместимости и отката.
 - [ ] Резервирование, мониторинг без PII, оповещения, incident response и документированная проверка восстановления.
-  - [x] Подготовлены transactional quota outcomes без идентификаторов, административный 60-минутный aggregate status и bounded SKIP LOCKED purge истёкших counters/outcomes, отдельные CLI approvals/no diagnostic output. Контракт docs/AUTH_QUOTA_OPERATIONS.md; native CI ожидается.
+  - [x] Подготовлены transactional quota outcomes без идентификаторов, административный 60-минутный aggregate status и bounded SKIP LOCKED purge истёкших counters/outcomes, отдельные CLI approvals/no diagnostic output. PR #18: https://github.com/kredavto/JobMatch-AI/pull/18 . Контракт docs/AUTH_QUOTA_OPERATIONS.md; native PostgreSQL 17 CI 40842987788 SUCCESS: clean/incremental/fresh, outcomes/fault rollback, parallel exact counts, held-lock skip/unlock purge и реальный psql CLI. Restore/app CI также SUCCESS; реальные scheduler/alerts не настроены.
   - [ ] Реальные scheduler/collector/пороги/получатели/alert delivery, retention/backup deletion и provider-copy/security/load acceptance ещё не настроены; наличие CLI не выдаётся за действующий мониторинг.
 - [ ] Нагрузочные/негативные проверки и независимый security review перед коммерческой эксплуатацией.
 
