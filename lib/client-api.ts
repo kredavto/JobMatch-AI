@@ -18,6 +18,12 @@ export function errorFromResponse(value:unknown,status:number,locale:ErrorLocale
  if(language==='ru'&&data&&typeof data.error==='string'&&data.error.trim()&&data.error.length<=2000&&!/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(data.error))return new RequestError(data.error,status);
  return new RequestError(clientErrors.CLIENT_REQUEST_FAILED[language],status,'CLIENT_REQUEST_FAILED');
 }
+/** Re-render feedback after a locale change without replaying the request. */
+export function requestErrorMessage(error:RequestError,locale:ErrorLocale='ru'){
+ const language=locale==='en'?'en':'ru',code=error.code;
+ if(typeof code==='string'&&Object.hasOwn(clientErrors,code))return clientErrors[code as ClientErrorCode][language];
+ return errorFromResponse(code?{code}:{error:error.message},error.status,language).message;
+}
 export async function requestJson<T>(url:string,init?:RequestInit,locale:ErrorLocale='ru'):Promise<T>{
  const language=locale==='en'?'en':'ru';let response:Response;
  try{response=await fetch(url,{...init,cache:'no-store',signal:AbortSignal.timeout(30000)});}catch{throw new RequestError(clientErrors.CLIENT_NETWORK_LOST[language],0,'CLIENT_NETWORK_LOST');}

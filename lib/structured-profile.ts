@@ -1,8 +1,6 @@
 import {z} from 'zod';
 export const PROFILE_KINDS=['employment','education','certification','achievement'] as const;
 export const PROFILE_FIELDS=['title','organization','start','end','description','credential'] as const;
-export const profileLabels={employment:'Работа',education:'Образование',certification:'Сертификат',achievement:'Достижение'};
-export const fieldLabels={title:'Должность / программа / название',organization:'Организация',start:'Начало / дата выдачи',end:'Окончание',description:'Описание / достижение',credential:'Номер сертификата'};
 const text=z.string().min(1).refine(value=>value.trim().length>0&&Array.from(value).length<=500);
 export const SourceFieldSchema=z.object({quote:text,start:z.number().int().min(0).max(100000),end:z.number().int().min(1).max(100000)}).strict().refine(value=>value.end>value.start&&value.end-value.start===Array.from(value.quote).length);
 export const ProfileFieldsSchema=z.object({title:SourceFieldSchema.optional(),organization:SourceFieldSchema.optional(),start:SourceFieldSchema.optional(),end:SourceFieldSchema.optional(),description:SourceFieldSchema.optional(),credential:SourceFieldSchema.optional()}).strict();

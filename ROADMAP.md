@@ -355,3 +355,8 @@
 - Стабильные codes/status и RU/EN каталог, additive error/code, безопасная редакция исключений и unknown fallback; все публичные домены и client consumers используют общий контракт. HTTP-based auth/conflict/no-retry и code-less RU совместимость сохраняются. Parser forwarding больше не сравнивает русский текст.
 - Английский UI не включён: полный перевод экранов/дат/offline/context и двуязычная приёмка остаются открытыми. Контракт docs/API_ERROR_CODES.md; ни SMTP/LLM/новые интеграции, ни SQL/production этим этапом не меняются.
 - PR #22: https://github.com/kredavto/JobMatch-AI/pull/22 . CI40859422415 SUCCESS —592 unit,37 Python,79 E2E/2 live SKIP и native PostgreSQL/restore19; evaluator fixture и parser/OCR/ClamAV SUCCESS. Доказательства/ограничения — VERIFICATION.md. Не объединён/не выпущен; полная локализация и live acceptance открыты.
+
+
+## Typed RU/EN structured components — зависимая ветка, 29 октября 2026
+- Source-backed profile/literal versions/tasks: полные typed copy, semantic feedback при смене locale без потери draft/selection/request state и explicit-zone даты с неизменными machine ISO/JSON. Accepted wall time+offset не пересчитывается по IANA; UTC показан отдельно.
+- Production UI остаётся RU. Семь изолированных реальных React component browser cases с synthetic API проверяют RU/EN, неизменность commands/source/hash/export, in-flight locale change и historical zone warning. Это не полный English app acceptance. Frozen literal-v1 output не переводится. Контракт docs/STRUCTURED_UI_LOCALIZATION.md; другие экраны/offline/context и языковая приёмка открыты.
