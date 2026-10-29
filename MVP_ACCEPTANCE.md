@@ -32,3 +32,8 @@ MVP: пользователь вручную импортирует резюме
 - CRUD-команды с отдельной ревизией, owner/session/source workspace lock, история и audit rollback; явное время IANA/local/offset/UTC, DST gap/fold без неявного сдвига. Pending/overdue/completed/cancelled, явное удаление всей истории, постоянный UID/SEQUENCE для ICS.
 - Экспорт задач/истории — пятый файл, NDJSON с проверкой ревизии каждого detail и финального списка; full backup v5/19 таблиц. Контракт docs/SAVED_REMINDERS.md. Это хранение/ручное чтение задач, не scheduler или delivery. Внешняя доставка, реальные календари и live provider приёмка открыты.
 - PR #21: https://github.com/kredavto/JobMatch-AI/pull/21 . CI40856050922 SUCCESS —564 unit,37 Python,75 E2E/2 live SKIP, PostgreSQL/20 concurrent commands/restore19/history corruption. Worker/OCR/ClamAV и legacy restore regression SUCCESS. Доказательства/ограничения — VERIFICATION.md; не объединён/не выпущен, delivery и live acceptance открыты.
+
+
+## Public API error codes — зависимая ветка, 29 октября 2026
+- Стабильные codes/status и RU/EN каталог, additive error/code, безопасная редакция исключений и unknown fallback; все публичные домены и client consumers используют общий контракт. HTTP-based auth/conflict/no-retry и code-less RU совместимость сохраняются. Parser forwarding больше не сравнивает русский текст.
+- Английский UI не включён: полный перевод экранов/дат/offline/context и двуязычная приёмка остаются открытыми. Контракт docs/API_ERROR_CODES.md; ни SMTP/LLM/новые интеграции, ни SQL/production этим этапом не меняются.

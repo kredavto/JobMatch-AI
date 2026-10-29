@@ -1,0 +1,17 @@
+import {it,beforeEach,expect,vi} from 'vitest';
+import {NextRequest} from 'next/server';
+const db=vi.hoisted(()=>({identity:vi.fn(),supabase:vi.fn(),consumeQuota:vi.fn(),readWorkspace:vi.fn(),writeWorkspaceCommand:vi.fn()}));vi.mock('../lib/db',()=>db);
+import {GET as service} from '../app/api/service/route';
+import {GET as structure,POST as structurePost} from '../app/api/structured-profile/route';
+import {GET as versions} from '../app/api/structured-versions/route';
+import {GET as reminders} from '../app/api/reminders/route';
+import {GET as facts} from '../app/api/fact-history/route';
+import {POST as recovery} from '../app/api/recovery/route';
+import {POST as upload} from '../app/api/import/route';
+const owner='11111111-1111-4111-8111-111111111111';
+beforeEach(()=>{vi.clearAllMocks();db.identity.mockResolvedValue({id:owner,token:'synthetic'});});
+it.each([service,structure,versions,reminders,facts])('all authenticated reads return the same code without reading private data %#',async handler=>{db.identity.mockRejectedValueOnce(Error('AUTH'));const r=await handler(new NextRequest('https://app.test/api/service'));expect(r.status).toBe(401);expect((await r.json()).code).toBe('AUTH_REQUIRED');expect(db.supabase).not.toHaveBeenCalled();expect(db.readWorkspace).not.toHaveBeenCalled();});
+it('owner mismatch has its own conflict code before quota or write',async()=>{const r=await structurePost(new NextRequest('https://app.test/api/structured-profile',{method:'POST',headers:{origin:'https://app.test'},body:JSON.stringify({expectedOwnerId:'22222222-2222-4222-8222-222222222222',workspaceRevision:1,profileRevision:0,command:{action:'reset',confirm:'RESET_STRUCTURED_PROFILE'}})}));expect(r.status).toBe(409);expect((await r.json()).code).toBe('OWNER_CHANGED');expect(db.consumeQuota).not.toHaveBeenCalled();expect(db.supabase).not.toHaveBeenCalled();});
+it('real recovery route validates origin/body before any provider request or mail',async()=>{const badOrigin=await recovery(new NextRequest('https://app.test/api/recovery',{method:'POST',headers:{origin:'https://evil.test'},body:'{}'}));expect((await badOrigin.json()).code).toBe('ORIGIN_REJECTED');const invalid=await recovery(new NextRequest('https://app.test/api/recovery',{method:'POST',headers:{origin:'https://app.test'},body:JSON.stringify({action:'request',email:'INVALID_PRIVATE_INPUT'})}));expect(invalid.status).toBe(400);const data=await invalid.json();expect(data.code).toBe('INVALID_INPUT');expect(JSON.stringify(data)).not.toContain('INVALID_PRIVATE_INPUT');expect(db.supabase).not.toHaveBeenCalled();});
+it('oversized upload has a code before parsing any document',async()=>{const r=await upload(new NextRequest('https://app.test/api/import',{method:'POST',headers:{origin:'https://app.test','content-length':'9999999'},body:'x'}));expect(r.status).toBe(413);expect((await r.json()).code).toBe('REQUEST_TOO_LARGE');expect(db.supabase).not.toHaveBeenCalled();});
+it('invalid provider profile is redacted with a domain code',async()=>{db.supabase.mockResolvedValueOnce({source_original:'PRIVATE_OTHER_DATA'});const r=await structure(new NextRequest('https://app.test/api/structured-profile'));const data=await r.json();expect(r.status).toBe(502);expect(data.code).toBe('STRUCTURED_PROFILE_INVALID');expect(JSON.stringify(data)).not.toContain('PRIVATE_OTHER_DATA');expect(db.supabase).toHaveBeenCalledTimes(1);});

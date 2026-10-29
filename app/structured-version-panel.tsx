@@ -1,6 +1,6 @@
 'use client';
 import {useEffect,useRef,useState} from 'react';
-import {RequestError} from '../lib/client-api';
+import {RequestError,errorFromResponse} from '../lib/client-api';
 import type {StructuredProfile} from '../lib/structured-profile';
 import {contextIssue,VersionListSchema,validateStructuredPreview,validateStructuredVersion,type StructuredPreview,type StructuredVersion,type VersionList} from '../lib/structured-version';
 type Props={profile:StructuredProfile;disabled:boolean;onConflict:()=>void};
@@ -16,7 +16,7 @@ export default function StructuredVersionPanel({profile,disabled,onConflict}:Pro
   pending.current=true;setBusy(true);setError('');controller.current=new AbortController();
   try{
    const response=await fetch('/api/structured-versions'+(action==='detail'?'?id='+id:''),{method:write?'POST':'GET',cache:'no-store',headers:{'Content-Type':'application/json','x-jobmatch-owner':profile.ownerId},signal:AbortSignal.any([controller.current.signal,AbortSignal.timeout(30000)]),...(write?{body:JSON.stringify({action,expectedOwnerId:profile.ownerId,workspaceRevision:profile.workspace_revision,profileRevision:profile.revision,entryIds:selected,...(action==='save'?{previewHash:preview!.preview_hash,accept:'SAVE_LITERAL_VERSION'}:{})})}:{})});
-   const value=await response.json();if(!response.ok)throw new RequestError(typeof value?.error==='string'?value.error:'Не удалось прочитать версию',response.status);
+   const value=await response.json();if(!response.ok)throw errorFromResponse(value,response.status);
    if(action==='preview'){
     const next=await validateStructuredPreview(value,profile.ownerId,profile.workspace_revision,profile.revision,selected);if(!active.current)return;setPreview(next);setAccepted(false);setSaved(null);
    }else if(action==='list'){

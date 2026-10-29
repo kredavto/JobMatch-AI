@@ -15,7 +15,7 @@ export async function GET(req:NextRequest){try{
 export async function POST(req:NextRequest){try{
  sameOrigin(req);const user=await userOf(req);
  const body=input.parse(JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(await boundedBody(req,40000))));
- if(body.expectedOwnerId!==user.id)throw new UserError('Аккаунт изменился. Вернитесь в исходный аккаунт.',409);
+ if(body.expectedOwnerId!==user.id)throw new UserError('Аккаунт изменился. Вернитесь в исходный аккаунт.',409,'OWNER_CHANGED');
  await consumeQuota(user,'service');
  return NextResponse.json(await writeStructuredProfile(user,body.workspaceRevision,body.profileRevision,body.command),{headers:{'Cache-Control':'no-store'}});
 }catch(error){return failure(error);}}

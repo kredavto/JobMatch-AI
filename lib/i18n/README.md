@@ -11,3 +11,7 @@ Do not translate or mutate original resumes, facts, evidence sources, vacancy qu
 Before releasing English: extract remaining copy, map API error codes to messages, localize dates with an explicit locale, add the locale to server/client rendering and document lang, translate offline assets/manifest, and rerun both-language browser/accessibility tests. Do not activate a partial English interface.
 
 Manual screen-reader verification still requires an environment with NVDA/VoiceOver/TalkBack. Automated axe checks are not a substitute.
+
+
+## API errors v1
+`api-errors.ts` defines stable public code/status semantics and typed RU/EN copy. HTTP failures retain `error:string` plus additive `code`; canonical copy is not a byte-for-byte contract for old wording. Client transport retains HTTP status/recovery/no-retry behavior, handles new codes safely and supports legacy code-less same-origin bodies in RU mode. See docs/API_ERROR_CODES.md. English helpers are preparatory; no language switch or partial English UI is enabled.
