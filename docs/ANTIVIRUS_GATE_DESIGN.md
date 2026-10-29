@@ -1,6 +1,6 @@
 # Antivirus gate: implementation contract
 
-Status: opt-in implementation under review in PR #13 and its dependent fix. Basic real-engine CI passed; extended acceptance is pending. Production scanning remains disabled. Historical checkpoints below describe incremental implementation and are superseded by later entries.
+Status: opt-in implementation under review in PR #13 and its dependent fix. Basic and extended real-engine CI passed (40836068100); adversarial/operator acceptance remains open. Production scanning remains disabled. Historical checkpoints below describe incremental implementation and are superseded by later entries.
 
 ## Placement and verdict
 
@@ -94,3 +94,8 @@ Pinned ClamAV 1.4.6 [`libclamav/unzip.c::unz`](https://github.com/Cisco-Talos/cl
 The rule is seeded into new signature volumes and retained separately in the immutable image. Default scanner startup requires byte equality with the volume copy and refuses missing/changed rules. Existing volumes require explicit policy provisioning before restart; do not silently start without the rule. FreshClam maintains vendor signatures separately. No ZIP library, decompression or filename handling is added to the credential gateway.
 
 Real-engine acceptance now asserts direct clean/blocked results at 4 MiB / 4 MiB+1, nested ZIP rejection, missing-policy startup refusal, and the original assertion that blocked input does not consume the parser. Results must be recorded after CI. This targeted metadata rule does not prove rejection of every malformed/forged-size ZIP, ZIP64 variant, embedded PDF archive, unsupported format or every limit path. Keep isolated parser validation and budgets; broader adversarial and operator acceptance remain open.
+
+
+### Confirmed result
+
+[CI 40836068100](https://github.com/kredavto/JobMatch-AI/actions/runs/40836068100) SUCCESS on runtime commit `bfa3409a649aa8e4b7bb4de1589f8e988851c193`: actual direct-engine boundary/nested ZIP assertions, missing-policy startup refusal, original oversized ZIP with parser still running, encrypted ZIP/PDF, live synthetic signature reload, clean extraction, and independent observer/scanner failures all passed. FreshClam used the real vendor database; the size rule and reload rule are explicitly local policies/test fixtures. Parser/OCR/container regression also passed: 500 Vitest and 76 native tests without skips. Synthetic containers/networks/volumes/key files were cleaned. Production remains disabled; this is not operator/HTTPS/representative-document acceptance.
