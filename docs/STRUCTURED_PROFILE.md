@@ -1,6 +1,6 @@
 # Source-backed structured profile (manual candidate)
 
-This implementation adds persisted, manually assembled employment/education/certification/achievement records. It does not run a model, infer seniority/durations/qualifications, normalize ambiguous dates, or change Match Score/resume versions. Automated extraction and semantic verification remain separate work.
+This implementation adds persisted, manually assembled employment/education/certification/achievement records. It does not run a model, infer seniority/durations/qualifications, normalize ambiguous dates, or change Match Score/ordinary resume versions. Selected confirmed entries can now create separate literal versions; see STRUCTURED_VERSIONS.md. Automated extraction and semantic verification remain separate work.
 
 ## User flow and provenance
 
@@ -10,7 +10,7 @@ Each field stores exact quote and half-open [start,end) Unicode code-point offse
 
 The source snapshot also stores the workspace revision and ordered fact IDs. Checking a flat fact or changing a goal/vacancy does not invalidate it; a new import, even with identical text, receives different fact IDs and makes the profile stale. Adding a fact also changes the source. Existing entries/source/confirmations remain visible with a stale warning, but adding or confirming true is blocked. Retracting confirmation/deleting remains possible. No stale record is used by scoring or AI.
 
-An explicit reset requires a separate visible deletion acknowledgment. It deletes **all** structure entries and replaces its source with the current saved master resume/fact IDs. Download the structure/source first if needed. The master resume, flat facts, immutable saved versions and tracker are not modified. This is user-directed removal, not automatic reimport cleanup. There is no separate immutable structure history yet; downloaded files/backups have their own retention. Draft fields are memory-only and lost when leaving the profile tab. Failed writes retain the draft and block retries until explicit reload; writes are never automatically repeated.
+An explicit reset requires a separate visible deletion acknowledgment. It deletes **all** structure entries and replaces its source with the current saved master resume/fact IDs. Download the structure/source first if needed. The master resume, flat facts, immutable saved versions and tracker are not modified. This is user-directed removal, not automatic reimport cleanup. Accepted literal versions retain their own immutable selected-entry/source snapshots; reset does not delete them. There is no full edit-event structure history; downloaded files/backups have their own retention. Draft fields are memory-only and lost when leaving the profile tab. Failed writes retain the draft and block retries until explicit reload; writes are never automatically repeated.
 
 ## Storage and authorization
 
@@ -20,7 +20,7 @@ Commands use both expected workspace revision and independent profile revision. 
 
 API `/api/structured-profile`: owner-only GET/export, same-origin POST with strict command/owner/revisions, service quota, 40KB body limit/no-store/safe errors, no retries. Responses validate format, ownership, source bounds, field schema and independent revision before UI use. Source quotations are rendered as text, never HTML. Read/export returns only the current structure plus its captured source; it may be an older source after reimport and is clearly marked stale.
 
-The JSON personal-data export remains scoped workspace/audit/consent and now includes a `structured_profile_export` pointer. Settings require three separate downloads (that JSON, fact history and structured profile/source); they are **not** one transactional snapshot. Account deletion cascades both new tables from the active DB; downloaded copies and provider backups do not vanish automatically.
+The JSON personal-data export remains scoped workspace/audit/consent and now includes a `structured_profile_export` pointer. Settings require four separate downloads (that JSON, fact history, structured profile/source and literal versions); they are **not** one transactional snapshot. Account deletion cascades both new tables from the active DB; downloaded copies and provider backups do not vanish automatically.
 
 ## Install, verification and rollback
 
@@ -28,12 +28,12 @@ Migration `20261029084434_structured_profile.sql` follows the reviewed normalize
 
 Schema/route/unit/native tests cover code-point offsets including emoji, exact-source checks, unknown fields/untrusted metadata, explicit confirmation, owner/session/grants, revision conflicts, same-text reimport invalidation, reset/retraction, cap and audit failure rollback. Native concurrent callers must produce exactly one commit and nineteen conflicts. Browser tests use synthetic HTTP fixtures; they do not establish live Supabase acceptance.
 
-Full application-data backup verification must now include both new tables:
+Full application-data backup verification must now include all structure/version tables:
 
 ```
 python3 scripts/backup_manifest.py snapshot structured-manifest.json --include-structured
 ```
 
-This emits `jobmatch-backup-structured-v3` with all 15 table fingerprints in the same read-only repeatable-read snapshot. Missing table/privilege/marker fails; comparisons cannot mix old 13-table formats or logical-workspace mode. The default legacy mode remains for historical cutover/rollback drills and **excludes structure**; do not use it as a complete archive after activating this feature. The new native drill seeds all 15 tables, performs real pg_dump/pg_restore, compares full fingerprints and detects a changed structure field. Synthetic fixtures do not replace real Supabase Auth/backup/RLS/RPO/RTO acceptance.
+This emits `jobmatch-backup-structured-v4` with all 16 table fingerprints in the same read-only repeatable-read snapshot. Missing table/privilege/marker fails; comparisons cannot mix old 13-table formats or logical-workspace mode. The default legacy mode remains for historical cutover/rollback drills and **excludes structure**; do not use it as a complete archive after activating this feature. The new native drill seeds all 16 tables, performs real pg_dump/pg_restore, compares full fingerprints and detects changed structure/version content. Synthetic fixtures do not replace real Supabase Auth/backup/RLS/RPO/RTO acceptance.
 
 Rolling application code back can leave additive tables/RPCs in place: older workspace APIs ignore them. SQL removal would lose structure data; export/backup and a reviewed rollback decision are required, and must not be performed implicitly. Before real user data, verify the provider copy, migration history/grants/advisors, user export/delete behavior and final multi-account browser flow on the actual domain. Source provenance alone does not prove semantic accuracy or readiness of AI rewriting.

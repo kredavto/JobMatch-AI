@@ -1,0 +1,7 @@
+import {it,expect,vi} from 'vitest';
+import {structuredVersionStream} from '../lib/structured-version-db';
+import {type VersionList} from '../lib/structured-version';
+import {owner,versionFor} from './fixtures/structured-version';
+async function setup(){const v=await versionFor();const list:VersionList={format:'jobmatch-structured-version-list-v1',ownerId:owner,versions:[{id:v.id,created:v.created,template_version:v.template_version,profile_revision:2,workspace_revision:1,text_length:Array.from(v.text).length,preview_hash:v.preview_hash}]};return {v,list};}
+it('failed detail, substituted hash and byte budget never mark full export complete',async()=>{const {v,list}=await setup();for(const [read,limit] of [[async()=>{throw Error('private diagnostics');},10000],[async()=>({...v,preview_hash:'a'.repeat(64)}),10000],[async()=>v,1]] as const){const text=await new Response(structuredVersionStream(list,read,limit)).text();expect(text).toContain('"complete":false');expect(text).not.toContain('private diagnostics');expect(text).not.toContain('"complete":true');}});
+it('cancel during read discards late response and stops future reads',async()=>{const {v,list}=await setup();let resolve!:(value:typeof v)=>void;const read=vi.fn(()=>new Promise<typeof v>(done=>{resolve=done;}));const stream=structuredVersionStream(list,read);const reader=stream.getReader(),pending=reader.read();await Promise.resolve();await reader.cancel();resolve(v);expect((await pending).done).toBe(true);await Promise.resolve();expect(read).toHaveBeenCalledTimes(1);});

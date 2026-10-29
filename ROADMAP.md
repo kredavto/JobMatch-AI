@@ -337,3 +337,9 @@
 ## Ручной source-backed структурированный профиль — зависимая ветка, 29 октября 2026
 - Работа/образование/сертификаты/достижения собираются из exact source ranges сохранённого резюме; отдельное подтверждение, stale source/fact-ID detection и явный reset. Своё состояние/revision в двух owner/session-protected таблицах, общий lock с workspace writers.
 - Не меняет score/резюме/факты и не вызывает AI. API/UI/owner export, cascade deletion и explicit 15-table backup manifest. Автоматическое извлечение и live приёмка открыты. docs/STRUCTURED_PROFILE.md.
+
+
+## Дословные версии структуры — зависимая ветка, 29 октября 2026
+- Выбранные подтверждённые записи дают отдельный literal outline: preview, отмена, явное сохранение, фиксированные template/guard и снимок происхождения, owner/session/revision gates, immutable history/export. Шаблон не выводит стаж/числа и консервативно блокирует строки с отрицаниями/планами/инструкциями; это не семантическая проверка.
+- Все четыре export-файла нужны для полного пользовательского архива; version NDJSON complete marker/40 МиБ, storage cap20. Backup v4 включает 16 таблиц; v3 остаётся историческим форматом на15. Контракт docs/STRUCTURED_VERSIONS.md. Модель/генеративное переписывание/письма и live provider приёмка не закрыты.
+- PR #20: https://github.com/kredavto/JobMatch-AI/pull/20 . Финальный CI40852385996 SUCCESS:547 Vitest,36 Python,70 E2E/2 live SKIP, PostgreSQL/concurrency/restore16. Parser/OCR/ClamAV и legacy restore regression SUCCESS; не объединён/не выпущен. Доказательства и ограничения — VERIFICATION.md.
