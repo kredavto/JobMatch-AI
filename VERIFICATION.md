@@ -236,3 +236,17 @@
 - 384 Vitest PASS, production build PASS. Новые проверки покрывают компактный RPC payload без snapshot, три команды в route, owner/origin/quota, схемы/дубликаты/лимиты, атомарный ответ с revision+1, отсутствие повторов и fallback на save_workspace.
 - SQL-suite добавлен в синтетический PostgreSQL restore CI: commands ↔ legacy revisions, unknown/foreign IDs, отзыв сессии, grants, отсутствие частичных записей, история и проекция. Результат реального CI будет дописан после запуска. Локального PostgreSQL нет; mocks не выдаются за SQL-проверку.
 - UI и внешние сервисы не менялись. Рабочая БД не мигрировалась; SMTP, реальная модель, restore Supabase, разрешения hh.ru и решение о данных не проверены. Новый релиз и объединение PR не выполнялись.
+
+## Кандидат 0.35 — почта и честный статус регистрации (29 октября 2026)
+- Исходный main: `38117e007909d13cc87a73e3efe488a6c134aba9`. Lint/typecheck и 402 Vitest-проверки (38 файлов) прошли; production build прошёл.
+- Чистая production-сборка и полный Playwright: 65 passed / 2 skipped, 37,8 с. Пропуски — живые Supabase accounts, fixture credentials отсутствуют. SMTP/реальные пароли не использовались и письма этими тестами не отправлялись.
+- Новые проверки: origin и APP_URL до provider access; strict resend input, запрет произвольного redirect/type, quota, no-store, отсутствие cookies/утечки текста провайдера; мобильная форма, axe WCAG AA tags, cooldown, ручной retry, непрозрачный статус повторной регистрации. Дополнена проверка recovery с другого origin.
+- Первый финальный E2E увидел старый текст в ранее собранном frontend bundle и не прошёл новый тест. После переноса `.next` и одной чистой сборки полный прогон прошёл; выше указан именно результат чистой сборки.
+- Новый application CI: Node 24, npm ci, lint, types, unit, build, browser без production secrets; реальная доставка почты им не проверяется. Результат GitHub CI фиксируется отдельно после выполнения.
+- Read-only проверки production: Vercel deployment `dpl_G6XSXvaskLfuxKsN4WiyrCN8fUyg` READY для baseline main, `/` HTTP 200, `/api/service` без сессии HTTP 401; `apply_workspace_command(integer,jsonb)` существует. Новый код ещё не выпущен.
+- В Auth найден уже подтверждённый Gmail-аккаунт. Точный адрес пользователя пока неизвестен, поэтому это не доказательство доставки его нового письма. Свежие записи Auth имеют path `/`; отсутствие строк по фильтру `/signup` не доказывает отсутствие попытки. Последний полученный error_code — `invalid_credentials`, без привязки к запрошенному пользователем адресу.
+- Кандидат не закрывает live email acceptance, restore копии провайдера, решение оператора о данных и полный живой сценарий финального Vercel-релиза. 100% публичную готовность не заявляем.
+
+- Первый application CI run 40837901259 прошёл lint/types/402 unit/build, но остановился до browser tests: ubuntu-latest разрешился в Ubuntu 26.04, не поддерживаемую установленным Playwright 1.58.2. Runner закреплён на ubuntu-24.04; результат повторного прогона смотреть в checks PR #15. Это ошибка окружения CI, не успешный браузерный прогон.
+
+- Дополнение к PR #15 после скриншота входа: известный код `invalid_credentials` при password grant получает фиксированную подсказку о пароле JobMatch AI и восстановлении, без SMTP-диагноза, наличия аккаунта или raw сообщения провайдера. Тестируются оба поля кода GoTrue (`error_code`/`code`). Предыдущий CI run 40838154826 успешен для d47613f; актуальные checks — в PR.
