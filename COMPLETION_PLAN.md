@@ -23,7 +23,7 @@
   - [ ] Автоматическое извлечение/семантика/неоднозначные даты и live provider/multi-account приёмка; source range не считается доказательством истинности или квалификации.
 - [ ] Переписывание и письма с проверкой фактов/чисел/противоречий, preview, отменой и отдельной неизменяемой версией. Точный extractive gate не является семантической верификацией переписанного текста.
 - [ ] Сохранять происхождение и версию модели/шаблона для принятых AI-изменений; миграция и regression tests.
-  - [x] Подготовлены отдельные literal-версии подтверждённой структуры: preview/cancel/explicit acceptance, frozen template/context guard, immutable source snapshot/hash, история/TXT/JSON/NDJSON, owner/session/revision locks и backup v4/16 таблиц. Контракт docs/STRUCTURED_VERSIONS.md. Локальные тесты PASS; native CI и PR фиксируются ниже по результатам. Модель не использовалась; генеративное переписывание, смысловые противоречия и письма остаются открытыми.
+  - [x] Подготовлены отдельные literal-версии подтверждённой структуры: preview/cancel/explicit acceptance, frozen template/context guard, immutable source snapshot/hash, история/TXT/JSON/NDJSON, owner/session/revision locks и backup v4/16 таблиц. Контракт docs/STRUCTURED_VERSIONS.md. PR #20: https://github.com/kredavto/JobMatch-AI/pull/20 . Native PostgreSQL17 job40852021348 PASS (upgrade/immutable/history/20 concurrent save/hash/restore16/corruption); финальный Unicode budget fix ожидает повторного полного CI. Этап не объединён/не выпущен. Модель не использовалась; генеративное переписывание, смысловые противоречия и письма остаются открытыми.
 
 ## 3. hh.ru
 - [ ] Повторно проверить официальную схему и условия для модели соискателя; получить разрешение приложения и доступные scopes.

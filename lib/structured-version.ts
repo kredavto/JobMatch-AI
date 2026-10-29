@@ -22,7 +22,7 @@ const snapshotSchema=StructuredProfileSchema.superRefine((profile,ctx)=>{
  if(!profile.source_matches||profile.revision<1||!profile.source_original.trim()||profile.source_original.includes('\0')||!profile.source_fact_ids.length||!profile.entries.length||profile.entries.some(entry=>!entry.confirmed||contextIssue(profile,entry)))ctx.addIssue({code:'custom',message:'Источник или подтверждение не допускает дословную версию'});
 });
 const hashSchema=z.string().regex(/^[0-9a-f]{64}$/);
-const previewFields={template_version:z.literal(TEMPLATE_VERSION),context_guard_version:z.literal(CONTEXT_GUARD_VERSION),generator:z.literal('literal-template'),model_version:z.null(),snapshot:snapshotSchema,text:z.string().max(200000),preview_hash:hashSchema};
+const previewFields={template_version:z.literal(TEMPLATE_VERSION),context_guard_version:z.literal(CONTEXT_GUARD_VERSION),generator:z.literal('literal-template'),model_version:z.null(),snapshot:snapshotSchema,text:z.string().refine(value=>Array.from(value).length<=200000),preview_hash:hashSchema};
 export const StructuredPreviewSchema=z.object(previewFields).strict().superRefine((value,ctx)=>{if(value.text!==renderStructuredVersion(value.snapshot))ctx.addIssue({code:'custom',message:'Текст не соответствует снимку'});});
 export const StructuredVersionSchema=z.object({...previewFields,format:z.literal('jobmatch-structured-version-v1'),id:z.uuid(),created:z.iso.datetime({offset:true})}).strict().superRefine((value,ctx)=>{if(value.text!==renderStructuredVersion(value.snapshot))ctx.addIssue({code:'custom',message:'Текст не соответствует снимку'});});
 export type StructuredPreview=z.infer<typeof StructuredPreviewSchema>;

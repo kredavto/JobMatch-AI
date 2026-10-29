@@ -28,3 +28,9 @@ it('hash binds positions, repeated quotes, fact-ID boundaries and generator vers
  expect((await previewFor({...snapshot,source_fact_ids:['a,b','c']})).preview_hash).not.toBe((await previewFor({...snapshot,source_fact_ids:['a','b,c']})).preview_hash);
 });
 it('history summary is bounded and has no source payload',()=>{expect(VersionListSchema.safeParse({format:'jobmatch-structured-version-list-v1',ownerId:owner,versions:[],source_original:'x'}).success).toBe(false);});
+
+it('uses code-point text budgets consistently with PostgreSQL for large non-BMP literals',async()=>{
+ const quote='😀'.repeat(500),field={quote,start:0,end:500};
+ const profile={...snapshot,source_original:quote,entries:Array.from({length:50},(_,i)=>({...snapshot.entries[0],id:'22222222-2222-4222-8222-'+String(i+1).padStart(12,'0'),kind:'certification' as const,fields:{title:field,organization:field,start:field,end:field,description:field,credential:field}}))};
+ const preview=await previewFor(profile);expect(preview.text.length).toBeGreaterThan(200000);expect(Array.from(preview.text).length).toBeLessThan(200000);expect(await validateStructuredPreview(preview,owner)).toEqual(preview);
+});
