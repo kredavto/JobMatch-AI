@@ -61,7 +61,7 @@ begin
   if not current_source then raise exception 'CONFLICT';end if;
   if p_command-array['action','kind','fields']<>'{}'::jsonb or jsonb_typeof(p_command->'kind') is distinct from 'string'
    or p_command->>'kind' not in ('employment','education','certification','achievement') or jsonb_typeof(p_command->'fields') is distinct from 'object'
-   or p_command->'fields'-array['title','organization','start','end','description','credential']<>'{}'::jsonb
+   or (p_command->'fields')-array['title','organization','start','end','description','credential']<>'{}'::jsonb
    or not (p_command->'fields' ? (case when p_command->>'kind'='achievement' then 'description' else 'title' end))
    or (p_command->'fields' ? 'credential' and p_command->>'kind'<>'certification') then raise exception 'INVALID_WRITE';end if;
   for field_name,item in select key,value from jsonb_each(p_command->'fields') loop
