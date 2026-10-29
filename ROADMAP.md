@@ -343,3 +343,8 @@
 - Выбранные подтверждённые записи дают отдельный literal outline: preview, отмена, явное сохранение, фиксированные template/guard и снимок происхождения, owner/session/revision gates, immutable history/export. Шаблон не выводит стаж/числа и консервативно блокирует строки с отрицаниями/планами/инструкциями; это не семантическая проверка.
 - Все четыре export-файла нужны для полного пользовательского архива; version NDJSON complete marker/40 МиБ, storage cap20. Backup v4 включает 16 таблиц; v3 остаётся историческим форматом на15. Контракт docs/STRUCTURED_VERSIONS.md. Модель/генеративное переписывание/письма и live provider приёмка не закрыты.
 - PR #20: https://github.com/kredavto/JobMatch-AI/pull/20 . Финальный CI40852385996 SUCCESS:547 Vitest,36 Python,70 E2E/2 live SKIP, PostgreSQL/concurrency/restore16. Parser/OCR/ClamAV и legacy restore regression SUCCESS; не объединён/не выпущен. Доказательства и ограничения — VERIFICATION.md.
+
+
+## Сохранённые задачи трекера — зависимая ветка, 29 октября 2026
+- CRUD-команды с отдельной ревизией, owner/session/source workspace lock, история и audit rollback; явное время IANA/local/offset/UTC, DST gap/fold без неявного сдвига. Pending/overdue/completed/cancelled, явное удаление всей истории, постоянный UID/SEQUENCE для ICS.
+- Экспорт задач/истории — пятый файл, NDJSON с проверкой ревизии каждого detail и финального списка; full backup v5/19 таблиц. Контракт docs/SAVED_REMINDERS.md. Это хранение/ручное чтение задач, не scheduler или delivery. Внешняя доставка, реальные календари и live provider приёмка открыты.
