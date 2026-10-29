@@ -6,6 +6,8 @@ on:
       - 'app/api/**'
       - 'supabase/**'
       - 'scripts/auth_quota_concurrency.py'
+      - 'scripts/auth_quota_ops.py'
+      - 'scripts/test_auth_quota_ops.py'
       - '.github/workflows/auth-quota.yml'
   workflow_dispatch:
 permissions:
@@ -36,15 +38,27 @@ jobs:
           psql -v ON_ERROR_STOP=1 -c 'create role anon; create role authenticated;'
           createdb quota_clean
           createdb quota_upgrade
+          createdb quota_fresh
           psql -v ON_ERROR_STOP=1 -d quota_clean -c 'create schema private;'
           psql -v ON_ERROR_STOP=1 -d quota_clean -f supabase/migrations/20261029080555_central_auth_quota.sql
+          psql -v ON_ERROR_STOP=1 -d quota_clean -f supabase/migrations/20261029082413_auth_quota_operations.sql
           psql -v ON_ERROR_STOP=1 -d quota_clean -f supabase/tests/auth_quota.sql
+          psql -v ON_ERROR_STOP=1 -d quota_clean -f supabase/tests/auth_quota_operations.sql
           psql -v ON_ERROR_STOP=1 -d quota_upgrade -f scripts/restore_fixture.sql
           sed '/^-- Opt-in server-signed pre-auth quota/,$d' supabase/schema.sql > /tmp/quota-baseline.sql
           psql -v ON_ERROR_STOP=1 -d quota_upgrade -f /tmp/quota-baseline.sql
           psql -v ON_ERROR_STOP=1 -d quota_upgrade -f scripts/restore_seed.sql
           psql -v ON_ERROR_STOP=1 -d quota_upgrade -f supabase/migrations/20261029080555_central_auth_quota.sql
+          psql -v ON_ERROR_STOP=1 -d quota_upgrade -f supabase/migrations/20261029082413_auth_quota_operations.sql
           psql -v ON_ERROR_STOP=1 -d quota_upgrade -f supabase/tests/auth_quota.sql
+          psql -v ON_ERROR_STOP=1 -d quota_upgrade -f supabase/tests/auth_quota_operations.sql
+          psql -v ON_ERROR_STOP=1 -d quota_fresh -f scripts/restore_fixture.sql
+          psql -v ON_ERROR_STOP=1 -d quota_fresh -f supabase/schema.sql
+          psql -v ON_ERROR_STOP=1 -d quota_fresh -f scripts/restore_seed.sql
+          psql -v ON_ERROR_STOP=1 -d quota_fresh -f supabase/tests/auth_quota.sql
+          psql -v ON_ERROR_STOP=1 -d quota_fresh -f supabase/tests/auth_quota_operations.sql
+          JOBMATCH_AUTH_QUOTA_OPS_APPROVED=1 PGDATABASE=quota_upgrade python3 scripts/auth_quota_ops.py status
+          JOBMATCH_AUTH_QUOTA_OPS_APPROVED=1 JOBMATCH_AUTH_QUOTA_PURGE_APPROVED=1 PGDATABASE=quota_upgrade python3 scripts/auth_quota_ops.py purge --limit 10
       - name: Concurrent signed quota (retry only minute-boundary fixture preflight)
         run: |
           for attempt in 1 2 3; do
@@ -52,6 +66,7 @@ jobs:
             createdb quota_parallel_$attempt
             psql -v ON_ERROR_STOP=1 -d quota_parallel_$attempt -c 'create schema private;'
             psql -v ON_ERROR_STOP=1 -d quota_parallel_$attempt -f supabase/migrations/20261029080555_central_auth_quota.sql
+            psql -v ON_ERROR_STOP=1 -d quota_parallel_$attempt -f supabase/migrations/20261029082413_auth_quota_operations.sql
             if [ "$(date +%S)" -gt 45 ]; then sleep 16; fi
             PGDATABASE=quota_parallel_$attempt python3 scripts/auth_quota_concurrency.py && break
             exit 1
@@ -59,6 +74,6 @@ jobs:
       - name: Clean synthetic databases
         if: always()
         run: |
-          for db in quota_clean quota_upgrade quota_parallel_1 quota_parallel_2 quota_parallel_3; do
+          for db in quota_clean quota_upgrade quota_fresh quota_parallel_1 quota_parallel_2 quota_parallel_3; do
             dropdb --if-exists --force "$db"
           done
