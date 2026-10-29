@@ -325,3 +325,10 @@
 - Poppler/Tesseract работают внутри прежней process group/cgroup без сети/секретов, с отдельными короткими CLI deadline и bounded raster/output. Временные PDF/PGM — только private tmpfs с cleanup/retirement. OCR отключён по умолчанию; inline не меняется.
 - Черновик получает метку количества OCR-страниц и предупреждение проверить имена/даты/числа; сохранять/подтверждать должен пользователь. Это не гарантия точности распознавания или сохранённое происхождение фактов.
 - Карантин/антивирус, реальный endpoint/TLS, hosting/privacy/retention, сканы сложных форматов и живая приёмка остаются открыты. Общий пункт безопасности не закрыт. Контракт: docs/SCANNED_PDF_OCR.md.
+
+
+## Подготовка RU/EN оценки AI — 29 октября 2026 (зависимая ветка)
+- CLI evaluation/ с 28 синтетическими cases использует текущий production provider, его filtering/provenance/size/deadline/redirect gates. Раздельные missing requirements/links, unexpected quotes/unsupported links, ошибки и признак полного прогона.
+- Prompt requirements-evidence-v2 требует полного обоснования, без вывода недостающих чисел/лет/уровней из ключевых слов. Это инструкция модели, а не семантическая гарантия валидатора.
+- Нужны отдельный явный opt-in запуска и operator-declared model digest; report фиксирует версии/hashes и не выдаёт этот digest за подтверждённый loaded model. CI использует только local HTTP fixtures.
+- Собственная модель не вызывалась. Живая независимая RU/EN оценка, сервер/размещение и семантическая приёмка остаются открытыми; инструкция evaluation/README.md.

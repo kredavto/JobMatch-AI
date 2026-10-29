@@ -1,0 +1,32 @@
+name: AI evaluation harness (synthetic HTTP only)
+on:
+  pull_request:
+    paths:
+      - 'evaluation/**'
+      - 'lib/ai-*.ts'
+      - 'lib/evidence-review.ts'
+      - 'lib/body.ts'
+      - 'tests/ai-*.ts'
+      - 'package*.json'
+      - 'tsconfig.json'
+      - 'eslint.config.mjs'
+      - '.github/workflows/ai-evaluation.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  fixture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm run test:ai-evaluation
+      - run: npm test
+      - run: npm run lint
+      - run: npm run typecheck
+      # Never supply real inference credentials or run evaluate:ai in CI.

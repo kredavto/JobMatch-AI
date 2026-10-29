@@ -32,6 +32,7 @@
   ],
   "exclude": [
     "node_modules",
-    "worker/dist"
+    "worker/dist",
+    "evaluation/dist"
   ]
 }
