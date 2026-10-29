@@ -46,7 +46,7 @@ set local role anon;
 do $$begin
  if not public.consume_auth_quota('exchange',repeat('f',64),current_setting('jobmatch.fixture_stamp')::bigint,current_setting('jobmatch.fixture_signature')) then raise exception 'SIGNED_ANON_DENIED';end if;
  begin perform * from private.auth_quota_config;raise exception 'KEY_VISIBLE';exception when insufficient_privilege then null;end;
- begin perform public.consume_auth_quota('mail',repeat('b',64),floor(extract(epoch from clock_timestamp())),repeat('0',64));raise exception 'SHOULD_DENY';exception when others then if sqlerrm<>'AUTH_QUOTA_DENIED' then raise;end if;end;
+ begin perform public.consume_auth_quota('mail',repeat('b',64),floor(extract(epoch from clock_timestamp()))::bigint,repeat('0',64));raise exception 'SHOULD_DENY';exception when others then if sqlerrm<>'AUTH_QUOTA_DENIED' then raise;end if;end;
 end$$;
 reset role;
 -- Unexpected downstream insert failure rolls back the global charge too.
