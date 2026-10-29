@@ -246,3 +246,5 @@
 - Read-only проверки production: Vercel deployment `dpl_G6XSXvaskLfuxKsN4WiyrCN8fUyg` READY для baseline main, `/` HTTP 200, `/api/service` без сессии HTTP 401; `apply_workspace_command(integer,jsonb)` существует. Новый код ещё не выпущен.
 - В Auth найден уже подтверждённый Gmail-аккаунт. Точный адрес пользователя пока неизвестен, поэтому это не доказательство доставки его нового письма. Свежие записи Auth имеют path `/`; отсутствие строк по фильтру `/signup` не доказывает отсутствие попытки. Последний полученный error_code — `invalid_credentials`, без привязки к запрошенному пользователем адресу.
 - Кандидат не закрывает live email acceptance, restore копии провайдера, решение оператора о данных и полный живой сценарий финального Vercel-релиза. 100% публичную готовность не заявляем.
+
+- Первый application CI run 40837901259 прошёл lint/types/402 unit/build, но остановился до browser tests: ubuntu-latest разрешился в Ubuntu 26.04, не поддерживаемую установленным Playwright 1.58.2. Runner закреплён на ubuntu-24.04; результат повторного прогона смотреть в checks PR #15. Это ошибка окружения CI, не успешный браузерный прогон.
