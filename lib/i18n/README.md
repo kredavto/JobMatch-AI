@@ -31,3 +31,6 @@ Typed RU/EN copy for source-backed profile/literal versions/saved tasks, semanti
 
 ## Overview and vacancy
 Typed RU/EN overview/vacancy components preserve canonical commands, source text and Russian demo/example data. Demo guards cover saved facts and unsaved sources; late import/demo/fact replies preserve newer source drafts, and a late demo does not override later navigation. Vacancy ID/result state is local, resets on edit and makes no hh.ru request; example selection is draft-only. Production remains RU. See docs/OVERVIEW_VACANCY_LOCALIZATION.md for evidence and remaining bilingual/live gates.
+
+## Rules editor and saved sources
+`EditorPanel` prepares typed RU/EN rule results, evidence warnings, edit selection and save controls. Known current rule reasons are translated for display only; unknown reasons remain verbatim. Saved quotes, IDs, rules output and frozen Russian version text are unchanged. Unsaved resume/vacancy fields disable analysis and version selection/saving; late completions preserve later navigation and drafts. Production remains RU. See docs/EDITOR_LOCALIZATION.md for CI fixture scope and open global/bilingual/live acceptance.
