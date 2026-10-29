@@ -15,3 +15,7 @@ Manual screen-reader verification still requires an environment with NVDA/VoiceO
 
 ## API errors v1
 `api-errors.ts` defines stable public code/status semantics and typed RU/EN copy. HTTP failures retain `error:string` plus additive `code`; canonical copy is not a byte-for-byte contract for old wording. Client transport retains HTTP status/recovery/no-retry behavior, handles new codes safely and supports legacy code-less same-origin bodies in RU mode. See docs/API_ERROR_CODES.md. English helpers are preparatory; no language switch or partial English UI is enabled.
+
+
+## Structured components
+Typed RU/EN copy for source-backed profile/literal versions/saved tasks, semantic feedback and explicit-zone date helpers are prepared. Optional component locale props default to RU; production exposes no partial English route/switch. Isolated test-only React fixtures verify both languages, immutable data/commands and draft preservation. Saved literal-v1 text is still the frozen Russian template. See docs/STRUCTURED_UI_LOCALIZATION.md; remaining flat profile/auth/editor/analytics/settings/offline/global locale wiring and full bilingual acceptance are open.
