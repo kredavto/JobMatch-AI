@@ -40,3 +40,6 @@ Typed RU/EN copy covers ordinary version history/comparison, historical score me
 
 ## AI review presentation
 Typed RU/EN AI-review copy stores semantic errors without rendering response/exception messages. Locale changes preserve consent, pending request and validated result; owner/revision changes invalidate them and abort the old request. Exact-citation/eligible-fact/envelope validation is unchanged and does not establish semantic correctness. Production remains RU and the model remains off by default. See docs/AI_REVIEW_LOCALIZATION.md; own-model live evaluation and operator approvals remain open.
+
+## Letters and career advice
+Typed RU/EN copy localizes letter controls, semantic errors and known rule advice for display only. Locale changes preserve manual text/caret/style/evidence selection/approval and career filter/open details. Unsaved sources or paused workspace actions block letter actions/export without discarding manual text; typing still clears approval. Existing Russian letter framing and rule-plan TXT exports remain unchanged and are named explicitly in English UI. New wording is not semantically verified. Production remains RU. See docs/LETTER_COACH_LOCALIZATION.md.
