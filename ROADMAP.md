@@ -278,3 +278,10 @@
 - Единственный APP_URL для почтовых ссылок и запрет запросов с другого домена до отправки; иначе PKCE cookie и ссылка окажутся на разных origin.
 - Понятные безопасные сообщения при 429/503 и неопределённом результате смены пароля; без raw SMTP ошибок и автоматических повторов.
 - CI для lint/typecheck/unit/build/browser добавлен отдельно от synthetic SQL restore. Живые mail/backup/hosting gates остаются открытыми.
+
+
+## Централизованные pre-auth квоты — зависимый кандидат, 29 октября 2026
+- Signed RPC заряжает ограниченные global/subject budgets для login/signup/mail/refresh/PKCE/update в PostgreSQL. Сервер передаёт HMAC-псевдоним, scope, timestamp и подпись; raw email/password/tokens в квоты не сохраняются.
+- Режим required отказывает до Auth при недоступности/подмене квоты, без retry/fallback. Default local сохраняет совместимость и не называется распределённой защитой.
+- RLS/no grants на private config/counters; narrow RPC доступен anon/authenticated только с серверной подписью. Миграция не содержит ключа. Нужна отдельно разрешённая provisioning/приёмка/активация.
+- WAF/доверенный ingress/direct provider Auth, key rotation, purge/monitoring, hosting/privacy и эксплуатационная приёмка остаются открытыми. Контракт docs/CENTRAL_AUTH_QUOTA.md.

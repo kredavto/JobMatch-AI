@@ -28,6 +28,8 @@
 
 ## 4. Надёжность и безопасность
 - [ ] Централизованный anti-abuse для публичной авторизации, WAF, защита от скомпрометированных паролей при поддержке тарифа.
+  - [x] Подготовлен opt-in signed PostgreSQL RPC с общими global/subject квотами для credentials/mail/refresh/exchange/update; HMAC вместо raw email/token, fail-closed до Auth, RLS/grants и concurrency suite. PR #17: https://github.com/kredavto/JobMatch-AI/pull/17 . Контракт docs/CENTRAL_AUTH_QUOTA.md; PostgreSQL 17 CI 40840961952 SUCCESS (clean/incremental, signed grants/limits/fault rollback, 20 connections → 10 allow/10 deny). App CI 40840962086 SUCCESS (423 Vitest, 65 E2E/2 live SKIP); synthetic restore CI 40840962007 SUCCESS. Это техническая приёмка ветки, production не включён.
+  - [ ] Provider-copy/PostgREST/роль/advisors/key provisioning/rotation/purge и live приёмка; доверенный ingress/WAF, direct Supabase Auth protection и настройка защиты паролей остаются открытыми.
 - [ ] Изолированный parser/OCR worker с жёсткими CPU/RAM/time limits, карантин/сканирование и безопасным возвратом текста на подтверждение.
 - [ ] Завершить переход с дублирующего JSON snapshot на команды сущностей, с планом совместимости/отката и SQL-тестами.
   - [x] В отдельной ветке реализованы команды goal/vacancy/verify: компактный payload, единая блокировка с legacy writers, атомарный ответ и SQL-suite. Рабочая БД не мигрирована; merge/публикация этого изменения не выполнены.
