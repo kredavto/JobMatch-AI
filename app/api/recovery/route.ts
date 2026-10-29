@@ -6,6 +6,7 @@ import {supabase,identity} from '../../../lib/db';
 import {parseProviderAuth} from '../../../lib/auth-contract';
 import {sameOrigin,rateLimit,failure} from '../../../lib/http';
 import {UserError} from '../../../lib/errors';
+import {mailOrigin} from '../../../lib/mail-origin';
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
 const schema=z.discriminatedUnion('action',[
@@ -20,14 +21,11 @@ export async function POST(req:NextRequest){try{
  const options={httpOnly:true,secure:req.nextUrl.protocol==='https:',sameSite:'strict' as const,path:'/api/recovery',maxAge:600};
  if(body.action==='request'){
   // Never derive email destinations from Host / forwarded headers or user input.
-  const configured=process.env.APP_URL;
-  if(!configured)throw new UserError('Восстановление доступа пока не настроено администратором.',503,'RECOVERY_NOT_CONFIGURED');
-  let origin:URL;try{origin=new URL(configured);}catch{throw new UserError('Восстановление доступа пока не настроено администратором.',503,'RECOVERY_NOT_CONFIGURED');}
-  if(origin.protocol!=='https:'||origin.username||origin.password||origin.pathname!=='/'||origin.search||origin.hash)throw new UserError('Некорректная настройка адреса приложения.',503,'APP_URL_INVALID');
+  const origin=mailOrigin(req.nextUrl.origin);
   rateLimit('recovery-email:'+createHash('sha256').update(body.email).digest('hex'),3);
   const verifier=randomBytes(32).toString('base64url');
   const challenge=createHash('sha256').update(verifier).digest('base64url');
-  await supabase('/auth/v1/recover?redirect_to='+encodeURIComponent(origin.origin+'/recover'),'POST',{email:body.email,code_challenge:challenge,code_challenge_method:'s256'});
+  await supabase('/auth/v1/recover?redirect_to='+encodeURIComponent(origin+'/recover'),'POST',{email:body.email,code_challenge:challenge,code_challenge_method:'s256'});
   const response=ok({ok:true});response.cookies.set('jm_recovery_verifier',verifier,options);response.cookies.set('jm_recovery_access','',{...options,maxAge:0});return response;
  }
  if(body.action==='exchange'){
