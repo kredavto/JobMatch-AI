@@ -6,6 +6,7 @@ export const ExportSchema=z.object({
  format:z.literal('jobmatch-personal-data-v1'),complete:z.literal(true),
  scope:z.literal('workspace-audit-consent'),exported_at:z.iso.datetime({offset:true}),
  fact_history_export:z.literal('/api/fact-history?export=1'),
+ structured_profile_export:z.literal('/api/structured-profile?export=1').optional(),
  user:z.object({id:z.string().min(1),email:z.email().optional()}),
  workspace:WorkspaceSchema,audit:z.array(AuditSchema),consent:z.array(ConsentSchema).max(1)
 });

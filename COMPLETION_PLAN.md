@@ -19,6 +19,8 @@
   - [x] Подготовлен CLI оценки через тот же provider: 28 синтетических RU/EN cases, строгие gold quotes/IDs, missing/unsupported links, ошибки/полнота, версии/hash prompt/corpus и обязательное отдельное разрешение запуска. Промпт v2 требует полного обоснования требования. PR #16: https://github.com/kredavto/JobMatch-AI/pull/16 . CI 40837934780 SUCCESS: 511 Vitest и 3 CLI/HTTP process tests; контейнерная регрессия 40837934708 SUCCESS. Контракт: evaluation/README.md. Это harness, не оценённая модель; HTTP fixtures не закрывают живой пункт.
   - [ ] Получить согласованный собственный endpoint/модель и проверенный digest, независимые held-out judgments и выполнить живой прогон; operator-declared digest в CLI сам по себе не удостоверяет loaded weights.
 - [ ] Структурированный профиль: должности, даты, образование, сертификаты, достижения с исходными диапазонами и явным подтверждением.
+  - [x] Подготовлен ручной source-backed профиль: четыре типа, шесть literal fields с Unicode-диапазонами, отдельные unconfirmed/confirm/delete/reset команды, source snapshot/fact-ID привязка, две нормализованные таблицы, API/UI/export и 15-table backup manifest. Контракт docs/STRUCTURED_PROFILE.md. CI ожидается; не объединён и не выпущен.
+  - [ ] Автоматическое извлечение/семантика/неоднозначные даты и live provider/multi-account приёмка; source range не считается доказательством истинности или квалификации.
 - [ ] Переписывание и письма с проверкой фактов/чисел/противоречий, preview, отменой и отдельной неизменяемой версией. Точный extractive gate не является семантической верификацией переписанного текста.
 - [ ] Сохранять происхождение и версию модели/шаблона для принятых AI-изменений; миграция и regression tests.
 

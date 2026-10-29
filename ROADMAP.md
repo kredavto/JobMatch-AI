@@ -332,3 +332,8 @@
 - Prompt requirements-evidence-v2 требует полного обоснования, без вывода недостающих чисел/лет/уровней из ключевых слов. Это инструкция модели, а не семантическая гарантия валидатора.
 - Нужны отдельный явный opt-in запуска и operator-declared model digest; report фиксирует версии/hashes и не выдаёт этот digest за подтверждённый loaded model. CI использует только local HTTP fixtures.
 - Собственная модель не вызывалась. Живая независимая RU/EN оценка, сервер/размещение и семантическая приёмка остаются открытыми; инструкция evaluation/README.md.
+
+
+## Ручной source-backed структурированный профиль — зависимая ветка, 29 октября 2026
+- Работа/образование/сертификаты/достижения собираются из exact source ranges сохранённого резюме; отдельное подтверждение, stale source/fact-ID detection и явный reset. Своё состояние/revision в двух owner/session-protected таблицах, общий lock с workspace writers.
+- Не меняет score/резюме/факты и не вызывает AI. API/UI/owner export, cascade deletion и explicit 15-table backup manifest. Автоматическое извлечение и live приёмка открыты. docs/STRUCTURED_PROFILE.md.
