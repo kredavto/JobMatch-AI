@@ -4,10 +4,12 @@ export type AnalyticsFilter={from:string;to:string;versionId:string};
 const sentStatuses=new Set(['Отклик отправлен','Просмотрено','Приглашение','Отказ','Интервью','Оффер']);
 const responseStatuses=new Set(['Приглашение','Отказ','Интервью','Оффер']);
 const interviewStatuses=new Set(['Интервью','Оффер']);
-const calendarDay=z.iso.date(),instant=z.iso.datetime({offset:true}),recordedDate=z.iso.datetime({offset:true,local:true});
+const calendarDay=z.iso.date(),instant=z.iso.datetime({offset:true});
+function canonicalInstant(value:string){return value.replace(/([+-]\d{2})(\d{2})$/,'$1:$2').replace(/z$/,'Z').replace(/(T\d{2}:\d{2})(Z|[+-]\d{2}:\d{2})$/,'$1:00$2');}
 /** Calendar days keep their established UTC bucket; offset-less times never acquire the device zone. */
-export function recordedEventTime(value:string){if(calendarDay.safeParse(value).success)return Date.parse(value+'T00:00:00Z');if(!instant.safeParse(value).success)return null;const n=Date.parse(value);return Number.isFinite(n)?n:null;}
-export function validRecordedEventDate(value:string){return calendarDay.safeParse(value).success||recordedDate.safeParse(value).success;}
+export function recordedEventTime(value:string){if(calendarDay.safeParse(value).success)return Date.parse(value+'T00:00:00Z');const canonical=canonicalInstant(value);if(!instant.safeParse(canonical).success)return null;const n=Date.parse(canonical);return Number.isFinite(n)?n:null;}
+/** Match the legacy workspace read contract for observed statuses. Its parsed value is never used for placement. */
+export function validRecordedEventDate(value:string){return /^\d{4}-\d{2}-\d{2}(T.*)?$/.test(value)&&calendarDay.safeParse(value.slice(0,10)).success&&Number.isFinite(Date.parse(value));}
 function recordedSentEvents(application:Application){return application.events.filter(event=>sentStatuses.has(event.status)&&validRecordedEventDate(event.date));}
 function firstSentRecord(application:Application){
  const events=recordedSentEvents(application);if(!events.length)return null;

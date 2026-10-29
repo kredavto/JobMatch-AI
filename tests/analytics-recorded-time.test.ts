@@ -21,7 +21,9 @@ it('keeps established calendar-day buckets but preserves day-only precision in C
 });
 it('distinguishes a recorded local date from a placeable instant and rejects impossible dates',()=>{
  expect(validRecordedEventDate('2026-10-29T10:30:00')).toBe(true);expect(recordedEventTime('2026-10-29T10:30:00')).toBeNull();
- for(const value of ['2026-02-30','2026-10-29T24:00:00Z','bad']){expect(validRecordedEventDate(value)).toBe(false);expect(recordedEventTime(value)).toBeNull();}
+ expect(recordedEventTime('2026-10-01T00:30:00+0300')).toBe(Date.parse('2026-09-30T21:30:00Z'));expect(recordedEventTime('2026-10-01T00:30+03:00')).toBe(Date.parse('2026-09-30T21:30:00Z'));
+ const legacy='2026-10-01T24:00:00Z';expect(validRecordedEventDate(legacy)).toBe(true);expect(recordedEventTime(legacy)).toBeNull();const observation=app('SYNTHETIC legacy',[{status:'Просмотрено',date:legacy}]);expect(summarize([observation]).sent).toBe(1);expect(unplacedApplications([observation])).toEqual([observation]);
+ for(const value of ['2026-02-30','2026-10-29T25:00:00Z','bad']){expect(validRecordedEventDate(value)).toBe(false);expect(recordedEventTime(value)).toBeNull();}
  const source=app('SYNTHETIC invalid outcome',[{status:'Отклик отправлен',date:'2026-10-01'},{status:'Приглашение',date:'bad'}]);expect(summarize([source])).toMatchObject({sent:1,responses:0});expect(monthlyResults([source])[0].invited).toBe(0);
 });
 it('counts unplaced applications once without inventing submissions for plans or invalid events',()=>{
