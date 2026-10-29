@@ -34,3 +34,6 @@ Typed RU/EN overview/vacancy components preserve canonical commands, source text
 
 ## Rules editor and saved sources
 `EditorPanel` prepares typed RU/EN rule results, evidence warnings, edit selection and save controls. Known current rule reasons are translated for display only; unknown reasons remain verbatim. Saved quotes, IDs, rules output and frozen Russian version text are unchanged. Unsaved resume/vacancy fields disable analysis and version selection/saving; late completions preserve later navigation and drafts. Production remains RU. See docs/EDITOR_LOCALIZATION.md for CI fixture scope and open global/bilingual/live acceptance.
+
+## Ordinary version history and exports
+Typed RU/EN copy covers ordinary version history/comparison, historical score metadata and DOCX feedback. Explicit instants display in UTC; legacy date-only or offset-less values retain their recorded precision with an explicit warning rather than acquiring a device time zone. Locale changes preserve comparison IDs and pending downloads; owner/version changes reset and abort only the old read. Source text/snapshots/metadata/TXT/JSON/DOCX content and canonical restore commands stay unchanged. Production remains RU. See docs/VERSION_HISTORY_LOCALIZATION.md for fixture/CI evidence and remaining global/live gates.

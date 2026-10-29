@@ -1,6 +1,8 @@
 import type {MatchMetadata} from '../lib/match-config';
-const names={mandatory:'Обязательные требования',experience:'Опыт и достижения',skills:'Профессиональные навыки',context:'Контекст задач',clarity:'Полнота и ясность'};
-export default function MatchMetadataPanel({metadata}:{metadata?:MatchMetadata}){
- if(!metadata)return <p>Редакция правил и сводка расчета не сохранены для этой версии. Текущие правила к старому баллу не приписываются.</p>;
- return <details><summary>Сохраненные правила и сводка оценки</summary><p>Редакция правил: {metadata.rules_revision}</p><p>Требований: {metadata.requirements}. Соответствует: {metadata.outcomes.matched}; частично: {metadata.outcomes.partial}; нет свидетельств: {metadata.outcomes.missing}; не подтверждено: {metadata.outcomes.unknown}.</p><ul>{Object.entries(metadata.weights).map(([key,value])=><li key={key}>{names[key as keyof typeof names]}: {value}%</li>)}</ul><p>Вклад статусов: matched = {metadata.contributions.matched}; partial = {metadata.contributions.partial}; missing = {metadata.contributions.missing}; unknown = {metadata.contributions.unknown}. Категории без требований исключаются; активные веса перенормируются.</p><p>Это сводка исторического расчета, а не повторный анализ текущего профиля. Внутренняя эвристика, не ATS-score hh.ru. Полный исходный профиль и строки сопоставления в этой сводке не сохраняются.</p></details>;
+import {versionsCopy} from '../lib/i18n/versions';
+import {normalizeLocale,type UiLocale} from '../lib/i18n/locale';
+export default function MatchMetadataPanel({metadata,locale:requestedLocale='ru'}:{metadata?:MatchMetadata;locale?:UiLocale}){
+ const locale=normalizeLocale(requestedLocale),t=versionsCopy[locale].metadata;
+ if(!metadata)return <p lang={locale}>{t.legacy}</p>;
+ return <details lang={locale}><summary>{t.title}</summary><p>{t.revision}: <span lang="">{metadata.rules_revision}</span></p><p>{t.requirements}: {metadata.requirements}. {t.matched}: {metadata.outcomes.matched}; {t.partial}: {metadata.outcomes.partial}; {t.missing}: {metadata.outcomes.missing}; {t.unknown}: {metadata.outcomes.unknown}.</p><ul>{Object.entries(metadata.weights).map(([key,value])=><li key={key}>{t.categories[key as keyof typeof t.categories]}: {value}%</li>)}</ul><p>{t.contributions}: matched = {metadata.contributions.matched}; partial = {metadata.contributions.partial}; missing = {metadata.contributions.missing}; unknown = {metadata.contributions.unknown}. {t.weightsHelp}</p><p>{t.help}</p></details>;
 }
