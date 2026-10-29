@@ -48,3 +48,9 @@ MVP: пользователь вручную импортирует резюме
 ## Текущий этап — 29 октября 2026
 - Кандидат 0.35 добавляет повтор письма и исправляет указания при повторной регистрации уже подтверждённого аккаунта. Это программная готовность, не доказательство доставки Gmail.
 - Для 100% публичного MVP всё ещё нужны согласованный почтовый прогон, финальный живой сценарий на Vercel, restore копии провайдера и решение оператора о размещении/хранении данных.
+
+
+## Основной профиль RU/EN — PR #24, 29 октября 2026
+- ProfilePanel с typed RU/EN copy цели/импорта/фактов/истории, исходными command payloads и explicit UTC. Успешное добавление факта не стирает следующий введённый черновик; double-click защищён до render. Production UI остаётся RU; shared page feedback и полная языковая приёмка открыты.
+- Включён свежий main3322011 с уже объединённым владельцем PR #15; mail origin/provider feedback согласованы со стабильным API error catalog и не теряют recovery hints. Независимые PR #17/#18 не объединяются этим этапом.
+- Локально624 unit/56files,37 Python, lint/types/build и96 Playwright PASS/2 live-account SKIP. PR https://github.com/kredavto/JobMatch-AI/pull/24 ; CI40879658922/40879658972/40879658997 SUCCESS на1fbe482:624 unit,37 Python,96 E2E/2 live SKIP, native PostgreSQL/restore19 и parser/OCR/ClamAV. Нет нового merge/release/SQL/production changes. Реальные SMTP/recovery, copy restore, operator hosting/privacy и model/HH/final acceptance остаются открытыми.
