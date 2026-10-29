@@ -40,32 +40,40 @@ jobs:
           psql -v ON_ERROR_STOP=1 -d structured_full -f scripts/restore_seed.sql
           psql -v ON_ERROR_STOP=1 -d structured_full -f supabase/tests/structured_profile.sql
           psql -v ON_ERROR_STOP=1 -d structured_full -f supabase/tests/structured_versions.sql
+          psql -v ON_ERROR_STOP=1 -d structured_full -f supabase/tests/saved_reminders.sql
           sed '/^-- Independent derived profile/,$d' supabase/schema.sql > /tmp/baseline.sql
           psql -v ON_ERROR_STOP=1 -d structured_upgrade -f scripts/restore_fixture.sql
           psql -v ON_ERROR_STOP=1 -d structured_upgrade -f /tmp/baseline.sql
           psql -v ON_ERROR_STOP=1 -d structured_upgrade -f scripts/restore_seed.sql
           psql -v ON_ERROR_STOP=1 -d structured_upgrade -f supabase/migrations/20261029084434_structured_profile.sql
           psql -v ON_ERROR_STOP=1 -d structured_upgrade -f supabase/migrations/20261029092404_structured_versions.sql
+          psql -v ON_ERROR_STOP=1 -d structured_upgrade -f supabase/migrations/20261029095404_saved_reminders.sql
           psql -v ON_ERROR_STOP=1 -d structured_upgrade -f supabase/tests/structured_profile.sql
           psql -v ON_ERROR_STOP=1 -d structured_upgrade -f supabase/tests/structured_versions.sql
+          psql -v ON_ERROR_STOP=1 -d structured_upgrade -f supabase/tests/saved_reminders.sql
       - name: Concurrent profile writers
         env: {JOBMATCH_LOCAL_STRUCTURED_TEST: '1', PGDATABASE: structured_upgrade}
         run: python3 scripts/structured_profile_concurrency.py
       - name: Concurrent immutable saves and native preview hash
         env: {JOBMATCH_LOCAL_STRUCTURED_TEST: '1', PGDATABASE: structured_upgrade}
         run: python3 scripts/structured_version_concurrency.py
-      - name: Verify sixteen populated table fingerprints and restored profile
+      - name: Concurrent saved reminder commands
+        env: {JOBMATCH_LOCAL_STRUCTURED_TEST: '1', PGDATABASE: structured_upgrade}
+        run: python3 scripts/reminder_concurrency.py
+      - name: Verify nineteen populated table fingerprints and restored profile
         run: |
           psql -v ON_ERROR_STOP=1 -d structured_full -f scripts/structured_profile_seed.sql
           psql -v ON_ERROR_STOP=1 -d structured_full -f scripts/structured_version_seed.sql
+          psql -v ON_ERROR_STOP=1 -d structured_full -f scripts/reminder_seed.sql
           PGDATABASE=structured_full python3 scripts/backup_manifest.py snapshot /tmp/structured-before.json --include-structured
-          python3 -c "import json; d=json.load(open('/tmp/structured-before.json')); assert len(d['tables'])==16 and all(v['rows']>0 for v in d['tables'].values())"
+          python3 -c "import json; d=json.load(open('/tmp/structured-before.json')); assert len(d['tables'])==19 and all(v['rows']>0 for v in d['tables'].values())"
           pg_dump -Fc -d structured_full -f /tmp/structured.dump
           pg_restore --exit-on-error -d structured_restore /tmp/structured.dump
           PGDATABASE=structured_restore python3 scripts/backup_manifest.py snapshot /tmp/structured-after.json --include-structured
           python3 scripts/backup_manifest.py compare /tmp/structured-before.json /tmp/structured-after.json
           psql -v ON_ERROR_STOP=1 -d structured_restore -f supabase/tests/structured_profile.sql
           psql -v ON_ERROR_STOP=1 -d structured_restore -f supabase/tests/structured_versions.sql
+          psql -v ON_ERROR_STOP=1 -d structured_restore -f supabase/tests/saved_reminders.sql
           psql -v ON_ERROR_STOP=1 -d structured_restore -c "update public.structured_profile_entries set fields=jsonb_set(fields,'{title,quote}','\"Changed\"')"
           PGDATABASE=structured_restore python3 scripts/backup_manifest.py snapshot /tmp/structured-changed.json --include-structured
           set +e
@@ -77,6 +85,15 @@ jobs:
           PGDATABASE=structured_restore python3 scripts/backup_manifest.py snapshot /tmp/version-changed.json --include-structured
           set +e
           python3 scripts/backup_manifest.py compare /tmp/structured-changed.json /tmp/version-changed.json
+          result=$?
+          set -e
+          test "$result" -eq 1
+      - name: Detect changed reminder history
+        run: |
+          psql -v ON_ERROR_STOP=1 -d structured_restore -c "update public.reminder_events set snapshot=jsonb_set(snapshot,'{title}','\"Changed synthetic history\"')"
+          PGDATABASE=structured_restore python3 scripts/backup_manifest.py snapshot /tmp/reminder-changed.json --include-structured
+          set +e
+          python3 scripts/backup_manifest.py compare /tmp/version-changed.json /tmp/reminder-changed.json
           result=$?
           set -e
           test "$result" -eq 1
