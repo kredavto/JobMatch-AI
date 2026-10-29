@@ -2,7 +2,7 @@
 import {useEffect,useRef,useState} from 'react';
 import {PROFILE_FIELDS,PROFILE_KINDS,profileLabels,fieldLabels,sourceSelection,StructuredCommandSchema,validateStructuredProfile,type StructuredProfile,type ProfileFields,type StructuredCommand} from '../lib/structured-profile';
 import StructuredVersionPanel from './structured-version-panel';
-import {RequestError} from '../lib/client-api';
+import {RequestError,errorFromResponse} from '../lib/client-api';
 type Props={ownerId:string;workspaceRevision:number;disabled:boolean;onConflict:()=>void};
 export default function StructuredProfilePanel({ownerId,workspaceRevision,disabled,onConflict}:Props){
  const [readGeneration,setReadGeneration]=useState(0);
@@ -17,7 +17,7 @@ export default function StructuredProfilePanel({ownerId,workspaceRevision,disabl
   setBusy(true);setError('');setNotice('');controller.current=new AbortController();
   try{
    const response=await fetch('/api/structured-profile',{method:command?'POST':'GET',cache:'no-store',headers:{'Content-Type':'application/json','x-jobmatch-owner':ownerId},signal:AbortSignal.any([controller.current.signal,AbortSignal.timeout(30000)]),...(command?{body:JSON.stringify({expectedOwnerId:ownerId,workspaceRevision,profileRevision:profile!.revision,command:StructuredCommandSchema.parse(command)})}:{})});
-   const value=await response.json();if(!response.ok)throw new RequestError(typeof value?.error==='string'?value.error:'Не удалось выполнить действие',response.status);
+   const value=await response.json();if(!response.ok)throw errorFromResponse(value,response.status);
    const next=validateStructuredProfile(value,ownerId,workspaceRevision);
    if(command&&next.revision!==profile!.revision+1)throw Error('Ответ записи не соответствует ревизии');
    if(!active.current)return;setProfile(next);if(!command)setReadGeneration(previous=>previous+1);setBlocked(false);setResetAccepted(false);

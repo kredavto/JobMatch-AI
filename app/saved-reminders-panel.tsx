@@ -1,7 +1,7 @@
 'use client';
 import {useEffect,useRef,useState} from 'react';
 import type {Application} from '../lib/db';
-import {RequestError} from '../lib/client-api';
+import {RequestError,errorFromResponse} from '../lib/client-api';
 import {calendarFile} from '../lib/calendar';
 import {ReminderCommandSchema,ReminderHistorySchema,validateReminderBoard,reminderTimeCandidates,isOverdue,reminderZoneChanged,type ReminderCommand,type ReminderBoard,type ReminderHistory,type Reminder} from '../lib/reminders';
 type Props={ownerId:string;workspaceRevision:number;applications:Application[];disabled:boolean;onConflict:()=>void};
@@ -18,7 +18,7 @@ export default function SavedRemindersPanel({ownerId,workspaceRevision,applicati
   if(pending.current||disabled||(command&&!canWrite))return;pending.current=true;setBusy(true);setError('');setNotice('');controller.current=new AbortController();
   try{
    const response=await fetch('/api/reminders'+(id?'?id='+id:''),{method:command?'POST':'GET',cache:'no-store',headers:{'Content-Type':'application/json','x-jobmatch-owner':ownerId},signal:AbortSignal.any([controller.current.signal,AbortSignal.timeout(30000)]),...(command?{body:JSON.stringify({expectedOwnerId:ownerId,workspaceRevision,revision:board!.revision,command:ReminderCommandSchema.parse(command)})}:{})});
-   const value=await response.json();if(!response.ok)throw new RequestError(typeof value?.error==='string'?value.error:'Ошибка чтения задач',response.status);
+   const value=await response.json();if(!response.ok)throw errorFromResponse(value,response.status);
    if(id){const next=ReminderHistorySchema.parse(value);if(next.ownerId!==ownerId||next.reminder.id!==id)throw Error('История другого аккаунта или задачи');if(active.current)setHistory(next);}
    else{const next=validateReminderBoard(value,ownerId,workspaceRevision);if(command&&next.revision!==board!.revision+1)throw Error('Ответ записи другой ревизии');if(!active.current)return;setBoard(next);setBlocked(false);setHistory(null);setDeleteId('');setDeleteAccepted(false);setAccepted(false);if(command){if(command.action==='create'||command.action==='update'||command.action==='delete'&&command.id===editing)clearDraft();setNotice('Задача сохранена. Внешнее уведомление не отправлялось.');}else invalidateTime();}
   }catch(cause){if(!active.current)return;if(!id)setBlocked(true);if(cause instanceof RequestError&&[401,409].includes(cause.status))onConflict();setError(cause instanceof Error?cause.message:'Ответ задач не прошёл проверку');}

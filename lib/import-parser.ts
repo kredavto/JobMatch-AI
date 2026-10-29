@@ -1,21 +1,24 @@
 import {boundedBody} from './body';
 import {UserError} from './errors';
-import {MAX_FILE_BYTES,MAX_PARSER_RESPONSE_BYTES,PARSER_ERRORS,ParserResponseSchema,documentExtension,validParserToken,type ImportResult} from './parser-contract';
-const unavailable=()=>new UserError(PARSER_ERRORS.UNAVAILABLE.message,503);
+import {MAX_FILE_BYTES,MAX_PARSER_RESPONSE_BYTES,PARSER_ERRORS,ParserResponseSchema,documentExtension,validParserToken,type ImportResult,type ParserCode} from './parser-contract';
+import type {ApiErrorCode} from './i18n/api-errors';
+const parserApiCodes={INVALID:'PARSER_INVALID',TOO_LARGE:'DOCUMENT_TOO_LARGE',TIMEOUT:'PARSER_TIMEOUT',OCR_LIMIT:'PARSER_OCR_LIMIT',BUSY:'PARSER_BUSY',UNAVAILABLE:'PARSER_UNAVAILABLE'} as const satisfies Record<ParserCode,ApiErrorCode>;
+const forwardedCodes=new Set<string>(Object.values(parserApiCodes));
+const unavailable=()=>new UserError(PARSER_ERRORS.UNAVAILABLE.message,503,'PARSER_UNAVAILABLE');
 /** Inline remains the compatibility default until the owner provisions the worker. No fallback in worker mode. */
 export async function parseImport(filename:string,data:Buffer,signal?:AbortSignal):Promise<ImportResult>{
- if(data.length>MAX_FILE_BYTES)throw new UserError(PARSER_ERRORS.TOO_LARGE.message,413);
- const extension=documentExtension(filename);if(!extension)throw new UserError('Поддерживаются TXT, DOCX, PDF');
+ if(data.length>MAX_FILE_BYTES)throw new UserError(PARSER_ERRORS.TOO_LARGE.message,413,'DOCUMENT_TOO_LARGE');
+ const extension=documentExtension(filename);if(!extension)throw new UserError('Поддерживаются TXT, DOCX, PDF',400,'DOCUMENT_TYPE_UNSUPPORTED');
  const mode=process.env.IMPORT_PARSER_MODE||'inline';
  if(mode==='inline')return {text:await (await import('./documents')).extractDocument(filename,data)};
  if(mode!=='worker')throw unavailable();
  let url:URL;try{url=new URL(process.env.IMPORT_PARSER_URL||'');}catch{throw unavailable();}
  const token=process.env.IMPORT_PARSER_TOKEN;
  if(url.protocol!=='https:'||url.username||url.password||url.hash||url.search||!validParserToken(token))throw unavailable();
- if(signal?.aborted)throw new UserError(PARSER_ERRORS.TIMEOUT.message,408);
+ if(signal?.aborted)throw new UserError(PARSER_ERRORS.TIMEOUT.message,408,'PARSER_TIMEOUT');
  const controller=new AbortController();let expired=false;let interrupt!:(error:UserError)=>void;
  const interrupted=new Promise<never>((_,reject)=>{interrupt=reject;});
- const stop=()=>{controller.abort();interrupt(new UserError(PARSER_ERRORS.TIMEOUT.message,408));};signal?.addEventListener('abort',stop,{once:true});
+ const stop=()=>{controller.abort();interrupt(new UserError(PARSER_ERRORS.TIMEOUT.message,408,'PARSER_TIMEOUT'));};signal?.addEventListener('abort',stop,{once:true});
  const timer=setTimeout(()=>{expired=true;stop();},20000);
  try{
   const operation=(async()=>{
@@ -26,12 +29,12 @@ export async function parseImport(filename:string,data:Buffer,signal?:AbortSigna
   let result;try{result=ParserResponseSchema.parse(JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(bytes)));}catch{throw unavailable();}
   if(result.ok){if(!response.ok||(result.ocrPages!==undefined&&extension!=='pdf'))throw unavailable();return {text:result.text,...(result.ocrPages===undefined?{}:{ocrPages:result.ocrPages})};}
   const error=PARSER_ERRORS[result.code];if(response.status!==error.status)throw unavailable();
-  throw new UserError(error.message,error.status);
+  throw new UserError(error.message,error.status,parserApiCodes[result.code]);
   })();
   return await Promise.race([operation,interrupted]);
  }catch(error){
-  if(expired||controller.signal.aborted)throw new UserError(PARSER_ERRORS.TIMEOUT.message,408);
-  if(error instanceof UserError&&Object.values(PARSER_ERRORS).some(item=>item.message===error.message))throw error;
+  if(expired||controller.signal.aborted)throw new UserError(PARSER_ERRORS.TIMEOUT.message,408,'PARSER_TIMEOUT');
+  if(error instanceof UserError&&error.code!==undefined&&forwardedCodes.has(error.code))throw error;
   throw unavailable();
  }finally{clearTimeout(timer);signal?.removeEventListener('abort',stop);controller.abort();}
 }

@@ -10,7 +10,7 @@ export const dynamic='force-dynamic';
 export async function POST(req:NextRequest){try{
  sameOrigin(req);const user=await userOf(req);requireExpectedOwner(req,user.id);
  const body=z.object({consent:z.literal(true),revision:z.number().int().nonnegative(),expectedOwnerId:z.uuid()}).strict().parse(JSON.parse(new TextDecoder().decode(await boundedBody(req,1024))));
- if(body.expectedOwnerId!==user.id)throw new UserError('Аккаунт изменился. Обновите данные.',409);
+ if(body.expectedOwnerId!==user.id)throw new UserError('Аккаунт изменился. Обновите данные.',409,'OWNER_CHANGED');
  aiConfig();await consumeQuota(user,'analysis');
  const state=await readWorkspace(user);
  if(state.revision!==body.revision)throw new Error('CONFLICT');

@@ -10,16 +10,16 @@ export async function structuredVersionCommand(user:Identity,input:z.infer<typeo
   const version=await validateStructuredVersion(data,user.id);
   if(version.preview_hash!==input.previewHash||version.snapshot.workspace_revision!==input.workspaceRevision||version.snapshot.revision!==input.profileRevision||version.snapshot.entries.length!==input.entryIds.length||version.snapshot.entries.some(entry=>!input.entryIds.includes(entry.id)))throw Error();
   return version;
- }catch{throw new UserError('Ответ версии не прошёл проверку. Загрузите историю и профиль без повтора записи.',502);}
+ }catch{throw new UserError('Ответ версии не прошёл проверку. Загрузите историю и профиль без повтора записи.',502,'WRITE_RESULT_INVALID');}
 }
 export async function listStructuredVersions(user:Identity){
  const data=await supabase('/rest/v1/rpc/list_structured_versions','POST',{},user.token);
- try{const list=VersionListSchema.parse(data);if(list.ownerId!==user.id)throw Error();return list;}catch{throw new UserError('История версий не прошла проверку.',502);}
+ try{const list=VersionListSchema.parse(data);if(list.ownerId!==user.id)throw Error();return list;}catch{throw new UserError('История версий не прошла проверку.',502,'STRUCTURED_VERSION_LIST_INVALID');}
 }
 export async function readStructuredVersion(user:Identity,id:string){
  const data=await supabase('/rest/v1/rpc/read_structured_version','POST',{p_id:id},user.token);
- if(data===null)throw new UserError('Версия не найдена.',404);
- try{const version=await validateStructuredVersion(data,user.id);if(version.id!==id)throw Error();return version;}catch{throw new UserError('Происхождение версии не прошло проверку.',502);}
+ if(data===null)throw new UserError('Версия не найдена.',404,'VERSION_NOT_FOUND');
+ try{const version=await validateStructuredVersion(data,user.id);if(version.id!==id)throw Error();return version;}catch{throw new UserError('Происхождение версии не прошло проверку.',502,'STRUCTURED_VERSION_INVALID');}
 }
 /** Fixed list, one validated record per pull. Only complete:true closes a full archive. */
 export function structuredVersionStream(list:VersionList,read:(id:string)=>Promise<StructuredVersion>,limit=40*1024*1024){
