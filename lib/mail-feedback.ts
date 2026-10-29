@@ -1,10 +1,14 @@
-/** Fixed messages only: never display raw provider details, tokens or email existence. */
-export function mailFailure(status:number,stage:'request'|'exchange'|'update'){
- if(status===429)return 'Слишком много запросов. Подождите минуту перед новой попыткой.';
- if(stage==='update')return 'Не удалось подтвердить сохранение пароля. Сначала попробуйте войти с новым паролем. Если вход не удался, запросите новую ссылку.';
- if(status===403)return 'Запрос отклонён. Откройте страницу приложения заново и повторите действие.';
- if(stage==='exchange'&&(status===400||status===401))return 'Ссылка истекла, уже использована или открыта в другом браузере. Запросите новую ссылку на основном адресе приложения.';
- if(stage==='request'&&status===400)return 'Проверьте адрес почты и используйте основной адрес приложения.';
- if(status>=500)return 'Сервис запроса писем временно недоступен. Если ошибка повторяется, администратору нужно проверить почтовый сервис и журнал авторизации.';
- return 'Не удалось завершить действие. Проверьте подключение и повторите запрос вручную.';
+import {mailCopy} from './i18n/mail';
+import {normalizeLocale,type UiLocale} from './i18n/locale';
+export type MailStage='request'|'exchange'|'update';
+/** Fixed messages only; status and stage are retained so locale changes never replay a request. */
+export function mailFailure(status:number,stage:MailStage,locale:UiLocale='ru'){
+ const t=mailCopy[normalizeLocale(locale)].feedback;
+ if(status===429)return t.rate;
+ if(stage==='update')return t.uncertainUpdate;
+ if(status===403)return t.forbidden;
+ if(stage==='exchange'&&(status===400||status===401))return t.expired;
+ if(stage==='request'&&status===400)return t.requestInvalid;
+ if(status>=500)return t.outage;
+ return t.failed;
 }
