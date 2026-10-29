@@ -38,3 +38,6 @@ Old clients ignore additive code. New clients support earlier code-less same-ori
 
 ## Current main mail UX integration (PR #24)
 The owner-merged main/PR #15 mail origin gate and password-recovery advice are retained when combined with this contract. Additive AUTH_INVALID_CREDENTIALS (400), MAIL_SERVICE_UNAVAILABLE (503), MAIL_NOT_CONFIGURED (503) and MAIL_ORIGIN_MISMATCH (400) use fixed RU/EN copy; configured primary URLs and provider diagnostics are not echoed through failure. AUTH_REJECTED remains 400 with neutral authentication advice, without diagnosing SMTP. Documented over_request_rate_limit is handled from either provider code field. Mail flow, delivery, central-auth quota #17/#18 and provider acceptance remain separate; no real mail is sent by these synthetic tests.
+
+## Internal workspace validation feedback (PR #25)
+CLIENT_OWNER_CHANGED, CLIENT_HISTORY_INVALID, CLIENT_ANALYSIS_INVALID, CLIENT_EXPORT_INVALID and CLIENT_IMPORT_INVALID retain specific context for client-side checks and locale changes. They are not public API codes. errorFromResponse accepts only apiErrors with matching HTTP status, so a wire response cannot nominate these client errors. Workspace recovery still uses HTTP status, independently of localized copy. Unexpected non-RequestError exceptions use fixed domain fallback copy instead of exception.message.

@@ -91,6 +91,11 @@ export function codeMatchesStatus(code:ApiErrorCode,status:number){return Number
 export const clientErrors={
  CLIENT_NETWORK_LOST:{ru:'Связь с сервером потеряна. Результат записи неизвестен. Загрузите актуальные данные перед повторным сохранением.',en:'Connection lost. The write outcome is unknown. Reload current data before saving again.'},
  CLIENT_INVALID_RESPONSE:{ru:'Сервер вернул некорректный ответ. Загрузите актуальные данные.',en:'The server returned an invalid response. Reload current data.'},
+ CLIENT_OWNER_CHANGED:{ru:'Аккаунт изменился. Войдите повторно в исходный аккаунт. Черновик не перенесен.',en:'The account changed. Sign in to the original account. Your draft was not transferred.'},
+ CLIENT_HISTORY_INVALID:{ru:'История не прошла проверку. Загруженные снимки оставлены без изменений. Повторите загрузку.',en:'History validation failed. Previously loaded snapshots remain unchanged. Reload the history.'},
+ CLIENT_ANALYSIS_INVALID:{ru:'Результат анализа не соответствует сохраненным фактам или вакансии. Загрузите актуальные данные и повторите анализ.',en:'The analysis does not match the saved facts or vacancy. Reload current data and analyze again.'},
+ CLIENT_EXPORT_INVALID:{ru:'Экспорт не прошел проверку. Файл не создан. Повторите скачивание.',en:'Export validation failed. No file was created. Download a new copy.'},
+ CLIENT_IMPORT_INVALID:{ru:'Некорректный ответ импорта. Исходный текст оставлен в поле.',en:'The import response failed validation. The original draft remains in the field.'},
  CLIENT_REQUEST_FAILED:{ru:'Не удалось выполнить запрос',en:'The request could not be completed.'}
 } as const satisfies Record<string,Record<ErrorLocale,string>>;
 export type ClientErrorCode=keyof typeof clientErrors;

@@ -22,3 +22,6 @@ Typed RU/EN copy for source-backed profile/literal versions/saved tasks, semanti
 
 ## Master profile component
 `ProfilePanel` has typed RU/EN goal/import/facts/history copy with controlled drafts and exact canonical callbacks. History instants use explicit UTC; persisted sources, IDs and downloaded snapshots stay unchanged. Pending fact completion clears only the unchanged submitted draft. Production page remains RU; its shared notices/import/error feedback and all remaining shell screens still need locale wiring. Isolated bilingual component fixtures and a real-page regression with mocked service responses do not establish full-app English or provider acceptance.
+
+## Workspace feedback
+`WorkspacePage` stores semantic notice keys and typed request/fallback errors; `WorkspaceFeedback` resolves the current locale without replaying requests or resetting drafts. Internal validation client codes preserve context but cannot be accepted from an external API body. Unexpected exception text is redacted, and another import clears stale extraction-success feedback. Production `/` still fixes RU; other screens and global locale/document/offline wiring remain open. See docs/WORKSPACE_FEEDBACK_LOCALIZATION.md for the isolated whole-workspace fixture scope and evidence limits.
