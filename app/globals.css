@@ -18,3 +18,5 @@ mark{background:#d9f2e8;color:#174b3f;padding:2px 0}
 .structured-entry dd small{display:block;color:var(--muted)}
 
 .profile-panel details p small{display:block;color:var(--muted);font-size:11px;margin-top:6px;overflow-wrap:anywhere}
+
+.auth-links{display:flex;flex-direction:column;gap:8px;margin-bottom:0}.auth-links a{display:flex;align-items:center;min-height:44px}

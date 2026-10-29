@@ -25,3 +25,6 @@ Typed RU/EN copy for source-backed profile/literal versions/saved tasks, semanti
 
 ## Workspace feedback
 `WorkspacePage` stores semantic notice keys and typed request/fallback errors; `WorkspaceFeedback` resolves the current locale without replaying requests or resetting drafts. Internal validation client codes preserve context but cannot be accepted from an external API body. Unexpected exception text is redacted, and another import clears stale extraction-success feedback. Production `/` still fixes RU; other screens and global locale/document/offline wiring remain open. See docs/WORKSPACE_FEEDBACK_LOCALIZATION.md for the isolated whole-workspace fixture scope and evidence limits.
+
+## Authentication shell and mail forms
+`workspace-shell.ts` and `mail.ts` prepare typed RU/EN shell/sign-in/reauth/comparison/confirmation/recovery copy. Forms keep semantic feedback/status+stage, preserve fields/cooldown across locale changes and ignore late UI responses after unmount; recovery has a synchronous pending guard. This does not cancel an already submitted provider action or prove SMTP delivery/session revocation. Default production wrappers remain RU. See docs/AUTH_SHELL_LOCALIZATION.md for actual-component fixture scope, Next Link context limits and open global/bilingual/live gates.
