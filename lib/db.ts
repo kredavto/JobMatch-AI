@@ -24,6 +24,7 @@ export async function supabase(path:string,method='GET',body?:unknown,token?:str
  }
  let data;try{data=text?JSON.parse(text):null;}catch{throw new UserError('Некорректный ответ сервиса. Повторите позже.',502);}
  const authPath=path.startsWith('/auth/v1/'),code=typeof data?.error_code==='string'?data.error_code:data?.code;
+ if(!res.ok&&authPath&&res.status===400&&code==='invalid_credentials')throw new UserError('Неверная почта или пароль JobMatch AI. Если забыли пароль, воспользуйтесь восстановлением доступа.',400);
  if(!res.ok&&authPath&&(res.status===400||res.status===422)){
   const endedSession=['session_expired','session_not_found'].includes(code);
   const endedRefresh=path==='/auth/v1/token?grant_type=refresh_token'&&['refresh_token_not_found','refresh_token_already_used'].includes(code);
