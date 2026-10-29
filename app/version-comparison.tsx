@@ -12,7 +12,7 @@ export default function VersionComparison({versions,locale:requestedLocale='ru'}
  const diff=useMemo(()=>before&&after?compareText(before.text,after.text):null,[before,after]);
  if(versions.length<2)return <section className="card" lang={locale} aria-label={t.compareTitle}><h2>{t.compareTitle}</h2><p>{t.compareEmpty}</p></section>;
  const options=versions.map((version,index)=><option key={version.id} value={version.id}>{t.version} {index+1} · {formatVersionCreated(version.created,locale).text}</option>);
- return <section className="card" lang={locale} aria-label={t.compareTitle}><h2>{t.compareTitle}</h2><label>{t.before}<select value={before?.id||''} onChange={event=>setBefore(event.target.value)}><option value="">{t.choose}</option>{options}</select></label><label>{t.after}<select value={after?.id||''} onChange={event=>setAfter(event.target.value)}><option value="">{t.choose}</option>{options}</select></label>
+ return <section className="card" lang={locale} aria-label={t.compareTitle}><h2>{t.compareTitle}</h2><label>{t.before}<select aria-label={t.before} value={before?.id||''} onChange={event=>setBefore(event.target.value)}><option value="">{t.choose}</option>{options}</select></label><label>{t.after}<select aria-label={t.after} value={after?.id||''} onChange={event=>setAfter(event.target.value)}><option value="">{t.choose}</option>{options}</select></label>
  <p>{t.readOnly}</p>
  {!before||!after?<p>{t.chooseTwo}</p>:beforeId===afterId?<p role="status">{t.sameChoice}</p>:diff&&<>
  <p>{t.savedScores}: {before.score} → {after.score}. {scoresComparable(before,after)?<>{t.delta}: {after.score-before.score>0?'+':''}{after.score-before.score}. {t.deltaCaveat}</>:t.incomparable}</p>
