@@ -1,16 +1,19 @@
 'use client';
-import {useEffect,useRef,useState} from 'react';
+import {auditAiLinks} from '../lib/ai-link-audit';
+import {useEffect,useMemo,useRef,useState} from 'react';
 import {z} from 'zod';
-import {validateAiReview,type AiReview} from '../lib/ai-review';
+import {validateAiReview,eligibleAiFacts,type AiReview} from '../lib/ai-review';
 import type {Fact} from '../lib/engine';
 import {aiReviewCopy,aiReviewStatusError,type AiReviewErrorKey} from '../lib/i18n/ai-review';
 import {normalizeLocale,type UiLocale} from '../lib/i18n/locale';
 type Props={facts:Fact[];vacancy:string;revision:number;ownerId?:string;disabled:boolean;locale?:UiLocale};
-/** Locale preserves request/consent state. Owner or canonical revision changes invalidate it. */
-export default function AiReviewPanel(props:Props){return <BoundAiReview key={JSON.stringify([props.ownerId??null,props.revision])} {...props}/>;}
+/** Exact source equality is in-memory only: no hash collision, logging, persistence or network key. Locale is excluded. */
+export default function AiReviewPanel(props:Props){return <BoundAiReview key={JSON.stringify([props.ownerId??null,props.revision,props.vacancy,props.facts.map(({id,text,verified})=>({id,text,verified}))])} {...props}/>;}
 function BoundAiReview({facts,vacancy,revision,ownerId,disabled,locale:requestedLocale='ru'}:Props){
  const locale=normalizeLocale(requestedLocale),t=aiReviewCopy[locale];
  const [consent,setConsent]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState<AiReviewErrorKey|null>(null),[review,setReview]=useState<AiReview|null>(null);
+ const displayFacts=useMemo(()=>review?new Map(eligibleAiFacts(facts).map(fact=>[fact.id,fact])):null,[facts,review]);
+ const audit=useMemo(()=>review?auditAiLinks(review,facts,vacancy):null,[review,facts,vacancy]);
  const active=useRef<AbortController|null>(null),timerRef=useRef<ReturnType<typeof setTimeout>|null>(null);
  useEffect(()=>()=>{active.current?.abort();active.current=null;if(timerRef.current)clearTimeout(timerRef.current);timerRef.current=null;},[]);
  async function analyze(){
@@ -39,6 +42,6 @@ function BoundAiReview({facts,vacancy,revision,ownerId,disabled,locale:requested
  {disabled&&<p>{t.dirty}</p>}
  <button type="button" disabled={disabled||!ownerId||!consent||busy} onClick={()=>void analyze()}>{busy?t.busy:t.run}</button>
  {error&&<p role="alert" className="error">{t.errors[error]}</p>}
- {review&&<div role="status">{review.requirements.length===0?<p>{t.empty}</p>:<ul>{review.requirements.map(row=><li key={row.quote}><blockquote lang="">{row.quote}</blockquote>{row.evidence_ids.length?<ul>{row.evidence_ids.map(id=><li key={id} lang="">{facts.find(fact=>fact.id===id)?.text}</li>)}</ul>:<p>{t.noEvidence}</p>}</li>)}</ul>}</div>}
+ {review&&<div role="status">{review.requirements.length>0&&<p className="muted">{t.audit.limit}</p>}{audit?.status==='unavailable'&&<p role="note">{t.audit.unavailable}</p>}{review.requirements.length===0?<p>{t.empty}</p>:<ul>{review.requirements.map((row,index)=><li key={row.quote}><blockquote lang="">{row.quote}</blockquote>{row.evidence_ids.length?<ul>{row.evidence_ids.map(id=><li key={id} lang="">{displayFacts?.get(id)?.text}</li>)}</ul>:<p>{t.noEvidence}</p>}{audit?.links[index]?.signals.some(code=>code!=='no-linked-facts')&&<div role="note" aria-label={t.audit.title}><strong>{t.audit.title}</strong><ul>{audit.links[index].signals.filter(code=>code!=='no-linked-facts').map(code=><li key={code}>{t.audit.signals[code]}</li>)}</ul></div>}</li>)}</ul>}</div>}
  </section>;
 }

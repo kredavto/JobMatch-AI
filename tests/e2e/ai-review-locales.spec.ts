@@ -76,3 +76,47 @@ for(const locale of ['ru','en'] as const)for(const [status,key,code] of [[422,'s
   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
  });
 }
+
+for(const locale of ['ru','en'] as const)for(const [variant,quote,signal] of [
+ ['literal','Python','literal-gap'],
+ ['quantity','At least 5 years of Python experience','quantity-difference'],
+ ['level','English C1','level-below'],
+ ['unknown','Python experience of 8 quarters','quantity-unknown']
+] as const){
+ test(locale+' conservative '+variant+' annotation preserves source/consent/locale without writing',async({page})=>{
+  test.setTimeout(45000);await page.setViewportSize({width:390,height:844});let calls=0,writes=0;
+  await page.route('**/api/service',async route=>{writes++;await route.abort();});
+  await page.route('**/api/ai-review',async route=>{calls++;await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({ownerId,revision:1,review:{requirements:[{quote,evidence_ids:['f1']}]}})});});
+  await page.goto(origin+'/panel-'+locale);await page.getByRole('button',{name:'Test audit '+variant,exact:true}).click();
+  const copy=aiReviewCopy[locale];await page.getByRole('checkbox',{name:copy.consent,exact:true}).check();await page.getByRole('button',{name:copy.run,exact:true}).click();
+  await expect(page.getByRole('status').getByText(quote,{exact:true})).toBeVisible();await expect(page.getByRole('note').getByText(copy.audit.signals[signal],{exact:true})).toBeVisible();
+  const next=locale==='ru'?'en':'ru';await page.getByRole('button',{name:'Switch test locale',exact:true}).click();await expect(page.getByRole('note').getByText(aiReviewCopy[next].audit.signals[signal],{exact:true})).toBeVisible();
+  await expect(page.getByRole('checkbox',{name:aiReviewCopy[next].consent,exact:true})).toBeChecked();expect(calls).toBe(1);expect(writes).toBe(0);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
+ });
+}
+for(const locale of ['ru','en'] as const)for(const pending of [false,true]){
+ test(locale+' changed source at same owner/revision clears consent and ignores '+(pending?'late':'saved')+' review',async({page})=>{
+  test.setTimeout(45000);let calls=0,release!:()=>void,entered!:()=>void;
+  const started=new Promise<void>(resolve=>{entered=resolve;}),held=new Promise<void>(resolve=>{release=resolve;});
+  await page.route('**/api/ai-review',async route=>{calls++;entered();if(pending)await held;try{await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(envelope())});}catch{}});
+  await page.goto(origin+'/panel-'+locale);const copy=aiReviewCopy[locale];await page.getByRole('checkbox',{name:copy.consent,exact:true}).check();await page.getByRole('button',{name:copy.run,exact:true}).click();await started;
+  if(!pending)await expect(page.getByRole('status')).toContainText('SYNTHETIC PROFILE SQL');
+  await page.getByRole('button',{name:'Change test source',exact:true}).click();if(pending)release();
+  await expect(page.getByRole('checkbox',{name:copy.consent,exact:true})).not.toBeChecked();await expect(page.getByRole('status')).toHaveCount(0);await expect(page.getByRole('alert')).toHaveCount(0);
+  await expect(page.getByRole('button',{name:copy.run,exact:true})).toBeDisabled();expect(calls).toBe(1);
+ });
+}
+
+for(const locale of ['ru','en'] as const)for(const field of ['factText','factEligibility'] as const){
+ test(locale+' changing only '+field+' at unchanged vacancy/owner/revision clears stale review and consent',async({page})=>{
+  test.setTimeout(45000);let calls=0;
+  await page.route('**/api/ai-review',async route=>{calls++;await route.fulfill({json:envelope()});});
+  await page.goto(origin+'/panel-'+locale);const copy=aiReviewCopy[locale];
+  await page.getByRole('checkbox',{name:copy.consent,exact:true}).check();await page.getByRole('button',{name:copy.run,exact:true}).click();
+  await expect(page.getByRole('status')).toContainText('SYNTHETIC PROFILE SQL');
+  await page.getByRole('button',{name:'Change only '+field,exact:true}).click();
+  await expect(page.getByRole('status')).toHaveCount(0);await expect(page.getByRole('checkbox',{name:copy.consent,exact:true})).not.toBeChecked();
+  await expect(page.getByRole('button',{name:copy.run,exact:true})).toBeDisabled();expect(calls).toBe(1);
+ });
+}

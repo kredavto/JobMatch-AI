@@ -8,7 +8,21 @@ const ru={
  "busy": "Выполняем AI-разбор…",
  "empty": "Проверяемые требования не выделены.",
  "noEvidence": "Связанные подтверждённые факты не предложены.",
- "lifetime": "Результат не сохраняется автоматически и исчезает при уходе из редактора или смене владельца/ревизии.",
+ "lifetime": "Результат не сохраняется автоматически и исчезает при уходе из редактора, смене исходника, фактов, владельца или ревизии.",
+ "audit": {
+  "title": "Проверьте смысл связи",
+  "limit": "Правила отмечают только явные термины, сроки в годах, проценты и запись уровня английского. Отсутствие предупреждений не подтверждает соответствие или истинность фактов.",
+  "unavailable": "Пояснения не рассчитаны: проверьте актуальность исходника и подтверждённых фактов.",
+  "signals": {
+   "no-linked-facts": "Подтверждённые факты не связаны; соответствие не установлено.",
+   "literal-gap": "В связанных фактах не найдены все распознаваемые термины требования. Это не доказательство отсутствия навыка.",
+   "coverage-unavailable": "Смысл полной формулировки не проверен. Совпадение слов не доказывает соответствие.",
+   "quantity-difference": "Явные числовые значения различаются или не достигают указанной границы. Проверьте единицы и смысл сравнения.",
+   "quantity-unknown": "Числа не удалось однозначно сопоставить по ограниченным правилам. Проверьте их вручную.",
+   "level-below": "Указанный в связанных фактах уровень английского ниже требуемой записи. Проверьте актуальность и контекст.",
+   "level-unknown": "Уровни не удалось однозначно сопоставить. Нужна ручная проверка."
+  }
+ },
  "errors": {
   "unavailable": "AI-разбор пока не подключён или временно недоступен. Обычный анализ доступен.",
   "conflict": "Данные изменились. Загрузите актуальный профиль.",
@@ -31,7 +45,21 @@ const en:Copy<typeof ru>={
  "busy": "Reviewing with AI…",
  "empty": "No verifiable requirements were identified.",
  "noEvidence": "No related user-confirmed facts were suggested.",
- "lifetime": "The result is not saved automatically and disappears when leaving the editor or changing owner/revision.",
+ "lifetime": "The result is not saved automatically and disappears when leaving the editor or changing the source, facts, owner or revision.",
+ "audit": {
+  "title": "Review the meaning of this link",
+  "limit": "Rules flag only explicit terms, durations in years, percentages and English-level labels. Even without warnings, review the meaning of the link and the truth of the facts manually.",
+  "unavailable": "Annotations are unavailable. Check that the source and user-confirmed facts are current.",
+  "signals": {
+   "no-linked-facts": "No user-confirmed facts are linked; a match has not been established.",
+   "literal-gap": "The linked facts do not contain all terms recognised by the rules. This does not prove a skill is absent.",
+   "coverage-unavailable": "The meaning of the full statement has not been checked. Shared words do not establish a match.",
+   "quantity-difference": "Explicit quantities differ or do not meet the stated bound. Check the units and whether the values are comparable.",
+   "quantity-unknown": "The limited rules could not compare the quantities unambiguously. Review them manually.",
+   "level-below": "The linked English-level label is below the requirement label. Check its context and whether it is current.",
+   "level-unknown": "The level labels could not be compared unambiguously. Manual review is required."
+  }
+ },
  "errors": {
   "unavailable": "AI review is not connected or is temporarily unavailable. Rule-based analysis is available.",
   "conflict": "Data changed. Load the current profile.",

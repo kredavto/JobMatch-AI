@@ -1,3 +1,4 @@
+import {auditAiLinks,summarizeAiLinkAudit,AI_LINK_AUDIT_VERSION} from '../lib/ai-link-audit';
 import {configuredAiQuoteContract} from '../lib/ai-source-quotes';
 import {AI_FAILURE_STAGES,type AiFailureStage} from '../lib/ai-diagnostics';
 import {createHash} from 'node:crypto';
@@ -11,6 +12,9 @@ async function main(){
  const requested=process.env.JOBMATCH_AI_EVAL_DIAGNOSTICS;
  if(requested!==undefined&&requested!==''&&requested!=='off'&&requested!=='stages-v1')throw Error('Unknown diagnostic format');
  const diagnostics=requested==='stages-v1';
+ const requestedAudit=process.env.JOBMATCH_AI_EVAL_LINK_AUDIT;
+ if(requestedAudit!==undefined&&requestedAudit!==''&&requestedAudit!=='off'&&requestedAudit!==AI_LINK_AUDIT_VERSION)throw Error('Unknown link audit format');
+ const linkAuditEnabled=requestedAudit===AI_LINK_AUDIT_VERSION;
  const config=aiConfig(),quoteContract=configuredAiQuoteContract(),prompt=aiPromptForQuoteContract(quoteContract);
  const revision=process.env.JOBMATCH_AI_EVAL_MODEL_REVISION;
  if(!revision||!/^sha256:[a-f0-9]{64}$/.test(revision))throw Error('Operator-declared model digest required');
@@ -18,12 +22,15 @@ async function main(){
  const cancel=()=>controller.abort();process.once('SIGINT',cancel);process.once('SIGTERM',cancel);
  const timer=setTimeout(cancel,600000),startedAt=new Date().toISOString();
  try{
-  const stages=new Map<string,AiFailureStage>();
-  const result=await evaluateCorpus(evaluationCorpus,test=>aiReview(test.facts,test.vacancy,controller.signal,diagnostics?stage=>{stages.set(test.id,stage);}:undefined),controller.signal,diagnostics?{failureStage:(id,phase)=>phase==='grade'?'grading-validation':stages.get(id)??'unknown'}:undefined);
+  const stages=new Map<string,AiFailureStage>(),audits=new Map<string,ReturnType<typeof summarizeAiLinkAudit>>();
+  const unavailable=summarizeAiLinkAudit({version:AI_LINK_AUDIT_VERSION,semanticAssessment:'not-performed',status:'unavailable',links:[]});
+  const result=await evaluateCorpus(evaluationCorpus,async test=>{const review=await aiReview(test.facts,test.vacancy,controller.signal,diagnostics?stage=>{stages.set(test.id,stage);}:undefined);if(linkAuditEnabled){try{audits.set(test.id,summarizeAiLinkAudit(auditAiLinks(review,test.facts,test.vacancy)));}catch{audits.set(test.id,unavailable);}}return review;},controller.signal,diagnostics?{failureStage:(id,phase)=>phase==='grade'?'grading-validation':stages.get(id)??'unknown'}:undefined);
   const stageCounts=diagnostics?Object.fromEntries(AI_FAILURE_STAGES.map(stage=>[stage,result.rows.filter(row=>'failureStage' in row&&row.failureStage===stage).length])):undefined;
+  const cases=linkAuditEnabled?evaluationCorpus.map(test=>{const summary=audits.get(test.id);return {id:test.id,...(summary??unavailable),availabilityReason:summary?(summary.status==='available'?'audited':'audit-unavailable'):'no-validated-review'};}):undefined;
+  const linkAudit=cases?{version:AI_LINK_AUDIT_VERSION,semanticAssessment:'not-performed',scope:'validated-review-diagnostics-only',plannedCases:28,observedCases:cases.filter(row=>row.status==='available').length,unavailableCases:cases.filter(row=>row.status==='unavailable').length,cases}:undefined;
   const hash=(text:string)=>createHash('sha256').update(text).digest('hex');
   // Never emit endpoint, token, prompts, facts, model output or provider diagnostics.
-  process.stdout.write(JSON.stringify({schemaVersion:quoteContract==='source-lines-v1'?3:diagnostics?2:1,...(quoteContract==='source-lines-v1'?{quoteContractVersion:quoteContract}:{}),...(diagnostics?{diagnosticFormat:'ai-failure-stages-v1',failureStageCounts:stageCounts}:{}),runKind:'operator-configured-endpoint',startedAt,finishedAt:new Date().toISOString(),corpusVersion:CORPUS_VERSION,corpusSha256:hash(JSON.stringify(evaluationCorpus)),promptVersion:prompt.version,promptSha256:hash(prompt.text),model:config.model,operatorDeclaredModelDigest:revision,modelIdentityVerified:false,semanticAcceptance:'synthetic-exact-gold-only',...result})+'\n');
+  process.stdout.write(JSON.stringify({schemaVersion:linkAuditEnabled?4:quoteContract==='source-lines-v1'?3:diagnostics?2:1,...(linkAuditEnabled?{linkAudit}:{}),...(quoteContract==='source-lines-v1'?{quoteContractVersion:quoteContract}:{}),...(diagnostics?{diagnosticFormat:'ai-failure-stages-v1',failureStageCounts:stageCounts}:{}),runKind:'operator-configured-endpoint',startedAt,finishedAt:new Date().toISOString(),corpusVersion:CORPUS_VERSION,corpusSha256:hash(JSON.stringify(evaluationCorpus)),promptVersion:prompt.version,promptSha256:hash(prompt.text),model:config.model,operatorDeclaredModelDigest:revision,modelIdentityVerified:false,semanticAcceptance:'synthetic-exact-gold-only',...result})+'\n');
   process.exitCode=!result.complete||result.errors?2:result.passed?0:1;
  }finally{clearTimeout(timer);process.removeListener('SIGINT',cancel);process.removeListener('SIGTERM',cancel);}
 }

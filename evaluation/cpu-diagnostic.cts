@@ -1,3 +1,4 @@
+import {AI_LINK_AUDIT_VERSION,AI_LINK_SIGNALS,AI_LINK_WARNING_SIGNALS} from '../lib/ai-link-audit';
 import {sourceQuoteContract,type AiQuoteContract} from '../lib/ai-source-quotes';
 import {AI_FAILURE_STAGES} from '../lib/ai-diagnostics';
 import {createHash} from 'node:crypto';
@@ -81,9 +82,9 @@ async function stop(child:ChildProcess|undefined){
  child.kill('SIGTERM');await Promise.race([once(child,'close'),new Promise(resolve=>setTimeout(resolve,1500))]);
  if(child.exitCode===null)child.kill('SIGKILL');
 }
-async function runCli(endpoint:string,signal:AbortSignal,quoteContract:AiQuoteContract){
+async function runCli(endpoint:string,signal:AbortSignal,quoteContract:AiQuoteContract,linkAuditEnabled:boolean){
  if(signal.aborted)throw Error('Diagnostic interrupted');
- const env={PATH:process.env.PATH,NODE_ENV:'test',JOBMATCH_AI_ENABLED:'true',JOBMATCH_AI_SELF_HOSTED:'true',JOBMATCH_AI_ENDPOINT:endpoint,JOBMATCH_AI_MODEL:CPU_ALIAS,JOBMATCH_AI_EVAL_APPROVED:'true',JOBMATCH_AI_EVAL_DIAGNOSTICS:'stages-v1',JOBMATCH_AI_QUOTE_CONTRACT:quoteContract,JOBMATCH_AI_EVAL_MODEL_REVISION:'sha256:'+CPU_WEIGHT_SHA};
+ const env={PATH:process.env.PATH,NODE_ENV:'test',JOBMATCH_AI_ENABLED:'true',JOBMATCH_AI_SELF_HOSTED:'true',JOBMATCH_AI_ENDPOINT:endpoint,JOBMATCH_AI_MODEL:CPU_ALIAS,JOBMATCH_AI_EVAL_APPROVED:'true',JOBMATCH_AI_EVAL_DIAGNOSTICS:'stages-v1',JOBMATCH_AI_QUOTE_CONTRACT:quoteContract,JOBMATCH_AI_EVAL_LINK_AUDIT:linkAuditEnabled?AI_LINK_AUDIT_VERSION:'off',JOBMATCH_AI_EVAL_MODEL_REVISION:'sha256:'+CPU_WEIGHT_SHA};
  const child=spawn(process.execPath,[join(__dirname,'run.cjs')],{env,stdio:['ignore','pipe','pipe']});
  const cancel=()=>child.kill('SIGTERM');signal.addEventListener('abort',cancel,{once:true});
  let stdout='',stderr='',overflow=false;const timer=setTimeout(()=>{overflow=true;child.kill('SIGKILL');},610000);
@@ -97,16 +98,38 @@ export function cpuServerArgs(){
 }
 type CpuPhase='pin'|'weights'|'binary'|'server-start'|'server-ready'|'evaluate'|'evaluation-returned'|'report';
 function phase(value:CpuPhase){process.stdout.write('CPU_DIAGNOSTIC_PHASE '+value+'\n');}
-export function validateCpuEvaluationDiagnostics(value:unknown,quoteContract:AiQuoteContract='legacy'){
+export function validateCpuEvaluationDiagnostics(value:unknown,quoteContract:AiQuoteContract='legacy',linkAuditEnabled=false){
  if(quoteContract!=='legacy'&&quoteContract!=='source-lines-v1')throw Error('Unknown quote contract');
- const parsed=z.object({schemaVersion:z.literal(quoteContract==='source-lines-v1'?3:2),quoteContractVersion:quoteContract==='source-lines-v1'?z.literal('source-lines-v1'):z.never().optional(),diagnosticFormat:z.literal('ai-failure-stages-v1'),errors:z.number().int().min(0).max(28),failureStageCounts:z.record(z.enum(AI_FAILURE_STAGES),z.number().int().min(0).max(28)),rows:z.array(z.object({status:z.enum(['graded','error']),failureStage:z.enum(AI_FAILURE_STAGES).optional()})).length(28)}).parse(value);
+ const parsed=z.object({schemaVersion:z.literal(linkAuditEnabled?4:quoteContract==='source-lines-v1'?3:2),quoteContractVersion:quoteContract==='source-lines-v1'?z.literal('source-lines-v1'):z.never().optional(),diagnosticFormat:z.literal('ai-failure-stages-v1'),errors:z.number().int().min(0).max(28),failureStageCounts:z.record(z.enum(AI_FAILURE_STAGES),z.number().int().min(0).max(28)),rows:z.array(z.object({status:z.enum(['graded','error']),failureStage:z.enum(AI_FAILURE_STAGES).optional()})).length(28)}).parse(value);
  const errors=parsed.rows.filter(row=>row.status==='error');
  if(errors.length!==parsed.errors||parsed.rows.some(row=>row.status==='graded'?row.failureStage!==undefined:row.failureStage===undefined)||AI_FAILURE_STAGES.some(stage=>parsed.failureStageCounts[stage]!==errors.filter(row=>row.failureStage===stage).length))throw Error('Diagnostic count mismatch');
+ if(linkAuditEnabled)validateCpuLinkAudit((value as {linkAudit?:unknown}).linkAudit);
+ return true;
+}
+export function validateCpuLinkAudit(value:unknown){
+ const common={id:z.enum(evaluationCorpus.map(row=>row.id)),version:z.literal(AI_LINK_AUDIT_VERSION),semanticAssessment:z.literal('not-performed')};
+ const amount=z.number().int().min(0).max(50);
+ const note=z.object({index:z.number().int().min(0).max(49),status:z.enum(['warning','unknown','no-rule-warning']),signals:z.array(z.enum(AI_LINK_SIGNALS)).max(AI_LINK_SIGNALS.length)}).strict();
+ const available=z.object({...common,status:z.literal('available'),availabilityReason:z.literal('audited'),links:amount,notes:z.array(note).max(50),warningLinks:amount,unknownLinks:amount,noRuleWarningLinks:amount,signalCounts:z.record(z.enum(AI_LINK_SIGNALS),amount)}).strict();
+ const unavailable=z.object({...common,status:z.literal('unavailable'),availabilityReason:z.enum(['no-validated-review','audit-unavailable']),links:z.null(),notes:z.null(),warningLinks:z.null(),unknownLinks:z.null(),noRuleWarningLinks:z.null(),signalCounts:z.null()}).strict();
+ const report=z.object({version:z.literal(AI_LINK_AUDIT_VERSION),semanticAssessment:z.literal('not-performed'),scope:z.literal('validated-review-diagnostics-only'),plannedCases:z.literal(28),observedCases:z.number().int().min(0).max(28),unavailableCases:z.number().int().min(0).max(28),cases:z.array(z.discriminatedUnion('status',[available,unavailable])).length(28)}).strict().parse(value);
+ if(new Set(report.cases.map(row=>row.id)).size!==28||report.observedCases!==report.cases.filter(row=>row.status==='available').length||report.unavailableCases!==28-report.observedCases)throw Error('Audit coverage mismatch');
+ for(const row of report.cases){if(row.status==='unavailable')continue;
+  if(row.notes.length!==row.links||row.warningLinks!==row.notes.filter(note=>note.status==='warning').length||row.unknownLinks!==row.notes.filter(note=>note.status==='unknown').length||row.noRuleWarningLinks!==row.notes.filter(note=>note.status==='no-rule-warning').length)throw Error('Audit count mismatch');
+  for(const [index,note] of row.notes.entries()){
+   const warning=note.signals.some(code=>AI_LINK_WARNING_SIGNALS.includes(code as typeof AI_LINK_WARNING_SIGNALS[number]));
+   if(note.index!==index||new Set(note.signals).size!==note.signals.length||note.status!==(warning?'warning':note.signals.length?'unknown':'no-rule-warning'))throw Error('Audit note mismatch');
+  }
+  if(AI_LINK_SIGNALS.some(code=>row.signalCounts[code]!==row.notes.filter(note=>note.signals.includes(code)).length))throw Error('Audit signal mismatch');
+ }
  return true;
 }
 export async function main(){
  if(!approvedCpuEnvironment(process.env))throw Error('CI-only approval required');
  phase('pin');
+ const requestedAudit=process.env.JOBMATCH_AI_CPU_LINK_AUDIT;
+ if(requestedAudit!==undefined&&requestedAudit!==''&&requestedAudit!=='off'&&requestedAudit!==AI_LINK_AUDIT_VERSION)throw Error('Unknown CPU audit contract');
+ const linkAuditEnabled=requestedAudit===AI_LINK_AUDIT_VERSION;
  const requested=process.env.JOBMATCH_AI_CPU_QUOTE_CONTRACT;
  if(requested!==undefined&&requested!==''&&requested!=='legacy'&&requested!=='source-lines-v1')throw Error('Unknown CPU quote contract');
  const quoteContract:AiQuoteContract=requested==='source-lines-v1'?'source-lines-v1':'legacy';
@@ -127,13 +150,13 @@ export async function main(){
   server.on('error',cancel);controller.signal.addEventListener('abort',()=>server?.kill('SIGTERM'),{once:true});
   await waitReady(server,port,controller.signal);phase('server-ready');bridge=await createCpuBridge('http://127.0.0.1:'+port+'/',quoteContract);
   phase('evaluate');
-  const startedAt=new Date().toISOString(),result=await runCli(bridge.endpoint,controller.signal,quoteContract);
+  const startedAt=new Date().toISOString(),result=await runCli(bridge.endpoint,controller.signal,quoteContract,linkAuditEnabled);
   phase('evaluation-returned');
-  validateCpuEvaluationDiagnostics(result.report,quoteContract);
+  validateCpuEvaluationDiagnostics(result.report,quoteContract,linkAuditEnabled);
   if(!result.report.complete||result.report.completed!==28||bridge.stats.acceptedRequests!==28||bridge.stats.backendResponses<1||bridge.stats.generatedTokens<1||await sha256(MODEL)!==pin.sha256)throw Error('No complete model diagnostic');
   const quality=result.report.passed?'synthetic-exact-gold-passed':result.report.errors?'synthetic-provider-or-contract-errors':'synthetic-quality-mismatch';
   phase('report');
-  process.stdout.write((quoteContract==='source-lines-v1'?'JOBMATCH_CPU_DIAGNOSTIC_V3 ':'JOBMATCH_CPU_DIAGNOSTIC_V2 ')+JSON.stringify({format:quoteContract==='source-lines-v1'?'jobmatch-cpu-diagnostic-v3':'jobmatch-cpu-diagnostic-v2',...(quoteContract==='source-lines-v1'?{quoteContractVersion:quoteContract}:{}),runKind:'actual-local-cpu-inference/synthetic-only',startedAt,finishedAt:new Date().toISOString(),pin,weightsFileVerified:true,executionBinding:'readonly-file-and-owned-local-process',deploymentIdentityVerified:false,acceptance:'not-accepted',containerImageId:image,llamaBinarySha256:binarySha,licenseFileSha256:licenseSha,runtime:{node:process.version,architecture:process.arch,cpu:cpus()[0]?.model?.slice(0,200)??'unknown'},bridge:bridge.stats,diagnosticQuality:quality,evaluatorExitCode:result.exitCode,evaluation:result.report})+'\n');
+  process.stdout.write((linkAuditEnabled?'JOBMATCH_CPU_DIAGNOSTIC_V4 ':quoteContract==='source-lines-v1'?'JOBMATCH_CPU_DIAGNOSTIC_V3 ':'JOBMATCH_CPU_DIAGNOSTIC_V2 ')+JSON.stringify({format:linkAuditEnabled?'jobmatch-cpu-diagnostic-v4':quoteContract==='source-lines-v1'?'jobmatch-cpu-diagnostic-v3':'jobmatch-cpu-diagnostic-v2',...(linkAuditEnabled?{linkAuditVersion:AI_LINK_AUDIT_VERSION}:{}),...(quoteContract==='source-lines-v1'?{quoteContractVersion:quoteContract}:{}),runKind:'actual-local-cpu-inference/synthetic-only',startedAt,finishedAt:new Date().toISOString(),pin,weightsFileVerified:true,executionBinding:'readonly-file-and-owned-local-process',deploymentIdentityVerified:false,acceptance:'not-accepted',containerImageId:image,llamaBinarySha256:binarySha,licenseFileSha256:licenseSha,runtime:{node:process.version,architecture:process.arch,cpu:cpus()[0]?.model?.slice(0,200)??'unknown'},bridge:bridge.stats,diagnosticQuality:quality,evaluatorExitCode:result.exitCode,evaluation:result.report})+'\n');
  }finally{clearTimeout(timer);process.removeListener('SIGINT',cancel);process.removeListener('SIGTERM',cancel);await bridge?.close();await stop(server);}
 }
 if(require.main===module)main().catch(()=>{process.stderr.write('CPU diagnostic refused or incomplete; no provider output or paths emitted.\n');process.exitCode=2;});
