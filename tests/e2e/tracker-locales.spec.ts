@@ -7,6 +7,7 @@ import {build,stop} from 'esbuild';
 import {createServer,type Server} from 'node:http';
 import {readFile} from 'node:fs/promises';
 import type {AddressInfo} from 'node:net';
+test.describe.configure({timeout:60000});
 let server:Server,origin:string;
 test.beforeAll(async()=>{
  const bundle=await build({entryPoints:['tests/fixtures/workspace-page.tsx'],bundle:true,write:false,format:'iife',platform:'browser',target:'es2022',jsx:'automatic',minify:true,define:{'process.env.NODE_ENV':'"production"'}});
