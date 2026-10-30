@@ -1,3 +1,4 @@
+import {sourceQuoteContract,type AiQuoteContract} from '../lib/ai-source-quotes';
 import {AI_FAILURE_STAGES} from '../lib/ai-diagnostics';
 import {createHash} from 'node:crypto';
 import {createReadStream,readFileSync,statSync} from 'node:fs';
@@ -7,7 +8,7 @@ import {once} from 'node:events';
 import {cpus} from 'node:os';
 import {join} from 'node:path';
 import {z} from 'zod';
-import {AI_SYSTEM_PROMPT} from '../lib/ai-prompt';
+import {aiPromptForQuoteContract} from '../lib/ai-prompt';
 import {AiReviewSchema,eligibleAiFacts} from '../lib/ai-review';
 import {evaluationCorpus} from './corpus';
 const MODEL='/model/model.gguf',BINARY='/opt/llama/build/bin/llama-server';
@@ -27,11 +28,13 @@ async function sha256(path:string){const hash=createHash('sha256');for await(con
 async function body(request:IncomingMessage){let size=0;const chunks:Buffer[]=[];for await(const chunk of request){size+=chunk.length;if(size>64000)throw Error();chunks.push(Buffer.from(chunk));}return JSON.parse(Buffer.concat(chunks).toString('utf8'));}
 function send(response:ServerResponse,status:number,value:unknown){if(!response.destroyed){response.writeHead(status,{'Content-Type':'application/json','Cache-Control':'no-store'});response.end(JSON.stringify(value));}}
 /** CI-only transport adapter. It never reads expected gold, fabricates content or accepts caller endpoints. */
-export async function createCpuBridge(backend:string){
+export async function createCpuBridge(backend:string,quoteContract:AiQuoteContract='legacy'){
+ if(quoteContract!=='legacy'&&quoteContract!=='source-lines-v1')throw Error('Unknown quote contract');
+ const prompt=aiPromptForQuoteContract(quoteContract);
  const url=new URL(backend);
  if(url.protocol!=='http:'||url.hostname!=='127.0.0.1'||!url.port||url.pathname!=='/'||url.search||url.hash||url.username||url.password)throw Error('Loopback backend required');
- const remaining=new Map<string,number>();
- for(const test of evaluationCorpus){const input=inputFor(test);remaining.set(input,(remaining.get(input)??0)+1);}
+ const remaining=new Map<string,number>(),formats=new Map<string,unknown>();
+ for(const test of evaluationCorpus){const input=inputFor(test);remaining.set(input,(remaining.get(input)??0)+1);formats.set(input,quoteContract==='source-lines-v1'?sourceQuoteContract(test.vacancy).format:format);}
  const stats={acceptedRequests:0,backendResponses:0,generatedTokens:0,stopped:0,limited:0,transportFailures:0,rejectedRequests:0};
  let busy=false;const active=new Set<AbortController>();
  const server=createServer(async(request,response)=>{
@@ -41,9 +44,9 @@ export async function createCpuBridge(backend:string){
   try{
    if(request.method!=='POST'||request.url!=='/api/chat'||busy)throw Error();
    const payload=await body(request);
-   const schema=z.object({model:z.literal(CPU_ALIAS),stream:z.literal(false),format:z.unknown(),options:z.object({temperature:z.literal(0),num_predict:z.literal(2048)}).strict(),messages:z.tuple([z.object({role:z.literal('system'),content:z.literal(AI_SYSTEM_PROMPT)}).strict(),z.object({role:z.literal('user'),content:z.string().max(48000)}).strict()])}).strict();
+   const schema=z.object({model:z.literal(CPU_ALIAS),stream:z.literal(false),format:z.unknown(),options:z.object({temperature:z.literal(0),num_predict:z.literal(2048)}).strict(),messages:z.tuple([z.object({role:z.literal('system'),content:z.literal(prompt.text)}).strict(),z.object({role:z.literal('user'),content:z.string().max(48000)}).strict()])}).strict();
    const parsed=schema.parse(payload),input=parsed.messages[1].content;
-   if(JSON.stringify(parsed.format)!==JSON.stringify(format)||(remaining.get(input)??0)<1||busy)throw Error();
+   if(JSON.stringify(parsed.format)!==JSON.stringify(formats.get(input))||(remaining.get(input)??0)<1||busy)throw Error();
    remaining.set(input,remaining.get(input)!-1);busy=true;locked=true;stats.acceptedRequests++;
    const result=await fetch(new URL('/v1/chat/completions',url),{method:'POST',redirect:'error',signal:controller.signal,headers:{'Content-Type':'application/json'},body:JSON.stringify({model:CPU_ALIAS,stream:false,messages:parsed.messages,response_format:{type:'json_object',schema:parsed.format},temperature:0,seed:42,max_tokens:2048})});
    if(!result.ok||!result.headers.get('content-type')?.startsWith('application/json'))throw Error();
@@ -78,9 +81,9 @@ async function stop(child:ChildProcess|undefined){
  child.kill('SIGTERM');await Promise.race([once(child,'close'),new Promise(resolve=>setTimeout(resolve,1500))]);
  if(child.exitCode===null)child.kill('SIGKILL');
 }
-async function runCli(endpoint:string,signal:AbortSignal){
+async function runCli(endpoint:string,signal:AbortSignal,quoteContract:AiQuoteContract){
  if(signal.aborted)throw Error('Diagnostic interrupted');
- const env={PATH:process.env.PATH,NODE_ENV:'test',JOBMATCH_AI_ENABLED:'true',JOBMATCH_AI_SELF_HOSTED:'true',JOBMATCH_AI_ENDPOINT:endpoint,JOBMATCH_AI_MODEL:CPU_ALIAS,JOBMATCH_AI_EVAL_APPROVED:'true',JOBMATCH_AI_EVAL_DIAGNOSTICS:'stages-v1',JOBMATCH_AI_EVAL_MODEL_REVISION:'sha256:'+CPU_WEIGHT_SHA};
+ const env={PATH:process.env.PATH,NODE_ENV:'test',JOBMATCH_AI_ENABLED:'true',JOBMATCH_AI_SELF_HOSTED:'true',JOBMATCH_AI_ENDPOINT:endpoint,JOBMATCH_AI_MODEL:CPU_ALIAS,JOBMATCH_AI_EVAL_APPROVED:'true',JOBMATCH_AI_EVAL_DIAGNOSTICS:'stages-v1',JOBMATCH_AI_QUOTE_CONTRACT:quoteContract,JOBMATCH_AI_EVAL_MODEL_REVISION:'sha256:'+CPU_WEIGHT_SHA};
  const child=spawn(process.execPath,[join(__dirname,'run.cjs')],{env,stdio:['ignore','pipe','pipe']});
  const cancel=()=>child.kill('SIGTERM');signal.addEventListener('abort',cancel,{once:true});
  let stdout='',stderr='',overflow=false;const timer=setTimeout(()=>{overflow=true;child.kill('SIGKILL');},610000);
@@ -94,8 +97,9 @@ export function cpuServerArgs(){
 }
 type CpuPhase='pin'|'weights'|'binary'|'server-start'|'server-ready'|'evaluate'|'evaluation-returned'|'report';
 function phase(value:CpuPhase){process.stdout.write('CPU_DIAGNOSTIC_PHASE '+value+'\n');}
-export function validateCpuEvaluationDiagnostics(value:unknown){
- const parsed=z.object({schemaVersion:z.literal(2),diagnosticFormat:z.literal('ai-failure-stages-v1'),errors:z.number().int().min(0).max(28),failureStageCounts:z.record(z.enum(AI_FAILURE_STAGES),z.number().int().min(0).max(28)),rows:z.array(z.object({status:z.enum(['graded','error']),failureStage:z.enum(AI_FAILURE_STAGES).optional()})).length(28)}).parse(value);
+export function validateCpuEvaluationDiagnostics(value:unknown,quoteContract:AiQuoteContract='legacy'){
+ if(quoteContract!=='legacy'&&quoteContract!=='source-lines-v1')throw Error('Unknown quote contract');
+ const parsed=z.object({schemaVersion:z.literal(quoteContract==='source-lines-v1'?3:2),quoteContractVersion:quoteContract==='source-lines-v1'?z.literal('source-lines-v1'):z.never().optional(),diagnosticFormat:z.literal('ai-failure-stages-v1'),errors:z.number().int().min(0).max(28),failureStageCounts:z.record(z.enum(AI_FAILURE_STAGES),z.number().int().min(0).max(28)),rows:z.array(z.object({status:z.enum(['graded','error']),failureStage:z.enum(AI_FAILURE_STAGES).optional()})).length(28)}).parse(value);
  const errors=parsed.rows.filter(row=>row.status==='error');
  if(errors.length!==parsed.errors||parsed.rows.some(row=>row.status==='graded'?row.failureStage!==undefined:row.failureStage===undefined)||AI_FAILURE_STAGES.some(stage=>parsed.failureStageCounts[stage]!==errors.filter(row=>row.failureStage===stage).length))throw Error('Diagnostic count mismatch');
  return true;
@@ -103,6 +107,9 @@ export function validateCpuEvaluationDiagnostics(value:unknown){
 export async function main(){
  if(!approvedCpuEnvironment(process.env))throw Error('CI-only approval required');
  phase('pin');
+ const requested=process.env.JOBMATCH_AI_CPU_QUOTE_CONTRACT;
+ if(requested!==undefined&&requested!==''&&requested!=='legacy'&&requested!=='source-lines-v1')throw Error('Unknown CPU quote contract');
+ const quoteContract:AiQuoteContract=requested==='source-lines-v1'?'source-lines-v1':'legacy';
  const pin=validateCpuPin(JSON.parse(readFileSync('evaluation/cpu-model.json','utf8')));
  const image=process.env.JOBMATCH_AI_CPU_IMAGE_ID;
  if(!image||!/^sha256:[a-f0-9]{64}$/.test(image))throw Error('Container identity required');
@@ -118,15 +125,15 @@ export async function main(){
   phase('server-start');
   server=spawn(BINARY,cpuServerArgs(),{env:{PATH:process.env.PATH,HOME:'/tmp',LLAMA_CACHE:'/tmp'},stdio:'ignore'});
   server.on('error',cancel);controller.signal.addEventListener('abort',()=>server?.kill('SIGTERM'),{once:true});
-  await waitReady(server,port,controller.signal);phase('server-ready');bridge=await createCpuBridge('http://127.0.0.1:'+port+'/');
+  await waitReady(server,port,controller.signal);phase('server-ready');bridge=await createCpuBridge('http://127.0.0.1:'+port+'/',quoteContract);
   phase('evaluate');
-  const startedAt=new Date().toISOString(),result=await runCli(bridge.endpoint,controller.signal);
+  const startedAt=new Date().toISOString(),result=await runCli(bridge.endpoint,controller.signal,quoteContract);
   phase('evaluation-returned');
-  validateCpuEvaluationDiagnostics(result.report);
+  validateCpuEvaluationDiagnostics(result.report,quoteContract);
   if(!result.report.complete||result.report.completed!==28||bridge.stats.acceptedRequests!==28||bridge.stats.backendResponses<1||bridge.stats.generatedTokens<1||await sha256(MODEL)!==pin.sha256)throw Error('No complete model diagnostic');
   const quality=result.report.passed?'synthetic-exact-gold-passed':result.report.errors?'synthetic-provider-or-contract-errors':'synthetic-quality-mismatch';
   phase('report');
-  process.stdout.write('JOBMATCH_CPU_DIAGNOSTIC_V2 '+JSON.stringify({format:'jobmatch-cpu-diagnostic-v2',runKind:'actual-local-cpu-inference/synthetic-only',startedAt,finishedAt:new Date().toISOString(),pin,weightsFileVerified:true,executionBinding:'readonly-file-and-owned-local-process',deploymentIdentityVerified:false,acceptance:'not-accepted',containerImageId:image,llamaBinarySha256:binarySha,licenseFileSha256:licenseSha,runtime:{node:process.version,architecture:process.arch,cpu:cpus()[0]?.model?.slice(0,200)??'unknown'},bridge:bridge.stats,diagnosticQuality:quality,evaluatorExitCode:result.exitCode,evaluation:result.report})+'\n');
+  process.stdout.write((quoteContract==='source-lines-v1'?'JOBMATCH_CPU_DIAGNOSTIC_V3 ':'JOBMATCH_CPU_DIAGNOSTIC_V2 ')+JSON.stringify({format:quoteContract==='source-lines-v1'?'jobmatch-cpu-diagnostic-v3':'jobmatch-cpu-diagnostic-v2',...(quoteContract==='source-lines-v1'?{quoteContractVersion:quoteContract}:{}),runKind:'actual-local-cpu-inference/synthetic-only',startedAt,finishedAt:new Date().toISOString(),pin,weightsFileVerified:true,executionBinding:'readonly-file-and-owned-local-process',deploymentIdentityVerified:false,acceptance:'not-accepted',containerImageId:image,llamaBinarySha256:binarySha,licenseFileSha256:licenseSha,runtime:{node:process.version,architecture:process.arch,cpu:cpus()[0]?.model?.slice(0,200)??'unknown'},bridge:bridge.stats,diagnosticQuality:quality,evaluatorExitCode:result.exitCode,evaluation:result.report})+'\n');
  }finally{clearTimeout(timer);process.removeListener('SIGINT',cancel);process.removeListener('SIGTERM',cancel);await bridge?.close();await stop(server);}
 }
 if(require.main===module)main().catch(()=>{process.stderr.write('CPU diagnostic refused or incomplete; no provider output or paths emitted.\n');process.exitCode=2;});

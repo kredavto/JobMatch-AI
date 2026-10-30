@@ -22,6 +22,7 @@ jobs:
       CI: 'true'
       GITHUB_ACTIONS: 'true'
       JOBMATCH_AI_CPU_DIAGNOSTIC: 'true'
+      JOBMATCH_AI_CPU_QUOTE_CONTRACT: 'source-lines-v1'
       JOBMATCH_REPOSITORY_VISIBILITY: ${{ github.event.repository.visibility }}
       NEXT_TELEMETRY_DISABLED: '1'
       JOBMATCH_CPU_EVENT_NAME: ${{ github.event_name }}
@@ -51,7 +52,7 @@ jobs:
         shell: bash
         run: |
           image_id="$(docker image inspect jobmatch-cpu-diagnostic:local --format '{{.Id}}')"
-          timeout --signal=TERM --kill-after=10s 900s docker run --rm --init --network none --read-only --cap-drop ALL --security-opt no-new-privileges --cpus 4 --memory 4g --pids-limit 128 --tmpfs /tmp:rw,noexec,nosuid,size=64m --user 1000:1000 -v "$GITHUB_WORKSPACE:/app:ro" -v "$RUNNER_TEMP/jobmatch-cpu-model:/model:ro" -e CI=true -e GITHUB_ACTIONS=true -e JOBMATCH_AI_CPU_DIAGNOSTIC=true -e GITHUB_REPOSITORY=kredavto/JobMatch-AI -e JOBMATCH_REPOSITORY_VISIBILITY=public -e NODE_ENV=test -e JOBMATCH_AI_CPU_IMAGE_ID="$image_id" jobmatch-cpu-diagnostic:local
+          timeout --signal=TERM --kill-after=10s 900s docker run --rm --init --network none --read-only --cap-drop ALL --security-opt no-new-privileges --cpus 4 --memory 4g --pids-limit 128 --tmpfs /tmp:rw,noexec,nosuid,size=64m --user 1000:1000 -v "$GITHUB_WORKSPACE:/app:ro" -v "$RUNNER_TEMP/jobmatch-cpu-model:/model:ro" -e CI=true -e GITHUB_ACTIONS=true -e JOBMATCH_AI_CPU_DIAGNOSTIC=true -e JOBMATCH_AI_CPU_QUOTE_CONTRACT=source-lines-v1 -e GITHUB_REPOSITORY=kredavto/JobMatch-AI -e JOBMATCH_REPOSITORY_VISIBILITY=public -e NODE_ENV=test -e JOBMATCH_AI_CPU_IMAGE_ID="$image_id" jobmatch-cpu-diagnostic:local
       - name: Dispose only the job-owned model directory
         if: always()
         run: rm -rf -- "$RUNNER_TEMP/jobmatch-cpu-model"

@@ -1,3 +1,5 @@
+import {sourceQuoteContract} from '../dist/lib/ai-source-quotes.js';
+import {aiPromptForQuoteContract} from '../dist/lib/ai-prompt.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createServer} from 'node:http';
@@ -12,7 +14,7 @@ import {z} from 'zod';
 const approved={CI:'true',GITHUB_ACTIONS:'true',JOBMATCH_AI_CPU_DIAGNOSTIC:'true',GITHUB_REPOSITORY:'kredavto/JobMatch-AI',JOBMATCH_REPOSITORY_VISIBILITY:'public',NODE_ENV:'test'};
 function payload(index=0){const row=evaluationCorpus[index];return {model:CPU_ALIAS,stream:false,format:z.toJSONSchema(AiReviewSchema),options:{temperature:0,num_predict:2048},messages:[{role:'system',content:AI_SYSTEM_PROMPT},{role:'user',content:JSON.stringify({vacancy:row.vacancy,facts:eligibleAiFacts(row.facts).map(({id,text})=>({id,text}))})}]};}
 const output=(content='{"requirements":[]}',reason='stop',tokens=5)=>({choices:[{message:{role:'assistant',content},finish_reason:reason}],usage:{prompt_tokens:100,completion_tokens:tokens}});
-async function fixture(handler){const calls=[];const server=createServer(async(req,res)=>{let raw='';for await(const chunk of req)raw+=chunk;calls.push({path:req.url,payload:JSON.parse(raw)});await handler(req,res);});server.listen(0,'127.0.0.1');await once(server,'listening');const bridge=await createCpuBridge('http://127.0.0.1:'+server.address().port+'/');return {calls,bridge,close:async()=>{await bridge.close();server.closeAllConnections();await new Promise(resolve=>server.close(resolve));}};}
+async function fixture(handler,contract='legacy'){const calls=[];const server=createServer(async(req,res)=>{let raw='';for await(const chunk of req)raw+=chunk;calls.push({path:req.url,payload:JSON.parse(raw)});await handler(req,res);});server.listen(0,'127.0.0.1');await once(server,'listening');const bridge=await createCpuBridge('http://127.0.0.1:'+server.address().port+'/',contract);return {calls,bridge,close:async()=>{await bridge.close();server.closeAllConnections();await new Promise(resolve=>server.close(resolve));}};}
 const reply=(res,value=output())=>{res.writeHead(200,{'Content-Type':'application/json'});res.end(JSON.stringify(value));};
 async function post(f,value=payload(),options={}){return fetch(f.bridge.endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(value),...options});}
 test('CPU diagnostic refuses any missing/nonpublic/production approval marker',()=>{assert.equal(approvedCpuEnvironment(approved),true);for(const key of Object.keys(approved)){assert.equal(approvedCpuEnvironment({...approved,[key]:'false'}),false);}assert.equal(approvedCpuEnvironment({}),false);});
@@ -37,4 +39,23 @@ test('CPU v2 requires complete coherent stage counts and refuses legacy/misleadi
  const report={schemaVersion:2,diagnosticFormat:'ai-failure-stages-v1',errors:28,failureStageCounts:counts,rows:Array.from({length:28},()=>({status:'error',failureStage:'review-schema'}))};
  assert.equal(validateCpuEvaluationDiagnostics(report),true);
  for(const changed of [{schemaVersion:1},{errors:27},{failureStageCounts:{...counts,'review-schema':27}},{failureStageCounts:{...counts,private:1}},{failureStageCounts:{'review-schema':28}},{rows:report.rows.slice(1)},{rows:report.rows.map(()=>({status:'error'}))},{rows:report.rows.map(()=>({status:'graded',failureStage:'review-schema'}))},{rows:report.rows.map(()=>({status:'error',failureStage:'private'}))}])assert.throws(()=>validateCpuEvaluationDiagnostics({...report,...changed}));
+});
+
+test('source bridge authorizes only bundled source-specific grammar/prompt and passes actual upstream content unchanged',async()=>{
+ const content='{"requirements":[{"quote":"foreign source","evidence_ids":[]}]}';
+ const f=await fixture(async(req,res)=>reply(res,output(content)),'source-lines-v1');
+ try{
+  assert.equal((await post(f,payload())).status,400);assert.equal(f.calls.length,0);
+  const value=payload();value.format=sourceQuoteContract(evaluationCorpus[0].vacancy).format;value.messages[0].content=aiPromptForQuoteContract('source-lines-v1').text;
+  const wrong={...value,format:{...value.format,privateOverride:true}};assert.equal((await post(f,wrong)).status,400);assert.equal(f.calls.length,0);
+  const response=await post(f,value);assert.equal(response.status,200);assert.equal((await response.json()).message.content,content);
+  assert.deepEqual(f.calls[0].payload.response_format.schema,value.format);assert.equal(f.bridge.stats.backendResponses,1);
+ }finally{await f.close();}
+});
+test('CPU source v3 report requires the selected contract and cannot accept legacy report metadata',()=>{
+ const names=['configuration','input','transport','http-status-or-type','body-read','envelope-json','envelope-schema','content-json','review-schema','citation','evidence','review-validation','cancelled','timeout','grading-validation','unknown'];
+ const report={schemaVersion:3,quoteContractVersion:'source-lines-v1',diagnosticFormat:'ai-failure-stages-v1',errors:0,failureStageCounts:Object.fromEntries(names.map(stage=>[stage,0])),rows:Array.from({length:28},()=>({status:'graded'}))};
+ assert.equal(validateCpuEvaluationDiagnostics(report,'source-lines-v1'),true);
+ assert.throws(()=>validateCpuEvaluationDiagnostics(report));assert.throws(()=>validateCpuEvaluationDiagnostics({...report,schemaVersion:2},'source-lines-v1'));
+ assert.throws(()=>validateCpuEvaluationDiagnostics({...report,quoteContractVersion:'unknown'},'source-lines-v1'));
 });

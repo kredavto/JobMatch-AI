@@ -64,3 +64,15 @@ test('leaving the editor aborts pending review and keeps a newer profile draft; 
  let release!:()=>void;const held=new Promise<void>(resolve=>{release=resolve;});let requests=0;
  await page.route('**/api/ai-review',async route=>{requests++;await held;await route.fulfill({json:envelope()}).catch(()=>{});});let panel=await editor(page,'en');await panel.getByRole('checkbox').check();await panel.getByRole('button').click();await expect.poll(()=>requests).toBe(1);await nav(page,'profile','en');await page.getByRole('textbox',{name:'Review the imported text',exact:true}).fill('NEWER SYNTHETIC DRAFT 😀');release();await expect(page.getByRole('textbox',{name:'Review the imported text',exact:true})).toHaveValue('NEWER SYNTHETIC DRAFT 😀');await nav(page,'editor','en');panel=page.getByRole('region',{name:aiReviewCopy.en.title,exact:true});await expect(panel.getByRole('checkbox')).not.toBeChecked();await panel.getByRole('checkbox').check();await expect(panel.getByRole('button')).toBeDisabled();await expect(panel).toContainText(aiReviewCopy.en.dirty);await expect(panel.getByRole('blockquote')).toHaveCount(0);expect(requests).toBe(1);
 });
+
+for(const locale of ['ru','en'] as const)for(const [status,key,code] of [[422,'source','AI_SOURCE_QUOTES_UNAVAILABLE'],[413,'large','AI_SOURCE_QUOTES_LIMIT']] as const){
+ test(locale+' source-quote input refusal '+status+' is localised and does not replay the request',async({page})=>{
+  test.setTimeout(45000);await page.setViewportSize({width:390,height:844});let calls=0;
+  await page.route('**/api/ai-review',async route=>{calls++;await route.fulfill({status,contentType:'application/json',body:JSON.stringify({code,error:'PRIVATE backend details must not be displayed'})});});
+  await page.goto(origin+'/panel-'+locale);const copy=aiReviewCopy[locale];
+  await page.getByRole('checkbox',{name:copy.consent,exact:true}).check();await page.getByRole('button',{name:copy.run,exact:true}).click();
+  await expect(page.getByRole('alert')).toHaveText(copy.errors[key]);await expect(page.getByRole('alert')).not.toContainText('PRIVATE');
+  await expect(page.getByRole('checkbox',{name:copy.consent,exact:true})).toBeChecked();expect(calls).toBe(1);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
+ });
+}
