@@ -4,7 +4,7 @@ import {createServer} from 'node:http';
 import {once} from 'node:events';
 import {readFileSync} from 'node:fs';
 import {spawnSync} from 'node:child_process';
-import {createCpuBridge,approvedCpuEnvironment,validateCpuPin,CPU_ALIAS} from '../dist/evaluation/cpu-diagnostic.cjs';
+import {createCpuBridge,cpuServerArgs,approvedCpuEnvironment,validateCpuPin,CPU_ALIAS} from '../dist/evaluation/cpu-diagnostic.cjs';
 import {evaluationCorpus} from '../dist/evaluation/corpus.js';
 import {AI_SYSTEM_PROMPT} from '../dist/lib/ai-prompt.js';
 import {AiReviewSchema,eligibleAiFacts} from '../dist/lib/ai-review.js';
@@ -28,3 +28,5 @@ test('oversized upstream response cannot enter evaluation as a completion',async
 test('concurrent request is refused before inference and does not consume another case',async()=>{let release,entered;const enteredPromise=new Promise(resolve=>{entered=resolve;});const f=await fixture(async(req,res)=>{entered();await new Promise(resolve=>{release=resolve;});reply(res);});try{const pending=post(f);await enteredPromise;assert.equal((await post(f,payload(1))).status,400);release();assert.equal((await pending).status,200);assert.equal(f.calls.length,1);assert.equal(f.bridge.stats.acceptedRequests,1);}finally{await f.close();}});
 test('client disconnect aborts backend without fabricated completion',async()=>{let entered;const started=new Promise(resolve=>{entered=resolve;});const f=await fixture(async()=>{entered();});try{const controller=new AbortController(),pending=post(f,payload(),{signal:controller.signal});await started;controller.abort();await assert.rejects(pending);for(let i=0;i<40&&f.bridge.stats.transportFailures!==1;i++)await new Promise(resolve=>setTimeout(resolve,25));assert.equal(f.bridge.stats.transportFailures,1);assert.equal(f.bridge.stats.backendResponses,0);}finally{await f.close();}});
 test('CI entrypoint refuses before weights or network with generic output',()=>{const result=spawnSync(process.execPath,['evaluation/dist/evaluation/cpu-diagnostic.cjs'],{env:{PATH:process.env.PATH},encoding:'utf8',timeout:5000});assert.equal(result.status,2);assert.equal(result.stdout,'');assert.equal(result.stderr,'CPU diagnostic refused or incomplete; no provider output or paths emitted.\n');});
+
+test('pinned server uses current load-mode enum and fixed offline loopback/CPU bounds',()=>{const args=cpuServerArgs();assert.equal(args.includes('--no-mmap'),false);assert.equal(args[args.indexOf('--load-mode')+1],'none');assert.equal(args[args.indexOf('--host')+1],'127.0.0.1');assert.equal(args[args.indexOf('--n-gpu-layers')+1],'0');assert.equal(args[args.indexOf('--ctx-size')+1],'4096');assert.equal(args.includes('--offline'),true);});

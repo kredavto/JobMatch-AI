@@ -88,24 +88,36 @@ async function runCli(endpoint:string,signal:AbortSignal){
  try{const [code]=await once(child,'close');if(overflow||stderr||![0,1,2].includes(code as number))throw Error();return {exitCode:code,report:JSON.parse(stdout)};}
  finally{clearTimeout(timer);signal.removeEventListener('abort',cancel);await stop(child);}
 }
+export function cpuServerArgs(){
+ return ['--model',MODEL,'--alias',CPU_ALIAS,'--host','127.0.0.1','--port','18765','--offline','--no-webui','--ctx-size','4096','--parallel','1','--threads','4','--threads-batch','4','--n-gpu-layers','0','--load-mode','none','--no-warmup'];
+}
+type CpuPhase='pin'|'weights'|'binary'|'server-start'|'server-ready'|'evaluate'|'evaluation-returned'|'report';
+function phase(value:CpuPhase){process.stdout.write('CPU_DIAGNOSTIC_PHASE '+value+'\n');}
 export async function main(){
  if(!approvedCpuEnvironment(process.env))throw Error('CI-only approval required');
+ phase('pin');
  const pin=validateCpuPin(JSON.parse(readFileSync('evaluation/cpu-model.json','utf8')));
  const image=process.env.JOBMATCH_AI_CPU_IMAGE_ID;
  if(!image||!/^sha256:[a-f0-9]{64}$/.test(image))throw Error('Container identity required');
+ phase('weights');
  const stat=statSync(MODEL);if(!stat.isFile()||stat.size!==pin.bytes||(stat.mode&0o222)!==0||await sha256(MODEL)!==pin.sha256)throw Error('Weights mismatch');
+ phase('binary');
  const binarySha=await sha256(BINARY),licenseSha=await sha256('/model/LICENSE');
  const controller=new AbortController();const cancel=()=>controller.abort();process.once('SIGINT',cancel);process.once('SIGTERM',cancel);
  const timer=setTimeout(cancel,750000);let server:ChildProcess|undefined,bridge:Awaited<ReturnType<typeof createCpuBridge>>|undefined;
  try{
   // Fixed private network namespace in workflow, loopback only. No remote endpoint option.
   const port=18765;
-  server=spawn(BINARY,['--model',MODEL,'--alias',CPU_ALIAS,'--host','127.0.0.1','--port',String(port),'--offline','--no-webui','--ctx-size','4096','--parallel','1','--threads','4','--threads-batch','4','--n-gpu-layers','0','--no-mmap','--no-warmup'],{env:{PATH:process.env.PATH,HOME:'/tmp',LLAMA_CACHE:'/tmp'},stdio:'ignore'});
+  phase('server-start');
+  server=spawn(BINARY,cpuServerArgs(),{env:{PATH:process.env.PATH,HOME:'/tmp',LLAMA_CACHE:'/tmp'},stdio:'ignore'});
   server.on('error',cancel);controller.signal.addEventListener('abort',()=>server?.kill('SIGTERM'),{once:true});
-  await waitReady(server,port,controller.signal);bridge=await createCpuBridge('http://127.0.0.1:'+port+'/');
+  await waitReady(server,port,controller.signal);phase('server-ready');bridge=await createCpuBridge('http://127.0.0.1:'+port+'/');
+  phase('evaluate');
   const startedAt=new Date().toISOString(),result=await runCli(bridge.endpoint,controller.signal);
+  phase('evaluation-returned');
   if(!result.report.complete||result.report.completed!==28||bridge.stats.acceptedRequests!==28||bridge.stats.backendResponses<1||bridge.stats.generatedTokens<1||await sha256(MODEL)!==pin.sha256)throw Error('No complete model diagnostic');
   const quality=result.report.passed?'synthetic-exact-gold-passed':result.report.errors?'synthetic-provider-or-contract-errors':'synthetic-quality-mismatch';
+  phase('report');
   process.stdout.write('JOBMATCH_CPU_DIAGNOSTIC_V1 '+JSON.stringify({format:'jobmatch-cpu-diagnostic-v1',runKind:'actual-local-cpu-inference/synthetic-only',startedAt,finishedAt:new Date().toISOString(),pin,weightsFileVerified:true,executionBinding:'readonly-file-and-owned-local-process',deploymentIdentityVerified:false,acceptance:'not-accepted',containerImageId:image,llamaBinarySha256:binarySha,licenseFileSha256:licenseSha,runtime:{node:process.version,architecture:process.arch,cpu:cpus()[0]?.model?.slice(0,200)??'unknown'},bridge:bridge.stats,diagnosticQuality:quality,evaluatorExitCode:result.exitCode,evaluation:result.report})+'\n');
  }finally{clearTimeout(timer);process.removeListener('SIGINT',cancel);process.removeListener('SIGTERM',cancel);await bridge?.close();await stop(server);}
 }
