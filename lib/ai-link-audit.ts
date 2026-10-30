@@ -45,7 +45,7 @@ function parse(text:string):Parsed{
 function satisfies(actual:number,required:Quantity){return required.bound==='ge'?actual>=required.value:required.bound==='gt'?actual>required.value:required.bound==='le'?actual<=required.value:required.bound==='lt'?actual<required.value:actual===required.value;}
 /** Bounded, conservative annotations only. No qualification, semantic verification, Score/fact writes or network. */
 export function auditAiLinks(review:unknown,facts:readonly Fact[],vacancy:string):AiLinkAudit{
- const base={version:AI_LINK_AUDIT_VERSION,semanticAssessment:'not-performed' as const};
+ const base={version:AI_LINK_AUDIT_VERSION,semanticAssessment:'not-performed'} as const;
  try{
   if(typeof vacancy!=='string'||vacancy.length>100000)return {...base,status:'unavailable',links:[]};
   const input=factsSchema.parse(facts).map(fact=>({...fact,source:''}));

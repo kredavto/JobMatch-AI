@@ -3,7 +3,7 @@ import {auditAiLinks,summarizeAiLinkAudit,AI_LINK_AUDIT_VERSION,AI_LINK_SIGNALS}
 import type {Fact} from '../lib/engine';
 const fact=(text:string,id='f1',verified=true):Fact=>({id,text,verified,source:'SENSITIVE_SOURCE'});
 function audit(quote:string,texts:readonly string[],ids=texts.map((_,i)=>'f'+(i+1))){return auditAiLinks({requirements:[{quote,evidence_ids:ids}]},texts.map((text,i)=>fact(text,'f'+(i+1))),quote);}
-const signals=(quote:string,texts:string[])=>audit(quote,texts).links[0]?.signals??[];
+const signals=(quote:string,texts:readonly string[])=>audit(quote,texts).links[0]?.signals??[];
 afterEach(()=>vi.unstubAllGlobals());
 it.each([
  ['Python',['SQL']],['Python and SQL',['Python']],['SQL',['PostgreSQL']]
