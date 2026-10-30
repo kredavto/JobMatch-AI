@@ -28,14 +28,14 @@ export default function ApplicationReminder({applications,locale:requestedLocale
  return <section className="card" aria-label={t.title}><h2>{t.title}</h2><p>{t.intro}</p>{!applications.length?<p>{t.empty}</p>:<>
   <label>{t.application}<select aria-label={t.application} value={application} onChange={e=>{setApplication(e.target.value);changed();}}><option value="">{t.chooseApplication}</option>{applications.map(a=><option key={a.id} value={a.id}>{a.title}</option>)}</select></label>
   <label>{t.kind}<select aria-label={t.kind} value={kind} onChange={e=>{setKind(e.target.value as Kind);changed();}}>{(Object.keys(t.kinds) as Kind[]).map(value=><option key={value} value={value}>{t.kinds[value]}</option>)}</select></label>
-  <label>{t.zone}<input value={zone} maxLength={100} onChange={e=>{setZone(e.target.value);changedTime();}}/></label><p className="muted">{t.zoneHelp}</p>
-  <label>{t.when}<input type="datetime-local" min="2000-01-01T00:00" max="2099-12-31T23:59" value={when} onChange={e=>{setWhen(e.target.value);changedTime();}}/></label>
+  <label>{t.zone}<input aria-label={t.zone} value={zone} maxLength={100} onChange={e=>{setZone(e.target.value);changedTime();}}/></label><p className="muted">{t.zoneHelp}</p>
+  <label>{t.when}<input aria-label={t.when} type="datetime-local" min="2000-01-01T00:00" max="2099-12-31T23:59" value={when} onChange={e=>{setWhen(e.target.value);changedTime();}}/></label>
   {time.error&&<p role="alert">{t.errors[time.error]}</p>}
   {time.candidates.length>1&&<><p>{t.ambiguous}</p><label>{t.offset}<select aria-label={t.offset} value={offset} onChange={e=>{setOffset(e.target.value);changed();}}><option value="">{t.chooseOffset}</option>{time.candidates.map(candidate=><option key={candidate.dueAt} value={String(candidate.offsetMinutes)}>{formatUtcOffset(candidate.offsetMinutes)} · {candidate.dueAt}</option>)}</select></label></>}
   {preview&&<p>{t.preview} {preview}. {t.previewHelp}</p>}
   <label>{t.duration}<select aria-label={t.duration} value={minutes} onChange={e=>{setMinutes(Number(e.target.value) as 15|30|60|90);changed();}}>{[15,30,60,90].map(n=><option value={n} key={n}>{t.minute(n)}</option>)}</select></label>
-  <label>{t.description}<textarea maxLength={3000} value={description} onChange={e=>{setDescription(e.target.value);changed();}}/></label>
-  <label className="check"><input type="checkbox" checked={alarm} onChange={e=>{setAlarm(e.target.checked);changed();}}/>{t.alarm}</label><p className="muted">{t.privacy}</p><p className="muted">{t.template}</p>
+  <label>{t.description}<textarea aria-label={t.description} maxLength={3000} value={description} onChange={e=>{setDescription(e.target.value);changed();}}/></label>
+  <label className="check"><input aria-label={t.alarm} type="checkbox" checked={alarm} onChange={e=>{setAlarm(e.target.checked);changed();}}/>{t.alarm}</label><p className="muted">{t.privacy}</p><p className="muted">{t.template}</p>
   <button disabled={!selected||!preview} onClick={download}>{t.download}</button>
  </>}{error&&<p role="alert">{t.errors[error]}</p>}{notice&&<p role="status">{t.ready}</p>}</section>;
 }
