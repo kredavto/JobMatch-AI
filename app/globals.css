@@ -23,3 +23,5 @@ mark{background:#d9f2e8;color:#174b3f;padding:2px 0}
 
 /* Keep analytics row headers readable inside their own horizontal scroll regions. */
 .analytics-panel .table-wrap table{min-width:680px}.analytics-panel .table-wrap th{overflow-wrap:normal;word-break:normal;min-width:130px}.analytics-panel .table-wrap th[scope=row]{min-width:180px}
+
+.locale-control{max-width:260px}.locale-choice{margin:0;font-size:12px}.locale-choice select{margin-top:4px;min-width:130px}.account-controls{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.with-locale header{height:auto;min-height:78px;padding:12px 0;gap:12px;flex-wrap:wrap}.login>.locale-control{margin-bottom:24px}.loading>.locale-control{margin:0 auto 24px}.card>.locale-control{margin-bottom:20px}@media(max-width:760px){.with-locale header{min-height:50px}.with-locale .account-controls{margin-left:auto}}
