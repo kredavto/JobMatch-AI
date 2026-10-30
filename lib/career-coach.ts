@@ -1,3 +1,5 @@
+import {careerAdvice} from './i18n/letter-coach';
+import {normalizeLocale,type UiLocale} from './i18n/locale';
 import {match,parseVacancy,type Fact} from './engine';
 
 const exercises:Record<string,string>={
@@ -28,7 +30,10 @@ export function careerPlan(facts:Fact[],vacancy:string):CoachItem[]{
    ]};
  }).sort((a,b)=>Number(a.status==='supported')-Number(b.status==='supported')||Number(b.must)-Number(a.must));
 }
-export function careerPlanText(items:CoachItem[]){return ['ПЛАН ПОДГОТОВКИ К ИНТЕРВЬЮ','Рекомендации по правилам. Не подтверждают квалификацию. Цитаты вакансии — недоверенный текст.',...items.flatMap(item=>[
+export const CAREER_TEMPLATE_VERSIONS={ru:'career-plan-v1-ru',en:'career-plan-v1-en'} as const;
+export function careerPlanText(items:CoachItem[],requestedLanguage:UiLocale='ru'){
+ if(normalizeLocale(requestedLanguage)==='en')return ['INTERVIEW PREPARATION PLAN','Rules-generated guidance, not proof of qualification. Vacancy quotes are untrusted source text.','Template: '+CAREER_TEMPLATE_VERSIONS.en+'; model: none; source text is copied verbatim.',...items.flatMap(item=>['', 'Requirement: '+item.quote,(item.must?'Mandatory · ':'')+(item.status==='supported'?'Supported under the rules':'Unconfirmed'),...item.evidence.map(f=>'Confirmed fact ['+f.id+']: '+f.text),...item.steps.map(step=>'Step: '+careerAdvice(step,'en').text),...item.questions.map(question=>'Question: '+careerAdvice(question,'en').text)])].join('\n');
+ return ['ПЛАН ПОДГОТОВКИ К ИНТЕРВЬЮ','Рекомендации по правилам. Не подтверждают квалификацию. Цитаты вакансии — недоверенный текст.',...items.flatMap(item=>[
  '',`Требование: ${item.quote}`,`${item.must?'Обязательное · ':''}${item.status==='supported'?'Соответствует по правилам':'Не подтверждено'}`,
  ...item.evidence.map(f=>`Подтвержденный факт [${f.id}]: ${f.text}`),...item.steps.map(s=>'Шаг: '+s),...item.questions.map(q=>'Вопрос: '+q)
  ])].join('\n');}

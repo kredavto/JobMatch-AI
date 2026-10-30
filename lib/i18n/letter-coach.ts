@@ -4,7 +4,11 @@ const ru={
  "letter": {
   "title": "Сопроводительное письмо",
   "help": "Локальный шаблон с дословными подтвержденными фактами. Выберите до пяти фактов, связанных с сохраненной вакансией. Письмо не отправляется и не сохраняется автоматически. Черновик исчезает при уходе из редактора, смене ревизии, стиля или выбранных фактов; скачайте его заранее.",
-  "template": "Вводные фразы шаблона остаются русскими, факты переносятся дословно. Смена языка интерфейса не переводит письмо.",
+  "template": "Язык шаблона выбирается отдельно. Факты переносятся дословно и могут остаться на языке источника. Смена языка интерфейса не переводит уже подготовленное письмо.",
+  "outputLanguage": "Язык шаблона письма",
+  "languageHelp": "Смена языка шаблона очищает черновик и подтверждение. Смена языка интерфейса сохраняет их.",
+  "json": "Скачать письмо и происхождение (JSON)",
+  "provenanceHelp": "JSON содержит выбранные факты, исходную вакансию, версию шаблона и одобренный текст. Это неподписанный локальный снимок, не подтверждение подлинности источника и не семантическая проверка. Ручные правки явно отмечены.",
   "empty": "Для письма пока нет подтвержденных связанных фактов. Уточните профиль и выполните анализ заново.",
   "style": "Стиль письма",
   "styles": {
@@ -57,7 +61,9 @@ const ru={
   "downloadError": "Не удалось скачать план. Повторите скачивание по желанию.",
   "profile": "Добавить уточнение в профиль",
   "exportHelp": "Скачивается выбранная группа. План не меняет факты, резюме или Match Score. Учебные задания — предложения, а не выполненные достижения.",
-  "template": "TXT-план сохраняет прежние русские формулировки правил. Исходные цитаты и факты не переводятся.",
+  "template": "Язык экспорта выбирается отдельно. Переводятся только известные формулировки рекомендаций; исходные цитаты и факты остаются дословными.",
+  "outputLanguage": "Язык TXT-плана",
+  "languageHelp": "Смена языка интерфейса сохраняет выбранный язык экспорта, фильтр и открытые рекомендации.",
   "advice": {
    "sql": "На открытом или синтетическом наборе данных составьте запросы с JOIN, группировкой и оконной функцией. Сохраните запросы и объясните проверки результата.",
    "python": "Создайте небольшой скрипт обработки синтетических данных: проверка входа, преобразование, отчет и тесты. Сохраните код и инструкцию запуска.",
@@ -81,7 +87,11 @@ const en:Copy<typeof ru>={
  "letter": {
   "title": "Cover letter",
   "help": "A local template using user-confirmed facts verbatim. Select up to five facts related to the saved vacancy. The letter is not sent or saved automatically. The draft disappears when leaving the editor or changing the revision, style or selected facts; download it first.",
-  "template": "Template framing remains Russian and facts are copied verbatim. Changing the interface language does not translate the letter.",
+  "template": "Choose the template language separately. Facts are copied verbatim and may remain in their source language. Changing the interface language does not translate an existing letter.",
+  "outputLanguage": "Letter template language",
+  "languageHelp": "Changing the template language clears the draft and approval. Changing the interface language preserves them.",
+  "json": "Download letter and provenance (JSON)",
+  "provenanceHelp": "JSON includes selected facts, the source vacancy, template version and approved text. It is an unsigned local snapshot, not source authentication or semantic verification. Manual edits are explicitly marked.",
   "empty": "There are no confirmed related facts for a letter yet. Clarify your profile and analyze it again.",
   "style": "Letter style",
   "styles": {
@@ -134,7 +144,9 @@ const en:Copy<typeof ru>={
   "downloadError": "The plan could not be downloaded. You may try downloading again.",
   "profile": "Add a clarification to the profile",
   "exportHelp": "The selected group is downloaded. The plan does not change facts, the resume or Match Score. Exercises are suggestions, not completed achievements.",
-  "template": "The TXT plan retains the existing Russian rule wording. Source quotes and facts are not translated.",
+  "template": "Choose the export language separately. Only known advice wording is translated; source quotes and facts remain verbatim.",
+  "outputLanguage": "TXT plan language",
+  "languageHelp": "Changing the interface language preserves the export language, filter and open advice.",
   "advice": {
    "sql": "Use an open or synthetic dataset to write queries with a JOIN, grouping and a window function. Save the queries and explain how you checked the results.",
    "python": "Build a small script to process synthetic data: input validation, transformation, reporting and tests. Save the code and instructions.",
@@ -159,5 +171,5 @@ export type LetterErrorKey=keyof typeof ru.letter.errors;
 const errorKeys=new Map<string,LetterErrorKey>(['style','vacancy','selection','evidence'].map(key=>[ru.letter.errors[key as 'style'|'vacancy'|'selection'|'evidence'],key as LetterErrorKey] as const));
 export function letterFailure(error:unknown):LetterErrorKey{return error instanceof Error?errorKeys.get(error.message)||'failed':'failed';}
 const adviceKeys=new Map<string,keyof typeof ru.coach.advice>((Object.keys(ru.coach.advice) as (keyof typeof ru.coach.advice)[]).map(key=>[ru.coach.advice[key],key] as const));
-/** Display only: frozen rule-generated TXT exports remain unchanged. */
+/** Translate only known fixed advice; source evidence and unknown advice remain verbatim. */
 export function careerAdvice(value:string,requestedLocale:UiLocale='ru'){const key=adviceKeys.get(value),locale=normalizeLocale(requestedLocale);return key?{text:letterCoachCopy[locale].coach.advice[key],catalogued:true}:{text:value,catalogued:false};}
