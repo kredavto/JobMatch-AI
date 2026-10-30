@@ -23,3 +23,9 @@
 Новый черновик resume/vacancy, введённый во время verify, сохраняется; анализ откладывается с явным сообщением, что факт уже подтверждён и сохранён. Ошибка/подмена повторного анализа также сохраняет это различие: подтверждение состоялось, нового проверенного score нет. Позднее завершение не меняет выбранную вкладку. Уведомления хранят semantic key/score params и переводятся при смене locale без нового запроса; раскрытый candidate блок переживает смену языка.
 
 Неизвестный owner, paused/reload state, busy и dirty source блокируют быстрое подтверждение. Profile navigation остаётся ручной. Actual Next browser tests используют synthetic API replies; unit tests проверяют строгий ack, обе локали и conservative matching. Ни настоящая независимая проверка опыта, ни live model/SMTP/provider restore/финальная приёмка этим не доказываются.
+
+
+## Наблюдённые проверки интеграции
+PR #41 runtime `4c9f35b35156cf8c7eebdf8bb4ff8732d6a655aa`: Application41040452285, Structured/PostgreSQL41040452325 и Parser/OCR/ClamAV41040452293 SUCCESS.728 unit (73files),45 Python,lint/types/build;195 browser passed/2 live-account skipped;76 worker cases PASS.22 unit/10 browser cases относительно #40, включая отказ неверному owner/revision/соседним изменениям, deferred draft, pending locale, ambiguous analysis и manual sync/retry.
+
+Первый functional runtime прошёл, но visual QA обнаружила нечитаемую узкую колонку. Scoped min-width/card padding и mobile button readability assertion исправили её. Новый English390 JPEG просмотрен, axe/документ без горизонтального overflow PASS. Таблица остаётся прокручиваемой по горизонтали, не сжимая whole-line confirmation до отдельных слов. Actual Next routes используют synthetic service replies; native PostgreSQL19-table restore/concurrency не является real Supabase provider-copy restore. Production, модель и SMTP не вызывались.
