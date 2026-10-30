@@ -37,12 +37,12 @@ for(const locale of ['ru','en'] as const){
   if(locale==='en'){const png=await proposals.screenshot();console.log('JOBMATCH_STRUCTURED_PROPOSAL_PNG '+png.toString('base64'));}
   await proposals.getByRole('button',{name:t.adopt(1),exact:true}).click();expect(writes).toBe(0);await expect(panel.getByRole('button',{name:p.add,exact:true})).toBeEnabled();
   await panel.getByRole('button',{name:p.add,exact:true}).click();await expect(panel.getByRole('checkbox',{name:p.confirm,exact:true})).not.toBeChecked();expect(writes).toBe(1);
-  await panel.getByRole('checkbox',{name:p.confirm,exact:true}).check();await expect(panel.getByRole('checkbox',{name:p.confirm,exact:true})).toBeChecked();expect(writes).toBe(2);
+  await panel.getByRole('checkbox',{name:p.confirm,exact:true}).click();await expect(panel.getByRole('checkbox',{name:p.confirm,exact:true})).toBeChecked();expect(writes).toBe(2);
  });
  test(locale+' a captured manual draft cannot be overwritten by a suggestion',async({page})=>{
   test.setTimeout(45000);let writes=0;await page.route('**/api/structured-profile',async route=>{if(route.request().method()==='POST')writes++;await route.fulfill({json:initial()});});
   const panel=await open(page,locale),t=structuredProposalCopy(locale),p=structuredProfileCopy(locale);
-  await panel.getByLabel(p.source,{exact:true}).evaluate((element:HTMLTextAreaElement)=>{element.focus();element.setSelectionRange(3,9);});
+  await panel.getByLabel(p.source).evaluate((element:HTMLTextAreaElement)=>{element.focus();element.setSelectionRange(3,9);});
   await panel.getByRole('button',{name:p.capture,exact:true}).click();await expect(panel.getByRole('definition')).toContainText('MANUAL');
   const proposals=panel.getByRole('region',{name:t.title,exact:true});await proposals.getByRole('button',{name:t.run,exact:true}).click();await expect(proposals.getByRole('button',{name:t.adopt(1),exact:true})).toBeDisabled();
   await panel.getByRole('button',{name:t.clear,exact:true}).click();await expect(proposals.getByRole('button',{name:t.adopt(1),exact:true})).toBeEnabled();
