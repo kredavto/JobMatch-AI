@@ -1,4 +1,4 @@
-import {createHash} from 'node:crypto';
+import {consumeAuthQuota,localAuthKey} from '../../../lib/auth-quota';
 import {NextRequest,NextResponse} from 'next/server';
 import {z} from 'zod';
 import {boundedBody} from '../../../lib/body';
@@ -12,7 +12,8 @@ export async function POST(req:NextRequest){try{
  sameOrigin(req);rateLimit('confirmation-global',30);
  const body=input.parse(JSON.parse(new TextDecoder().decode(await boundedBody(req,4096))));
  const origin=mailOrigin(req.nextUrl.origin);
- rateLimit('confirmation-email:'+createHash('sha256').update(body.email).digest('hex'),1);
+ rateLimit('confirmation-email:'+localAuthKey(body.email),1);
+ await consumeAuthQuota('mail',body.email);
  await supabase('/auth/v1/resend?redirect_to='+encodeURIComponent(origin+'/'),'POST',{type:'signup',email:body.email});
  // The provider deliberately does not disclose whether an account is eligible.
  return NextResponse.json({ok:true},{headers:{'Cache-Control':'no-store'}});

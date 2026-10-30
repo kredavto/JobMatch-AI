@@ -1,3 +1,4 @@
+import {consumeAuthQuota,localAuthKey} from '../../../lib/auth-quota';
 import {createHash,randomBytes} from 'node:crypto';
 import {NextRequest,NextResponse} from 'next/server';
 import {z} from 'zod';
@@ -22,7 +23,8 @@ export async function POST(req:NextRequest){try{
  if(body.action==='request'){
   // Never derive email destinations from Host / forwarded headers or user input.
   const origin=mailOrigin(req.nextUrl.origin);
-  rateLimit('recovery-email:'+createHash('sha256').update(body.email).digest('hex'),3);
+  rateLimit('recovery-email:'+localAuthKey(body.email),3);
+  await consumeAuthQuota('mail',body.email);
   const verifier=randomBytes(32).toString('base64url');
   const challenge=createHash('sha256').update(verifier).digest('base64url');
   await supabase('/auth/v1/recover?redirect_to='+encodeURIComponent(origin+'/recover'),'POST',{email:body.email,code_challenge:challenge,code_challenge_method:'s256'});
@@ -31,6 +33,7 @@ export async function POST(req:NextRequest){try{
  if(body.action==='exchange'){
   const verifier=req.cookies.get('jm_recovery_verifier')?.value;
   if(!verifier||!/^[A-Za-z0-9_-]{43}$/.test(verifier))throw new UserError('Откройте ссылку в том браузере, где запросили восстановление, или запросите новую.',400,'RECOVERY_BROWSER_REQUIRED');
+  await consumeAuthQuota('exchange',verifier);
   const data=await supabase('/auth/v1/token?grant_type=pkce','POST',{auth_code:body.code,code_verifier:verifier});
   let auth;try{auth=parseProviderAuth(data,'login');}catch{throw new UserError('Не удалось проверить ссылку. Запросите новую.',502,'RECOVERY_LINK_INVALID');}
   if(auth.kind!=='session')throw new UserError('Не удалось проверить ссылку.',502,'RECOVERY_LINK_INVALID');
@@ -38,6 +41,7 @@ export async function POST(req:NextRequest){try{
  }
  const token=req.cookies.get('jm_recovery_access')?.value;
  if(!token)throw new UserError('Ссылка не подтверждена или истекла. Запросите восстановление заново.',401,'RECOVERY_SESSION_REQUIRED');
+ await consumeAuthQuota('update',token);
  const user=await identity(token);
  const updated=await supabase('/auth/v1/user','PUT',{password:body.password},token);
  if(updated?.id!==user.id)throw new UserError('Не удалось подтвердить смену пароля. Попробуйте войти с новым паролем.',502,'PASSWORD_UPDATE_UNCONFIRMED');

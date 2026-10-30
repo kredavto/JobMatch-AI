@@ -8,6 +8,7 @@ export const apiErrors={
  INTERNAL_ERROR:{status:500,ru:'Не удалось выполнить действие. Повторите позже.',en:'The action could not be completed. Reload current data before trying again.'},
  REQUEST_FAILED:{status:null,ru:'Не удалось выполнить действие. Загрузите актуальные данные перед повтором записи.',en:'The request could not be completed. Reload current data before repeating a write.'},
  OWNER_CHANGED:{status:409,ru:'Аккаунт изменился. Войдите повторно в исходный аккаунт. Черновик не перенесен.',en:'The account changed. Sign in to the original account. Your draft was not transferred.'},
+ AUTH_PROTECTION_UNAVAILABLE:{status:503,ru:'Защита авторизации временно недоступна. Повторите позже.',en:'Authentication protection is temporarily unavailable. Try again later.'},
  DB_NOT_CONFIGURED:{status:503,ru:'База данных не настроена',en:'The database has not been configured.'},
  UPSTREAM_TIMEOUT:{status:503,ru:'Сервис не ответил вовремя. Повторите позже.',en:'The service did not respond in time. Check current data before repeating a write.'},
  UPSTREAM_UNAVAILABLE:{status:503,ru:'Сервис временно недоступен. Повторите позже.',en:'The service is temporarily unavailable. Check current data before repeating a write.'},
