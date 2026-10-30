@@ -8,15 +8,17 @@ const fixture=()=>{
 };
 it.each([[NaN,'unknown'],[Infinity,'unknown'],[-1,'unknown'],[0,'lt100ms'],[99.99,'lt100ms'],[100,'lt500ms'],[499.99,'lt500ms'],[500,'lt2s'],[1999.99,'lt2s'],[2000,'lt10s'],[9999.99,'lt10s'],[10000,'ge10s']])('uses bounded duration bucket for %s', (value,expected)=>expect(durationBucket(value as number)).toBe(expected));
 it('disabled observers do not inspect arguments, response, clocks or sink and invoke exactly once',async()=>{
- const clock=vi.fn(()=>{throw Error('must not read');}),emit=vi.fn(),run=vi.fn(async(value:unknown)=>value as Response);
+ const clock=vi.fn(()=>{throw Error('must not read');}),emit=vi.fn();
  const observe=createOpsObserver({enabled:()=>false,wallNow:clock,monotonicNow:clock,emit});
- const response=new Proxy({} as Response,{get(){throw Error('PRIVATE');}});
- expect(await observe('service','GET',run)(response)).toBe(response);expect(run).toHaveBeenCalledTimes(1);expect(clock).not.toHaveBeenCalled();expect(emit).not.toHaveBeenCalled();
+ const request=new Proxy({},{get(){throw Error('PRIVATE_REQUEST');}}),response=new Response('body');
+ Object.defineProperty(response,'status',{get(){throw Error('PRIVATE_STATUS');}});
+ const run=vi.fn(async(_request:unknown)=>{void _request;return response;});
+ expect(await observe('service','GET',run)(request)).toBe(response);expect(run).toHaveBeenCalledTimes(1);expect(clock).not.toHaveBeenCalled();expect(emit).not.toHaveBeenCalled();
 });
 it('emits only fixed metadata, preserves response/cookies/stream without reading private request or response content',async()=>{
  const f=fixture(),privateRequest=new Proxy({},{get(){throw Error('PRIVATE_REQUEST');}});
  const response=new Response('PRIVATE_RESPONSE',{status:409,headers:{'Set-Cookie':'secret=PRIVATE_COOKIE'}});
- const run=vi.fn(async(_request:unknown)=>response);expect(await f.observe('service','POST',run)(privateRequest)).toBe(response);
+ const run=vi.fn(async(_request:unknown)=>{void _request;return response;});expect(await f.observe('service','POST',run)(privateRequest)).toBe(response);
  expect(response.bodyUsed).toBe(false);expect(response.headers.get('set-cookie')).toBe('secret=PRIVATE_COOKIE');expect(await response.text()).toBe('PRIVATE_RESPONSE');
  expect(f.events()).toEqual([{format:'jobmatch-ops-event-v1',scope:'route-handler',kind:'returned',minute:'2026-10-30T13:00:00Z',route:'service',handler:'POST',status:409,duration:'lt100ms'}]);
  expect(f.lines.join('')).not.toContain('PRIVATE');expect(run).toHaveBeenCalledTimes(1);
