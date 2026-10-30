@@ -1,3 +1,4 @@
+import {observeRoute} from '../../../lib/ops-telemetry';
 import {consumeAuthQuota,localAuthKey} from '../../../lib/auth-quota';
 import {createHash,randomBytes} from 'node:crypto';
 import {NextRequest,NextResponse} from 'next/server';
@@ -16,7 +17,7 @@ const schema=z.discriminatedUnion('action',[
  z.object({action:z.literal('update'),password:z.string().min(12).max(128)}).strict()
 ]);
 const ok=(value:unknown)=>NextResponse.json(value,{headers:{'Cache-Control':'no-store'}});
-export async function POST(req:NextRequest){try{
+async function post(req:NextRequest){try{
  sameOrigin(req);rateLimit('recovery-global',30);
  const body=schema.parse(JSON.parse(new TextDecoder().decode(await boundedBody(req,4096))));
  const options={httpOnly:true,secure:req.nextUrl.protocol==='https:',sameSite:'strict' as const,path:'/api/recovery',maxAge:600};
@@ -49,3 +50,5 @@ export async function POST(req:NextRequest){try{
  try{await supabase('/auth/v1/logout?scope=global','POST',{},token);}catch{sessionsRevoked=false;}
  const response=ok({ok:true,sessionsRevoked});response.cookies.set('jm_recovery_access','',{...options,maxAge:0});response.cookies.set('jm_recovery_verifier','',{...options,maxAge:0});response.cookies.delete('jm_access');response.cookies.delete('jm_refresh');return response;
  }catch(e){return failure(e);}}
+
+export const POST=observeRoute('recovery','POST',post);
