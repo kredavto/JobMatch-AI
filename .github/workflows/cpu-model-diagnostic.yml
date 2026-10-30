@@ -6,6 +6,8 @@ on:
       - 'lib/**'
       - 'scripts/fetch_cpu_model.py'
       - 'scripts/test_fetch_cpu_model.py'
+      - 'scripts/cpu_model_scope.py'
+      - 'scripts/test_cpu_model_scope.py'
       - 'package*.json'
       - '.github/workflows/cpu-model-diagnostic.yml'
   workflow_dispatch:
@@ -22,6 +24,7 @@ jobs:
       JOBMATCH_AI_CPU_DIAGNOSTIC: 'true'
       JOBMATCH_REPOSITORY_VISIBILITY: ${{ github.event.repository.visibility }}
       NEXT_TELEMETRY_DISABLED: '1'
+      JOBMATCH_CPU_EVENT_NAME: ${{ github.event_name }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -33,18 +36,10 @@ jobs:
       - run: npm ci --ignore-scripts
       - run: npm run test:ai-evaluation
       - run: python3 -m unittest discover -s scripts -p 'test_fetch_cpu_model.py'
+      - run: python3 -m unittest discover -s scripts -p 'test_cpu_model_scope.py'
       - name: Determine whether this commit changes executable inputs
         id: scope
-        shell: bash
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "run=true" >> "$GITHUB_OUTPUT"
-          elif git diff --name-only HEAD^ HEAD | rg -q -v '\.md$'; then
-            echo "run=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "run=false" >> "$GITHUB_OUTPUT"
-            echo "Documentation-only head: no new model run. Refer to the immutable runtime evaluation recorded in VERIFICATION.md; this is not fresh model acceptance."
-          fi
+        run: python3 scripts/cpu_model_scope.py
       - name: Download public pinned weights and verify exact bytes/digest/revision pointer
         if: steps.scope.outputs.run == 'true'
         run: python3 scripts/fetch_cpu_model.py "$RUNNER_TEMP/jobmatch-cpu-model"
