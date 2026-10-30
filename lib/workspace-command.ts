@@ -1,4 +1,5 @@
 import {z} from 'zod';
+import {ORDINARY_ENGLISH_TEMPLATE} from './ordinary-template';
 import {APPLICATION_STATUSES} from './application-filter';
 import {MatchMetadataSchema,RULES_REVISION,weights,contributions} from './match-config';
 
@@ -19,7 +20,7 @@ const application=z.object({
 export const WorkspaceCommandSchema=z.discriminatedUnion('action',[
  z.object({action:z.literal('restore'),id:entityId}).strict(),
  z.object({action:z.literal('version'),evidence_ids:z.array(entityId).max(500).refine(ids=>new Set(ids).size===ids.length,'Duplicate IDs'),
-  score:z.number().int().min(0).max(100),match_metadata:currentMetadata}).strict(),
+  score:z.number().int().min(0).max(100),match_metadata:currentMetadata,template_version:z.literal(ORDINARY_ENGLISH_TEMPLATE).optional()}).strict(),
  z.object({action:z.literal('import'),text:z.string().min(1).max(100000)}).strict(),
  z.object({action:z.literal('demo'),text:z.string().min(1).max(100000),vacancy:z.string().min(5).max(30000)}).strict(),
  z.object({action:z.literal('fact'),text:z.string().min(2).max(2000)}).strict(),

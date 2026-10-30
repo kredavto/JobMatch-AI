@@ -68,6 +68,7 @@ jobs:
           psql -v ON_ERROR_STOP=1 -d structured_full -f scripts/structured_english_seed.sql
           psql -v ON_ERROR_STOP=1 -d structured_full -f scripts/reminder_seed.sql
           psql -v ON_ERROR_STOP=1 -d structured_full -f scripts/consent_receipts_seed.sql
+          psql -v ON_ERROR_STOP=1 -d structured_full -f scripts/ordinary_english_seed.sql
           PGDATABASE=structured_full python3 scripts/backup_manifest.py snapshot /tmp/structured-before.json --include-structured
           python3 -c "import json; d=json.load(open('/tmp/structured-before.json')); assert len(d['tables'])==21 and all(v['rows']>0 for v in d['tables'].values())"
           pg_dump -Fc -d structured_full -f /tmp/structured.dump
@@ -80,6 +81,7 @@ jobs:
           psql -v ON_ERROR_STOP=1 -d structured_restore -f supabase/tests/structured_english_mixed.sql
           psql -v ON_ERROR_STOP=1 -d structured_restore -f supabase/tests/saved_reminders.sql
           psql -v ON_ERROR_STOP=1 -d structured_restore -f supabase/tests/consent_receipts_restored.sql
+          psql -v ON_ERROR_STOP=1 -d structured_restore -f supabase/tests/ordinary_english_restored.sql
           psql -v ON_ERROR_STOP=1 -d structured_restore -c "update public.structured_profile_entries set fields=jsonb_set(fields,'{title,quote}','\"Changed\"')"
           PGDATABASE=structured_restore python3 scripts/backup_manifest.py snapshot /tmp/structured-changed.json --include-structured
           set +e
@@ -116,6 +118,15 @@ jobs:
           PGDATABASE=structured_restore python3 scripts/backup_manifest.py snapshot /tmp/notice-changed.json --include-structured
           set +e
           python3 scripts/backup_manifest.py compare /tmp/consent-changed.json /tmp/notice-changed.json
+          result=$?
+          set -e
+          test "$result" -eq 1
+      - name: Detect changed ordinary template metadata
+        run: |
+          psql -v ON_ERROR_STOP=1 -d structured_restore -c "update public.resume_versions set extra=jsonb_set(extra,'{template_version}','\"Changed\"') where extra->>'template_version'='ordinary-literal-en-v1'"
+          PGDATABASE=structured_restore python3 scripts/backup_manifest.py snapshot /tmp/ordinary-changed.json --include-structured
+          set +e
+          python3 scripts/backup_manifest.py compare /tmp/notice-changed.json /tmp/ordinary-changed.json
           result=$?
           set -e
           test "$result" -eq 1
