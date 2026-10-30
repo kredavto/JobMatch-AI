@@ -1,0 +1,24 @@
+name: Consent receipt protocol (synthetic)
+on:
+  pull_request:
+    paths:
+      - 'app/**'
+      - 'lib/**'
+      - 'tests/**'
+      - 'supabase/**'
+      - 'scripts/**'
+      - '.github/workflows/consent-receipts.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  migration-bootstrap:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '24'}
+      - name: Create the migration with the pinned CLI before writing SQL
+        if: ${{ hashFiles('supabase/migrations/*_consent_receipts.sql') == '' }}
+        run: python3 scripts/consent_migration_bootstrap.py
