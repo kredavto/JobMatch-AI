@@ -77,3 +77,37 @@ jobs:
           dropdb --if-exists --force consent_upgrade
           dropdb --if-exists --force consent_fresh
           dropdb --if-exists --force consent_parallel
+  local-advisors:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    services:
+      postgres:
+        image: postgres:17
+        env: {POSTGRES_PASSWORD: synthetic-only}
+        ports: ['5432:5432']
+        options: --health-cmd pg_isready --health-interval 5s --health-retries 10
+    env:
+      CI: 'true'
+      PGHOST: 127.0.0.1
+      PGPORT: '5432'
+      PGUSER: postgres
+      PGPASSWORD: synthetic-only
+      JOBMATCH_LOCAL_CONSENT_ADVISORS: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '24'}
+      - name: Install client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+      - name: Create disposable baseline
+        run: |
+          psql -v ON_ERROR_STOP=1 -c 'create role anon; create role authenticated;'
+          createdb consent_advisors
+          sed '/^-- Explicit reported acceptance/,$d' supabase/schema.sql > /tmp/consent-baseline.sql
+          psql -v ON_ERROR_STOP=1 -d consent_advisors -f scripts/restore_fixture.sql
+          psql -v ON_ERROR_STOP=1 -d consent_advisors -f /tmp/consent-baseline.sql
+      - name: Apply with CLI, list actual migration history and compare advisors
+        run: python3 scripts/consent_local_advisors.py
+      - name: Cleanup synthetic database
+        if: always()
+        run: dropdb --if-exists --force consent_advisors

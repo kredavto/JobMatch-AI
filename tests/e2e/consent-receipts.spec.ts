@@ -4,7 +4,7 @@ import {readFile} from 'node:fs/promises';
 import {ru,en} from '../../lib/i18n';
 import {consentCopy} from '../../lib/i18n/consent-receipts';
 import {consentOwner,noticeFor,receiptFor,pageFromReceipts} from '../fixtures/consent-receipts';
-import type {ConsentReceipt,ProcessingNotice} from '../../lib/consent-receipts';
+import type {ConsentReceipt} from '../../lib/consent-receipts';
 const source=(locale:'ru'|'en')=>locale==='ru'?'SYNTHETIC ONLY 😀\r\nНе юридический текст.\n<script>window.__noticeExecuted=true</script>  ':'SYNTHETIC ONLY 😀\r\nNo legal approval.\n<script>window.__noticeExecuted=true</script>  ';
 const workspace={ownerId:consentOwner,revision:0,original:'',vacancy:'',goal:'',facts:[],versions:[],applications:[]};
 async function service(page:Page){await page.route('**/api/service',route=>route.fulfill({json:route.request().method()==='GET'?workspace:{ok:true}}));}

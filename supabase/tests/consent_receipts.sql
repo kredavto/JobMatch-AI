@@ -8,10 +8,17 @@ do $$declare p jsonb;begin
  if exists(select 1 from private.processing_notices) or exists(select 1 from public.processing_consent_receipts) then raise exception 'UNSEEDED_PROTOCOL_REQUIRED';end if;
  p:=public.read_consent_receipts('ru');
  if p->'notice'<>'null'::jsonb or p->'legacyObservation'<>'null'::jsonb or p->'rows'<>'[]'::jsonb or p->>'through'<>'0' then raise exception 'EMPTY_PROTOCOL';end if;
+ begin perform public.accept_processing_notice(0,'99999999-9999-4999-8999-999999999999','unpublished-v1','ru',repeat('0',64),true);raise exception 'SHOULD_REJECT';exception when others then if sqlerrm<>'CONFLICT' then raise;end if;end;
  if exists(select 1 from public.consent_records where user_id=auth.uid()) then raise exception 'READ_BACKFILLED_LEGACY';end if;
  if has_function_privilege('anon','public.accept_processing_notice(integer,uuid,text,text,text,boolean)','EXECUTE') or has_function_privilege('anon','public.read_consent_receipts(text,integer,integer)','EXECUTE') then raise exception 'ANON_EXECUTE';end if;
  if has_table_privilege('authenticated','public.processing_consent_receipts','INSERT,UPDATE,DELETE,TRUNCATE') or has_table_privilege('authenticated','private.processing_notices','SELECT') then raise exception 'CLIENT_GRANTS';end if;
  if not(select relrowsecurity from pg_class where oid='public.processing_consent_receipts'::regclass) or not(select relrowsecurity from pg_class where oid='private.processing_notices'::regclass) then raise exception 'RLS';end if;
+end$$;
+do $$begin
+ begin
+  insert into private.processing_notices(version,locale,body,sha256,operator_reference) values('unsafe-control','ru',E'SYNTHETIC\x0B',encode(extensions.digest(convert_to(E'SYNTHETIC\x0B','UTF8'),'sha256'),'hex'),'CI ONLY');
+  raise exception 'UNSAFE_NOTICE_ALLOWED';
+ exception when check_violation then null;end;
 end$$;
 insert into private.processing_notices(version,locale,body,sha256,operator_reference,active)
 select 'synthetic-v1',locale,body,encode(extensions.digest(convert_to(body,'UTF8'),'sha256'),'hex'),'CI SYNTHETIC ONLY; no legal approval',true

@@ -45,3 +45,9 @@ it('never returns a partial export after a failed/mismatched page or exceeded by
  await expect(collectConsentExport(consentOwner,'ru',first,async()=>pageFor(22,20,22))).rejects.toThrow();
  await expect(collectConsentExport(consentOwner,'ru',await pageFor(1),async()=>{throw Error();},10)).rejects.toThrow('EXPORT_LIMIT');
 });
+
+it('binds the active notice receipt to the same published bytes and snapshot boundary',async()=>{
+ const page=await pageFor(1);page.notice=page.rows[0].notice;page.noticeReceipt=page.rows[0];expect((await validateConsentPage(page,consentOwner,'ru')).noticeReceipt?.sequence).toBe(1);
+ await expect(validateConsentPage({...page,notice:await noticeFor('ru','another-version')},consentOwner,'ru')).rejects.toThrow();
+ await expect(validateConsentPage({...page,notice:null},consentOwner,'ru')).rejects.toThrow();
+});

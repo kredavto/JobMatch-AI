@@ -1,8 +1,11 @@
 -- Explicit reported acceptance. CLI-created filename; no notice or acceptance is seeded.
+do $$begin
+ if to_regprocedure('extensions.digest(bytea,text)') is null or to_regprocedure('private.session_is_active()') is null or to_regclass('public.consent_records') is null then raise exception 'CONSENT_REQUIRES_REVIEWED_BASELINE';end if;
+end$$;
 create table private.processing_notices (
  version text not null check(version ~ '^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$'),
  locale text not null check(locale in ('ru','en')),
- body text not null check(length(body) between 1 and 16000 and octet_length(body)<=64000 and length(btrim(body,E' \t\n\r'))>0),
+ body text not null check(length(body) between 1 and 16000 and octet_length(body)<=64000 and length(btrim(body,E' \t\n\r'))>0 and body !~ E'[\x01-\x08\x0B\x0C\x0E-\x1F\x7F]'),
  sha256 text not null check(sha256=encode(extensions.digest(convert_to(body,'UTF8'),'sha256'),'hex')),
  operator_reference text not null check(length(operator_reference) between 1 and 500),
  active boolean not null default false,
@@ -27,7 +30,7 @@ create table public.processing_consent_receipts (
  command_id uuid not null,
  notice_version text not null,
  notice_locale text not null,
- notice_text text not null check(length(notice_text) between 1 and 16000 and octet_length(notice_text)<=64000),
+ notice_text text not null check(length(notice_text) between 1 and 16000 and octet_length(notice_text)<=64000 and notice_text !~ E'[\x01-\x08\x0B\x0C\x0E-\x1F\x7F]'),
  notice_sha256 text not null check(notice_sha256=encode(extensions.digest(convert_to(notice_text,'UTF8'),'sha256'),'hex')),
  recorded_at timestamptz not null default clock_timestamp(),
  primary key(user_id,sequence),

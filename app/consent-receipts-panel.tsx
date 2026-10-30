@@ -14,8 +14,8 @@ export default function ConsentReceiptsPanel({ownerId,disabled,locale:requestedL
  const locale=normalizeLocale(requestedLocale),t=consentCopy[locale];
  // Document language is independent of UI language; only explicit changes clear its acceptance.
  const [documentLocale,setDocumentLocale]=useState<UiLocale>(locale),[data,setData]=useState<Data|null>(null),[accepted,setAccepted]=useState(false),[busy,setBusy]=useState<''|'load'|'more'|'accept'|'export'>(''),[blocked,setBlocked]=useState(false),[error,setError]=useState<ErrorKey|RequestError|null>(null),[saved,setSaved]=useState<ConsentReceipt|null>(null),[refreshFailed,setRefreshFailed]=useState(false);
- const active=useRef(true),pending=useRef(false),epoch=useRef(0),controller=useRef<AbortController|null>(null),attempt=useRef<Attempt|null>(null);
- useEffect(()=>{active.current=true;return()=>{active.current=false;epoch.current++;controller.current?.abort();};},[ownerId]);
+ const active=useRef({valid:true}),pending=useRef(false),epoch=useRef(0),controller=useRef<AbortController|null>(null),attempt=useRef<Attempt|null>(null);
+ useEffect(()=>{const scope={valid:true};active.current=scope;return()=>{scope.valid=false;controller.current?.abort();};},[ownerId]);
  const known=z.uuid().safeParse(ownerId).success,current=data?.page.ownerId===ownerId?data:null,record=saved?.ownerId===ownerId?saved:null;
  const locked=disabled||!!busy||!known;
  function fail(cause:unknown,fallback:ErrorKey){if(cause instanceof RequestError&&(cause.status===401||cause.code==='OWNER_CHANGED'))onOwnerConflict?.();setError(cause instanceof RequestError?cause:fallback);}
@@ -32,7 +32,7 @@ export default function ConsentReceiptsPanel({ownerId,disabled,locale:requestedL
   const source=current;
   if(kind==='more'&&(!source||source.page.nextAfter===null))return;
   if(kind==='accept'&&(!source||blocked||!accepted||!source.acceptanceEnabled||!source.page.notice||source.page.noticeReceipt||source.page.through>=200))return;
-  pending.current=true;const token=++epoch.current;const valid=()=>active.current&&epoch.current===token;
+  pending.current=true;const token=++epoch.current,scope=active.current;const valid=()=>scope.valid&&epoch.current===token;
   setBusy(kind);setError(null);if(kind==='accept')setRefreshFailed(false);
   try{
    if(kind==='accept'){
