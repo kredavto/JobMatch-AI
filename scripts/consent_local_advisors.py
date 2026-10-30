@@ -10,7 +10,8 @@ import subprocess
 import tempfile
 
 CLI = ['npx', '--yes', '--package=supabase@2.122.0', '--', 'supabase']
-URL = 'postgresql://postgres@127.0.0.1:5432/consent_advisors'
+# Stock synthetic PostgreSQL on loopback has no TLS. This constant cannot target a hosted database.
+URL = 'postgresql://postgres@127.0.0.1:5432/consent_advisors?sslmode=disable'
 MIGRATION = '20261030104216_consent_receipts.sql'
 FIELDS = {'name', 'title', 'level', 'facing', 'categories', 'description', 'detail', 'remediation', 'cache_key'}
 
@@ -49,7 +50,7 @@ def main():
                                     stderr=subprocess.PIPE, timeout=120)
             if result.returncode:
                 # Inputs and database are fixed synthetic CI resources; redact connection/token forms anyway.
-                diagnostic = re.sub(r'(?:postgres(?:ql)?://[^\\s]+|synthetic-only|sbp_[A-Za-z0-9_]+)', '[REDACTED]', result.stderr)
+                diagnostic = re.sub(r'(?:postgres(?:ql)?://[^\s]+|synthetic-only|sbp_[A-Za-z0-9_]+)', '[REDACTED]', result.stderr)
                 print('JOBMATCH_LOCAL_CLI_REFUSAL ' + diagnostic[:1800], flush=True)
                 raise ValueError('Local CLI command failed')
             return result
@@ -94,5 +95,5 @@ if __name__ == '__main__':
     try:
         raise SystemExit(main())
     except (OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError):
-        print('FAIL: disposable advisor/migration verification incomplete; no DB diagnostics or credentials emitted.')
+        print('FAIL: disposable advisor/migration verification incomplete; connection strings and credentials are redacted.')
         raise SystemExit(1)
