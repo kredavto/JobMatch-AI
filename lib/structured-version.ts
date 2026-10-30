@@ -1,6 +1,9 @@
 import {z} from 'zod';
 import {PROFILE_FIELDS,StructuredProfileSchema,type StructuredProfile} from './structured-profile';
 export const TEMPLATE_VERSION='structured-literal-v1';
+export const ENGLISH_TEMPLATE_VERSION='structured-literal-en-v1';
+export const TemplateVersionSchema=z.enum([TEMPLATE_VERSION,ENGLISH_TEMPLATE_VERSION]);
+export type TemplateVersion=z.infer<typeof TemplateVersionSchema>;
 export const CONTEXT_GUARD_VERSION='line-risk-v1';
 // Frozen template labels: changing them requires a new template version.
 const kinds={employment:'Работа',education:'Образование',certification:'Сертификат',achievement:'Достижение'};
@@ -15,24 +18,28 @@ export function contextIssue(profile:StructuredProfile,entry:StructuredProfile['
  }
  return null;
 }
-export function renderStructuredVersion(snapshot:StructuredProfile){
- return 'Структурированные сведения\n\n'+snapshot.entries.map(entry=>kinds[entry.kind]+'\n'+PROFILE_FIELDS.filter(name=>entry.fields[name]).map(name=>labels[name]+': '+entry.fields[name]!.quote).join('\n')).join('\n\n');
+const englishKinds={employment:'Employment',education:'Education',certification:'Certification',achievement:'Achievement'};
+const englishLabels={title:'Title',organization:'Organization',start:'Start / issue date',end:'End',description:'Description',credential:'Credential number'};
+export function renderStructuredVersion(snapshot:StructuredProfile,template:TemplateVersion=TEMPLATE_VERSION){
+ const en=TemplateVersionSchema.parse(template)===ENGLISH_TEMPLATE_VERSION;
+ const fieldLabels=en?englishLabels:labels,entryLabels=en?englishKinds:kinds;
+ return (en?'Structured information':'Структурированные сведения')+'\n\n'+snapshot.entries.map(entry=>entryLabels[entry.kind]+'\n'+PROFILE_FIELDS.filter(name=>entry.fields[name]).map(name=>fieldLabels[name]+': '+entry.fields[name]!.quote).join('\n')).join('\n\n');
 }
 const snapshotSchema=StructuredProfileSchema.superRefine((profile,ctx)=>{
  if(!profile.source_matches||profile.revision<1||!profile.source_original.trim()||profile.source_original.includes('\0')||!profile.source_fact_ids.length||!profile.entries.length||profile.entries.some(entry=>!entry.confirmed||contextIssue(profile,entry)))ctx.addIssue({code:'custom',message:'Источник или подтверждение не допускает дословную версию'});
 });
 const hashSchema=z.string().regex(/^[0-9a-f]{64}$/);
-const previewFields={template_version:z.literal(TEMPLATE_VERSION),context_guard_version:z.literal(CONTEXT_GUARD_VERSION),generator:z.literal('literal-template'),model_version:z.null(),snapshot:snapshotSchema,text:z.string().refine(value=>Array.from(value).length<=200000),preview_hash:hashSchema};
-export const StructuredPreviewSchema=z.object(previewFields).strict().superRefine((value,ctx)=>{if(value.text!==renderStructuredVersion(value.snapshot))ctx.addIssue({code:'custom',message:'Текст не соответствует снимку'});});
-export const StructuredVersionSchema=z.object({...previewFields,format:z.literal('jobmatch-structured-version-v1'),id:z.uuid(),created:z.iso.datetime({offset:true})}).strict().superRefine((value,ctx)=>{if(value.text!==renderStructuredVersion(value.snapshot))ctx.addIssue({code:'custom',message:'Текст не соответствует снимку'});});
+const previewFields={template_version:TemplateVersionSchema,context_guard_version:z.literal(CONTEXT_GUARD_VERSION),generator:z.literal('literal-template'),model_version:z.null(),snapshot:snapshotSchema,text:z.string().refine(value=>Array.from(value).length<=200000),preview_hash:hashSchema};
+export const StructuredPreviewSchema=z.object(previewFields).strict().superRefine((value,ctx)=>{if(value.text!==renderStructuredVersion(value.snapshot,value.template_version))ctx.addIssue({code:'custom',message:'Текст не соответствует снимку'});});
+export const StructuredVersionSchema=z.object({...previewFields,format:z.literal('jobmatch-structured-version-v1'),id:z.uuid(),created:z.iso.datetime({offset:true})}).strict().superRefine((value,ctx)=>{if(value.text!==renderStructuredVersion(value.snapshot,value.template_version))ctx.addIssue({code:'custom',message:'Текст не соответствует снимку'});});
 export type StructuredPreview=z.infer<typeof StructuredPreviewSchema>;
 export type StructuredVersion=z.infer<typeof StructuredVersionSchema>;
 export const EntryIdsSchema=z.array(z.uuid()).min(1).max(50).refine(ids=>new Set(ids).size===ids.length);
 export const VersionRequestSchema=z.discriminatedUnion('action',[
- z.object({action:z.literal('preview'),expectedOwnerId:z.uuid(),workspaceRevision:z.number().int().nonnegative(),profileRevision:z.number().int().positive(),entryIds:EntryIdsSchema}).strict(),
- z.object({action:z.literal('save'),expectedOwnerId:z.uuid(),workspaceRevision:z.number().int().nonnegative(),profileRevision:z.number().int().positive(),entryIds:EntryIdsSchema,previewHash:hashSchema,accept:z.literal('SAVE_LITERAL_VERSION')}).strict()
+ z.object({action:z.literal('preview'),expectedOwnerId:z.uuid(),workspaceRevision:z.number().int().nonnegative(),profileRevision:z.number().int().positive(),entryIds:EntryIdsSchema,templateVersion:TemplateVersionSchema.optional()}).strict(),
+ z.object({action:z.literal('save'),expectedOwnerId:z.uuid(),workspaceRevision:z.number().int().nonnegative(),profileRevision:z.number().int().positive(),entryIds:EntryIdsSchema,templateVersion:TemplateVersionSchema.optional(),previewHash:hashSchema,accept:z.literal('SAVE_LITERAL_VERSION')}).strict()
 ]);
-export const VersionListSchema=z.object({format:z.literal('jobmatch-structured-version-list-v1'),ownerId:z.uuid(),versions:z.array(z.object({id:z.uuid(),created:z.iso.datetime({offset:true}),template_version:z.literal(TEMPLATE_VERSION),profile_revision:z.number().int().positive(),workspace_revision:z.number().int().nonnegative(),text_length:z.number().int().positive().max(200000),preview_hash:hashSchema}).strict()).max(20)}).strict().refine(value=>new Set(value.versions.map(row=>row.id)).size===value.versions.length);
+export const VersionListSchema=z.object({format:z.literal('jobmatch-structured-version-list-v1'),ownerId:z.uuid(),versions:z.array(z.object({id:z.uuid(),created:z.iso.datetime({offset:true}),template_version:TemplateVersionSchema,profile_revision:z.number().int().positive(),workspace_revision:z.number().int().nonnegative(),text_length:z.number().int().positive().max(200000),preview_hash:hashSchema}).strict()).max(20)}).strict().refine(value=>new Set(value.versions.map(row=>row.id)).size===value.versions.length);
 export type VersionList=z.infer<typeof VersionListSchema>;
 /** NUL framing, fixed field order, Unicode UTF-8. No JSON object-key ordering dependency. */
 export async function structuredPreviewHash(value:Omit<StructuredPreview,'preview_hash'>){
@@ -42,9 +49,9 @@ export async function structuredPreviewHash(value:Omit<StructuredPreview,'previe
  const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(parts.join('\0')));
  return Array.from(new Uint8Array(digest),byte=>byte.toString(16).padStart(2,'0')).join('');
 }
-export async function validateStructuredPreview(value:unknown,ownerId:string,workspaceRevision?:number,profileRevision?:number,entryIds?:string[]){
+export async function validateStructuredPreview(value:unknown,ownerId:string,workspaceRevision?:number,profileRevision?:number,entryIds?:string[],templateVersion?:TemplateVersion){
  const result=StructuredPreviewSchema.parse(value);const s=result.snapshot;
- if(s.ownerId!==ownerId||(workspaceRevision!==undefined&&s.workspace_revision!==workspaceRevision)||(profileRevision!==undefined&&s.revision!==profileRevision)||(entryIds&&(entryIds.length!==s.entries.length||s.entries.some(entry=>!entryIds.includes(entry.id))))||await structuredPreviewHash(result)!==result.preview_hash)throw Error('Происхождение или текст версии не прошли проверку');
+ if((templateVersion!==undefined&&result.template_version!==templateVersion)||s.ownerId!==ownerId||(workspaceRevision!==undefined&&s.workspace_revision!==workspaceRevision)||(profileRevision!==undefined&&s.revision!==profileRevision)||(entryIds&&(entryIds.length!==s.entries.length||s.entries.some(entry=>!entryIds.includes(entry.id))))||await structuredPreviewHash(result)!==result.preview_hash)throw Error('Происхождение или текст версии не прошли проверку');
  return result;
 }
 export async function validateStructuredVersion(value:unknown,ownerId:string){

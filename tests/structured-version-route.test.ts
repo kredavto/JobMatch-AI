@@ -21,3 +21,26 @@ it('auth/quota failures do not call version RPCs',async()=>{db.identity.mockReje
 it('owner hints, UUID and ambiguous export are rejected before reads',async()=>{expect((await GET(get('?expectedOwnerId='+entryId))).status).toBe(409);expect((await GET(get('?id=wrong'))).status).toBe(400);expect((await GET(get('?id='+versionId+'&export=1'))).status).toBe(400);expect(db.supabase).not.toHaveBeenCalled();});
 it('reads immutable details and returns 404 for absent/foreign record',async()=>{db.supabase.mockResolvedValueOnce(await versionFor());const r=await GET(get('?id='+versionId));expect(r.status).toBe(200);expect(r.headers.get('cache-control')).toBe('no-store');db.supabase.mockResolvedValueOnce(null);expect((await GET(get('?id='+versionId))).status).toBe(404);});
 it('exports fixed list followed by validated record and complete marker',async()=>{const v=await versionFor();db.supabase.mockResolvedValueOnce({format:'jobmatch-structured-version-list-v1',ownerId:owner,versions:[{id:v.id,created:v.created,template_version:v.template_version,profile_revision:2,workspace_revision:1,text_length:Array.from(v.text).length,preview_hash:v.preview_hash}]}).mockResolvedValueOnce(v);const r=await GET(get('?export=1'));expect(r.headers.get('content-disposition')).toContain('jobmatch-structured-versions.ndjson');const rows=(await r.text()).trim().split('\n').map(line=>JSON.parse(line));expect(rows).toHaveLength(2);expect(rows[0]).toEqual(v);expect(rows[1].complete).toBe(true);expect(db.consumeQuota).toHaveBeenCalledTimes(2);});
+
+it('explicit English uses distinct fixed RPCs with no caller template metadata in SQL params',async()=>{
+ const en=await previewFor(undefined,'structured-literal-en-v1');
+ db.supabase.mockResolvedValueOnce(en);
+ expect((await POST(post({...body,templateVersion:'structured-literal-en-v1'}))).status).toBe(200);
+ expect(db.supabase).toHaveBeenLastCalledWith('/rest/v1/rpc/preview_structured_english_version','POST',{p_workspace_revision:1,p_profile_revision:2,p_entry_ids:[entryId]},'token');
+ db.supabase.mockResolvedValueOnce(await versionFor(undefined,'structured-literal-en-v1'));
+ expect((await POST(post({...body,action:'save',templateVersion:'structured-literal-en-v1',previewHash:en.preview_hash,accept:'SAVE_LITERAL_VERSION'}))).status).toBe(200);
+ expect(db.supabase).toHaveBeenLastCalledWith('/rest/v1/rpc/save_structured_english_version','POST',{p_workspace_revision:1,p_profile_revision:2,p_entry_ids:[entryId],p_preview_hash:en.preview_hash,p_accept:'SAVE_LITERAL_VERSION'},'token');
+});
+it('does not accept a valid foreign-language preview or save in place of the requested template',async()=>{
+ db.supabase.mockResolvedValueOnce(await previewFor());expect((await POST(post({...body,templateVersion:'structured-literal-en-v1'}))).status).toBe(502);
+ db.supabase.mockResolvedValueOnce(await previewFor(undefined,'structured-literal-en-v1'));expect((await POST(post(body))).status).toBe(502);
+ const en=await versionFor(undefined,'structured-literal-en-v1');
+ db.supabase.mockResolvedValueOnce(en);expect((await POST(post({...body,action:'save',previewHash:en.preview_hash,accept:'SAVE_LITERAL_VERSION'}))).status).toBe(502);
+ expect(db.supabase).toHaveBeenCalledTimes(3);
+});
+it('invalid template/locale metadata is rejected before quota and RPC; mixed immutable details stay readable',async()=>{
+ for(const value of [{...body,templateVersion:'en'},{...body,templateVersion:null},{...body,locale:'en'}])expect((await POST(post(value))).status).toBe(400);
+ expect(db.supabase).not.toHaveBeenCalled();expect(db.consumeQuota).not.toHaveBeenCalled();
+ const en=await versionFor(undefined,'structured-literal-en-v1');db.supabase.mockResolvedValueOnce(en);
+ expect((await GET(get('?id='+versionId))).status).toBe(200);
+});

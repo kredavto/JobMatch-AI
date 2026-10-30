@@ -1,8 +1,9 @@
 import {normalizeLocale,type UiLocale,type Copy} from './locale';
 const ru={
  title:'Дословные версии структуры',
- intro:'Шаблон structured-literal-v1 переносит только выбранные подтверждённые поля. Прочие сведения исходного резюме будут пропущены. Это отдельный текст, который нужно проверить перед использованием. Подтверждение принадлежит пользователю; проверки квалификации и смысла моделью нет.',
- templateLanguage:'Шаблон использует русские названия полей. Исходные цитаты и сохранённый текст не переводятся при смене языка интерфейса.',
+ intro:'Дословный шаблон переносит только выбранные подтверждённые поля. Прочие сведения исходного резюме будут пропущены. Это отдельный текст, который нужно проверить перед использованием. Подтверждение принадлежит пользователю; проверки квалификации и смысла моделью нет.',
+ templateLanguage:'Выберите язык названий полей отдельно от языка интерфейса. Цитаты источника не переводятся; ранее сохранённый текст остаётся неизменным.',
+ templateLabel:'Язык нового шаблона',russianTemplate:'Русский · structured-literal-v1',englishTemplate:'English · structured-literal-en-v1',
  invalidReply:'Не удалось получить и проверить ответ версии. Прочитайте историю и профиль без повтора записи.',
  blocked:'Результат запроса неизвестен. Сначала прочитайте историю версий и обновите структурированный профиль. Запись автоматически не повторяется.',
  selectLegend:'Записи для версии',include:'Включить: ',empty:'Нет доступных подтверждённых записей. Подтвердите поля и проверьте их контекст в источнике.',
@@ -19,8 +20,9 @@ const ru={
 };
 const en:Copy<typeof ru>={
  title:'Literal structure versions',
- intro:'The structured-literal-v1 template copies only selected confirmed fields. Other information from the original resume is omitted. Review this separate text before use. Confirmation is your assertion; no model verifies qualifications or meaning.',
- templateLanguage:'This template uses Russian field labels. Source quotations and saved text are not translated when the interface language changes.',
+ intro:'The literal template copies only selected confirmed fields. Other information from the original resume is omitted. Review this separate text before use. Confirmation is your assertion; no model verifies qualifications or meaning.',
+ templateLanguage:'Choose field-label language separately from interface language. Source quotations are not translated; previously saved text stays unchanged.',
+ templateLabel:'New template language',russianTemplate:'Russian · structured-literal-v1',englishTemplate:'English · structured-literal-en-v1',
  invalidReply:'A verified version response could not be obtained. Read the history and profile without repeating the write.',
  blocked:'The request outcome is unknown. Read the version history and refresh the structured profile first. The write is not retried automatically.',
  selectLegend:'Records for the version',include:'Include: ',empty:'No confirmed records are available. Confirm the fields and review their source context.',

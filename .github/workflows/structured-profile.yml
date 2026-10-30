@@ -40,6 +40,8 @@ jobs:
           psql -v ON_ERROR_STOP=1 -d structured_full -f scripts/restore_seed.sql
           psql -v ON_ERROR_STOP=1 -d structured_full -f supabase/tests/structured_profile.sql
           psql -v ON_ERROR_STOP=1 -d structured_full -f supabase/tests/structured_versions.sql
+          psql -v ON_ERROR_STOP=1 -d structured_full -f supabase/tests/structured_english_versions.sql
+          psql -v ON_ERROR_STOP=1 -d structured_full -f supabase/tests/structured_english_mixed.sql
           psql -v ON_ERROR_STOP=1 -d structured_full -f supabase/tests/saved_reminders.sql
           sed '/^-- Independent derived profile/,$d' supabase/schema.sql > /tmp/baseline.sql
           psql -v ON_ERROR_STOP=1 -d structured_upgrade -f scripts/restore_fixture.sql
@@ -63,7 +65,7 @@ jobs:
       - name: Verify twenty-one populated table fingerprints and restored profile
         run: |
           psql -v ON_ERROR_STOP=1 -d structured_full -f scripts/structured_profile_seed.sql
-          psql -v ON_ERROR_STOP=1 -d structured_full -f scripts/structured_version_seed.sql
+          psql -v ON_ERROR_STOP=1 -d structured_full -f scripts/structured_english_seed.sql
           psql -v ON_ERROR_STOP=1 -d structured_full -f scripts/reminder_seed.sql
           psql -v ON_ERROR_STOP=1 -d structured_full -f scripts/consent_receipts_seed.sql
           PGDATABASE=structured_full python3 scripts/backup_manifest.py snapshot /tmp/structured-before.json --include-structured
@@ -74,6 +76,8 @@ jobs:
           python3 scripts/backup_manifest.py compare /tmp/structured-before.json /tmp/structured-after.json
           psql -v ON_ERROR_STOP=1 -d structured_restore -f supabase/tests/structured_profile.sql
           psql -v ON_ERROR_STOP=1 -d structured_restore -f supabase/tests/structured_versions.sql
+          psql -v ON_ERROR_STOP=1 -d structured_restore -f supabase/tests/structured_english_versions.sql
+          psql -v ON_ERROR_STOP=1 -d structured_restore -f supabase/tests/structured_english_mixed.sql
           psql -v ON_ERROR_STOP=1 -d structured_restore -f supabase/tests/saved_reminders.sql
           psql -v ON_ERROR_STOP=1 -d structured_restore -f supabase/tests/consent_receipts_restored.sql
           psql -v ON_ERROR_STOP=1 -d structured_restore -c "update public.structured_profile_entries set fields=jsonb_set(fields,'{title,quote}','\"Changed\"')"
