@@ -44,8 +44,14 @@ def main():
     source = Path(__file__).resolve().parent.parent / 'supabase' / 'migrations' / MIGRATION
     with tempfile.TemporaryDirectory(prefix='jobmatch-consent-advisors-') as task_dir:
         def run(*args):
+            print('JOBMATCH_LOCAL_CLI_PHASE ' + ' '.join(args[:2]), flush=True)
             result = subprocess.run(CLI + list(args), cwd=task_dir, text=True, stdout=subprocess.PIPE,
-                                    stderr=subprocess.PIPE, timeout=120, check=True)
+                                    stderr=subprocess.PIPE, timeout=120)
+            if result.returncode:
+                # Inputs and database are fixed synthetic CI resources; redact connection/token forms anyway.
+                diagnostic = re.sub(r'(?:postgres(?:ql)?://[^\\s]+|synthetic-only|sbp_[A-Za-z0-9_]+)', '[REDACTED]', result.stderr)
+                print('JOBMATCH_LOCAL_CLI_REFUSAL ' + diagnostic[:1800], flush=True)
+                raise ValueError('Local CLI command failed')
             return result
         if run('--version').stdout.strip() != '2.122.0':
             raise ValueError('Unexpected CLI')
