@@ -6,7 +6,7 @@ import {createServer} from 'node:http';
 import {once} from 'node:events';
 import {readFileSync} from 'node:fs';
 import {spawnSync} from 'node:child_process';
-import {createCpuBridge,cpuServerArgs,validateCpuEvaluationDiagnostics,approvedCpuEnvironment,validateCpuPin,CPU_ALIAS} from '../dist/evaluation/cpu-diagnostic.cjs';
+import {createCpuBridge,cpuServerArgs,validateCpuEvaluationDiagnostics,validateCpuLinkAudit,approvedCpuEnvironment,validateCpuPin,CPU_ALIAS} from '../dist/evaluation/cpu-diagnostic.cjs';
 import {evaluationCorpus} from '../dist/evaluation/corpus.js';
 import {AI_SYSTEM_PROMPT} from '../dist/lib/ai-prompt.js';
 import {AiReviewSchema,eligibleAiFacts} from '../dist/lib/ai-review.js';
@@ -58,4 +58,12 @@ test('CPU source v3 report requires the selected contract and cannot accept lega
  assert.equal(validateCpuEvaluationDiagnostics(report,'source-lines-v1'),true);
  assert.throws(()=>validateCpuEvaluationDiagnostics(report));assert.throws(()=>validateCpuEvaluationDiagnostics({...report,schemaVersion:2},'source-lines-v1'));
  assert.throws(()=>validateCpuEvaluationDiagnostics({...report,quoteContractVersion:'unknown'},'source-lines-v1'));
+});
+
+test('strict CPU audit counts cannot hide unavailable reviews, duplicate IDs or incoherent notes',()=>{
+ const signals=['no-linked-facts','literal-gap','coverage-unavailable','quantity-difference','quantity-unknown','level-below','level-unknown'];
+ const cases=evaluationCorpus.map(row=>({id:row.id,version:'literal-quantities-v1',semanticAssessment:'not-performed',status:'available',availabilityReason:'audited',links:1,notes:[{index:0,status:'warning',signals:['literal-gap']}],warningLinks:1,unknownLinks:0,noRuleWarningLinks:0,signalCounts:Object.fromEntries(signals.map(code=>[code,code==='literal-gap'?1:0]))}));
+ const report={version:'literal-quantities-v1',semanticAssessment:'not-performed',scope:'validated-review-diagnostics-only',plannedCases:28,observedCases:28,unavailableCases:0,cases};
+ assert.equal(validateCpuLinkAudit(report),true);
+ for(const changed of [{observedCases:27},{cases:[cases[0],...cases.slice(0,27)]},{cases:cases.map(row=>({...row,warningLinks:0}))},{cases:cases.map(row=>({...row,notes:[{index:0,status:'no-rule-warning',signals:['literal-gap']}]}))},{cases:cases.map(row=>({...row,notes:[{index:1,status:'warning',signals:['literal-gap']}]}))},{cases:cases.map(row=>({...row,signalCounts:{...row.signalCounts,'literal-gap':0}}))},{cases:cases.map(row=>({...row,status:'unavailable',availabilityReason:'no-validated-review'}))}])assert.throws(()=>validateCpuLinkAudit({...report,...changed}));
 });
