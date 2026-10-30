@@ -1,0 +1,5 @@
+import {it,expect} from 'vitest';
+import {acknowledgeNote} from '../lib/application-drafts';
+it('clears only the acknowledged unchanged draft without touching other notes',()=>{const drafts={a:{base:'old',text:'sent'},b:{base:'b',text:'next'}};expect(acknowledgeNote(drafts,'a',drafts.a,'sent','sent')).toEqual({b:drafts.b});expect(drafts.a.text).toBe('sent');});
+it('rebases newer typing onto the acknowledged server text',()=>{const current={a:{base:'old',text:'newer'}};expect(acknowledgeNote(current,'a',{base:'old',text:'sent'},'sent','sent')).toEqual({a:{base:'sent',text:'newer'}});expect(current.a.base).toBe('old');});
+it('retains drafts on missing or unexpected acknowledgements and other editing contexts',()=>{const drafts={a:{base:'other',text:'newer'}};expect(acknowledgeNote(drafts,'a',{base:'old',text:'sent'},'sent','sent')).toBe(drafts);expect(acknowledgeNote(drafts,'a',drafts.a,'newer','different')).toBe(drafts);expect(acknowledgeNote(drafts,'a',undefined,'newer','newer')).toBe(drafts);});
