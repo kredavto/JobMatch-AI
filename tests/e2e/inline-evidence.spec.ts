@@ -66,6 +66,7 @@ test('English inline review preserves expansion and pending outcome across a loc
  await page.getByRole('navigation').getByRole('button',{name:en.navigation.vacancy,exact:true}).click();await page.getByRole('button',{name:'Analyze →',exact:true}).click();
  const t=requirementEvidenceCopy.en;await page.getByText(t.candidates(1),{exact:true}).click();await expect(page.getByText(t.help,{exact:true})).toBeVisible();
  expect((await new AxeBuilder({page}).include('table').withTags(['wcag2a','wcag2aa','wcag21aa']).analyze()).violations).toEqual([]);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ const confirmBox=await page.getByRole('button',{name:t.confirmLabel('e1','req-2'),exact:true}).boundingBox();expect(confirmBox).not.toBeNull();expect(confirmBox!.height).toBeLessThanOrEqual(88);expect(confirmBox!.width).toBeGreaterThanOrEqual(160);
  const jpeg=await page.getByRole('region',{name:editorCopy.en.region,exact:true}).screenshot({type:'jpeg',quality:45});console.log('JOBMATCH_SYNTHETIC_INLINE_EN_JPEG '+jpeg.toString('base64'));
  await page.getByRole('combobox').first().selectOption('ru');await expect(page.getByText(requirementEvidenceCopy.ru.help,{exact:true})).toBeVisible();
  await page.getByRole('button',{name:requirementEvidenceCopy.ru.confirmLabel('e1','req-2'),exact:true}).click();await expect.poll(()=>actions.filter(action=>action==='verify').length).toBe(1);

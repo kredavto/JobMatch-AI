@@ -9,7 +9,7 @@ export default function RequirementEvidence({locale:requestedLocale='ru',row,fac
  const locale=normalizeLocale(requestedLocale),t=requirementEvidenceCopy[locale],reason=ruleReason(row.reason,locale);
  const evidence=facts.filter(fact=>row.evidence_ids.includes(fact.id));
  const candidates=unverifiedCandidates(facts,row.requirement);
- return <div>
+ return <div className="requirement-evidence">
   {evidence.map(fact=><p key={fact.id}><span lang="">{fact.text}</span><small><span lang="">{fact.id} · {fact.source}</span> · {t.confirmed}</small></p>)}
   <small lang={reason.catalogued?locale:''}>{reason.text}</small>
   {candidates.length>0&&<details><summary>{t.candidates(candidates.length)}</summary>
