@@ -13,12 +13,15 @@ const factsSchema=z.array(FactSchema.pick({id:true,text:true,verified:true}).ext
 const stop=new Set(['experience','years','year','least','most','than','minimum','maximum','percent','with','from','have','must','more','less','опыт','года','год','лет','менее','более','процент','процентов','необходимо','требуется']);
 const levels=['A1','A2','B1','B2','C1','C2'];
 function bound(prefix:string):Quantity['bound']|null{
- const s=normalize(prefix).slice(-50);
+ const s=normalize(prefix).slice(-80);
  if(/(?:about|approx(?:imately)?|около|примерно|~|≈)\s*$/u.test(s))return null;
- if(/(?:at least|minimum|min\.?|не менее|от|>=|≥)\s*$/u.test(s))return 'ge';
- if(/(?:more than|over|более|>)\s*$/u.test(s))return 'gt';
- if(/(?:at most|up to|maximum|max\.?|не более|до|<=|≤)\s*$/u.test(s))return 'le';
- if(/(?:less than|under|менее|<)\s*$/u.test(s))return 'lt';
+ if(/(?:^|[^\p{L}])(?:not|не)\s+(?:at least|at most)\s*$/u.test(s))return null;
+ // Negated upper/lower bounds precede their positive suffixes; embedded words are not operators.
+ if(/(?:^|[^\p{L}])(?:at most|up to|maximum|max\.?|not more than|не более|до|<=|≤)\s*$/u.test(s))return 'le';
+ if(/(?:^|[^\p{L}])(?:at least|minimum|min\.?|not less than|не менее|от|>=|≥)\s*$/u.test(s))return 'ge';
+ if(/(?:^|[^\p{L}])(?:not|не)\s+(?:at least|at most|more than|less than|более|менее)\s*$/u.test(s))return null;
+ if(/(?:^|[^\p{L}])(?:more than|over|более|>)\s*$/u.test(s))return 'gt';
+ if(/(?:^|[^\p{L}])(?:less than|under|менее|<)\s*$/u.test(s))return 'lt';
  return 'eq';
 }
 function parse(text:string):Parsed{

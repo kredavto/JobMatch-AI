@@ -20,6 +20,9 @@ it.each([
  ['Revenue growth of 30%',['Revenue growth of 10%']],
  ['Рост выручки на 30%',['Рост выручки на 10%']],
  ['Python at most 5 years',['Python 6 years']],
+ ['Python не более 5 лет',['Python 6 лет']],
+ ['Python not more than 5 years',['Python 6 years']],
+ ['Python not less than 5 years',['Python 4 years']],
  ['Python more than 5 years',['Python 5 years']],
  ['Python less than 5 years',['Python 5 years']],
  ['Python 5 years',['Python 6 years']]
@@ -28,6 +31,9 @@ it.each([
  ['At least 5 years of Python experience',['6 years of Python experience']],
  ['Опыт Python от 5 лет',['Опыт Python 5 лет']],
  ['Python at most 5 years',['Python 5 years']],
+ ['Python не более 5 лет',['Python 4 года']],
+ ['Python не менее 5 лет',['Python 6 лет']],
+ ['Python not more than 5 years',['Python 4 years']],
  ['Python less than 5 years',['Python 4 years']],
  ['Python at least 5,5 years',['Python 5.75 years']],
  ['Revenue growth of 30%',['Revenue growth of 30%']]
@@ -37,6 +43,7 @@ it.each([
 it.each([
  ['Python experience of 5–7 years',['Python 6 years']],
  ['Python about 5 years',['Python 6 years']],
+ ['Python not at least 5 years',['Python 6 years']],
  ['Python at least 5 years',['Python 2 years','Python 6 years']],
  ['Python at least 5 years',['Python 5–7 years']],
  ['Python at least 5 years',['Python 2024 года']],
