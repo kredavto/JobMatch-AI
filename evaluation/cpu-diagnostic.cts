@@ -73,11 +73,12 @@ async function waitReady(server:ChildProcess,port:number,signal:AbortSignal){
  throw Error('Model startup failed');
 }
 async function stop(child:ChildProcess|undefined){
- if(!child||child.exitCode!==null)return;
+ if(!child||child.exitCode!==null||child.signalCode!==null)return;
  child.kill('SIGTERM');await Promise.race([once(child,'close'),new Promise(resolve=>setTimeout(resolve,1500))]);
  if(child.exitCode===null)child.kill('SIGKILL');
 }
 async function runCli(endpoint:string,signal:AbortSignal){
+ if(signal.aborted)throw Error('Diagnostic interrupted');
  const env={PATH:process.env.PATH,NODE_ENV:'test',JOBMATCH_AI_ENABLED:'true',JOBMATCH_AI_SELF_HOSTED:'true',JOBMATCH_AI_ENDPOINT:endpoint,JOBMATCH_AI_MODEL:CPU_ALIAS,JOBMATCH_AI_EVAL_APPROVED:'true',JOBMATCH_AI_EVAL_MODEL_REVISION:'sha256:'+CPU_WEIGHT_SHA};
  const child=spawn(process.execPath,[join(__dirname,'run.cjs')],{env,stdio:['ignore','pipe','pipe']});
  const cancel=()=>child.kill('SIGTERM');signal.addEventListener('abort',cancel,{once:true});
