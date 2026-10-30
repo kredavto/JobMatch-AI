@@ -19,6 +19,7 @@ import {formatRecordedDate} from '../lib/i18n/version-dates';
 import ApplicationList, {type NoteDrafts} from './application-list';
 import {useGlobalLocale,LanguageSelector} from './locale-context';
 import SettingsPanel from './settings-panel';
+import ConsentReceiptsPanel from './consent-receipts-panel';
 import ApplicationReminder from './application-reminder';
 import SavedRemindersPanel from './saved-reminders-panel';
 import AnalyticsPanel from './analytics-panel';
@@ -104,6 +105,6 @@ export default function WorkspacePage({locale:requestedLocale}:{locale?:UiLocale
  {tab==='applications'&&<>{state.ownerId&&<SavedRemindersPanel locale={locale} key={state.ownerId} ownerId={state.ownerId!} workspaceRevision={state.revision} applications={state.applications} disabled={busy||needsReload} onConflict={()=>setNeedsReload(true)}/>}<ApplicationReminder locale={locale} applications={state.applications}/></>}
  {tab==='applications'&&<section className="card" aria-label={tracker.title}><h2>{tracker.title}</h2><p>{tracker.manual}</p><label>{tracker.vacancy}<input value={application} onChange={e=>setApplication(e.target.value)}/></label><label>{tracker.version}<select aria-label={tracker.version} value={resumeVersionId} onChange={e=>setResumeVersionId(e.target.value)}><option value="">{tracker.unlinked}</option>{state.versions.map((v,i)=><option key={v.id} value={v.id}>{tracker.versionName} {i+1} · {formatRecordedDate(v.created,locale).text}</option>)}</select></label><button disabled={busy||needsReload||!application.trim()} onClick={()=>void addApplication()}>{tracker.add}</button><ApplicationList locale={locale} applications={state.applications} versions={state.versions} busy={busy||needsReload} drafts={noteDrafts} onDraft={(id,value)=>setNoteDrafts(previous=>{const next={...previous};if(value)next[id]=value;else delete next[id];return next;})} onUpdate={updateApplication}/></section>}
  {tab==='analytics'&&<AnalyticsPanel locale={locale} applications={state.applications} versions={state.versions}/>}
- {tab==='settings'&&<SettingsPanel locale={locale} ownerId={state.ownerId} busy={busy||needsReload} deleteWord={deleteWord} onDeleteWord={setDeleteWord} onExport={()=>act('export')} onDelete={confirm=>act('delete',{confirm})}/>}
+ {tab==='settings'&&<><SettingsPanel locale={locale} ownerId={state.ownerId} busy={busy||needsReload} deleteWord={deleteWord} onDeleteWord={setDeleteWord} onExport={()=>act('export')} onDelete={confirm=>act('delete',{confirm})}/><ConsentReceiptsPanel key={state.ownerId??'unknown'} locale={locale} ownerId={state.ownerId} disabled={busy||needsReload} onOwnerConflict={()=>setNeedsReload(true)}/></>}
  <footer>{shell.footer}</footer></main></div>;
 }

@@ -19,6 +19,10 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: {node-version: '24'}
+      - name: Discover pinned local advisor and migration-list flags
+        run: |
+          npx --yes --package=supabase@2.122.0 -- supabase db advisors --help
+          npx --yes --package=supabase@2.122.0 -- supabase migration list --help
       - name: Create the migration with the pinned CLI before writing SQL
         if: ${{ hashFiles('supabase/migrations/*_consent_receipts.sql') == '' }}
         run: python3 scripts/consent_migration_bootstrap.py
@@ -37,6 +41,8 @@ jobs:
       PGPASSWORD: synthetic-only
     steps:
       - uses: actions/checkout@v4
+      - name: Install probe runtime
+        run: apt-get update && apt-get install -y python3
       - name: Test empty, populated incremental and canonical schemas
         run: |
           psql -v ON_ERROR_STOP=1 -c 'create role anon; create role authenticated;'
@@ -57,9 +63,17 @@ jobs:
           psql -v ON_ERROR_STOP=1 -d consent_fresh -f supabase/schema.sql
           psql -v ON_ERROR_STOP=1 -d consent_fresh -f scripts/restore_seed.sql
           psql -v ON_ERROR_STOP=1 -d consent_fresh -f supabase/tests/consent_receipts.sql
+      - name: Concurrent explicit acceptance and session revocation
+        env: {CI: 'true', JOBMATCH_LOCAL_CONSENT_TEST: '1', PGDATABASE: consent_parallel}
+        run: |
+          createdb consent_parallel
+          psql -v ON_ERROR_STOP=1 -d consent_parallel -f scripts/restore_fixture.sql
+          psql -v ON_ERROR_STOP=1 -d consent_parallel -f supabase/schema.sql
+          python3 scripts/consent_receipts_concurrency.py
       - name: Cleanup synthetic databases
         if: always()
         run: |
           dropdb --if-exists --force consent_empty
           dropdb --if-exists --force consent_upgrade
           dropdb --if-exists --force consent_fresh
+          dropdb --if-exists --force consent_parallel

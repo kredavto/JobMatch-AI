@@ -4,12 +4,12 @@ from pathlib import Path
 import tempfile
 import unittest
 from unittest.mock import patch
-from backup_manifest import STRUCTURED_V3_TABLES, STRUCTURED_V4_TABLES, STRUCTURED_TABLES, snapshot, compare, fingerprint
+from backup_manifest import STRUCTURED_V3_TABLES, STRUCTURED_V4_TABLES, STRUCTURED_V5_TABLES, STRUCTURED_TABLES, snapshot, compare, fingerprint
 from test_backup_snapshot import Process
 
 
 class StructuredManifestTests(unittest.TestCase):
-    def test_snapshot_and_compare_require_all_nineteen_tables(self):
+    def test_snapshot_and_compare_require_all_twenty_one_tables(self):
         data = b''.join(('JOBMATCH_TABLE:'+table+'\n{"synthetic":true}\n').encode() for table in STRUCTURED_TABLES)+b'JOBMATCH_COMPLETE\n'
         process = Process(data)
         with tempfile.TemporaryDirectory() as folder:
@@ -17,8 +17,8 @@ class StructuredManifestTests(unittest.TestCase):
             with patch('backup_manifest.subprocess.Popen', return_value=process):
                 snapshot(path, include_structured=True)
             manifest = json.loads(path.read_text())
-            self.assertEqual(manifest['format'], 'jobmatch-backup-structured-v5')
-            self.assertEqual(len(manifest['tables']), 19)
+            self.assertEqual(manifest['format'], 'jobmatch-backup-structured-v6')
+            self.assertEqual(len(manifest['tables']), 21)
             self.assertEqual(compare(manifest, manifest), [])
             missing = copy.deepcopy(manifest)
             del missing['tables']['public.reminder_events']
@@ -43,6 +43,23 @@ class StructuredManifestTests(unittest.TestCase):
         incomplete['format'] = 'jobmatch-backup-structured-v5'
         with self.assertRaises(ValueError):
             compare(incomplete, incomplete)
+
+    def test_v5_is_preserved_and_cannot_hide_missing_consent_tables_in_v6(self):
+        old = {'format': 'jobmatch-backup-structured-v5', 'tables': {t: fingerprint([]) for t in STRUCTURED_V5_TABLES}}
+        self.assertEqual(len(old['tables']), 19)
+        self.assertEqual(compare(old, old), [])
+        wrong = copy.deepcopy(old)
+        wrong['format'] = 'jobmatch-backup-structured-v6'
+        with self.assertRaises(ValueError):
+            compare(wrong, wrong)
+
+    def test_consent_notice_and_receipt_changes_are_both_detected(self):
+        source = {'format': 'jobmatch-backup-structured-v6', 'tables': {t: fingerprint([]) for t in STRUCTURED_TABLES}}
+        for table in ['private.processing_notices', 'public.processing_consent_receipts']:
+            changed = copy.deepcopy(source)
+            changed['tables'][table] = fingerprint([b'changed\n'])
+            self.assertEqual(compare(source, changed), [table])
+        self.assertNotIn('private.auth_quota_config', source['tables'])
 
     def test_logical_and_structured_mode_cannot_silently_mix(self):
         with self.assertRaises(ValueError):

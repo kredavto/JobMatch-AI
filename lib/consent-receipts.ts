@@ -10,7 +10,7 @@ export type ConsentRequest=z.infer<typeof ConsentRequestSchema>;
 export const ReceiptSchema=z.object({format:z.literal('jobmatch-consent-receipt-v1'),id:z.uuid(),ownerId:z.uuid(),sequence:z.number().int().min(1).max(consentLimits.receipts),commandId:z.uuid(),notice:NoticeSchema,recordedAt:z.iso.datetime({offset:true}),provenance:z.literal('authenticated-user-report'),assurance:z.literal('not-a-signature-or-legal-approval')}).strict();
 export type ConsentReceipt=z.infer<typeof ReceiptSchema>;
 const legacy=z.object({kind:z.literal('legacy-workspace-observation'),version:z.string().min(1).max(200),observedAt:z.iso.datetime({offset:true})}).strict();
-export const ConsentPageSchema=z.object({format:z.literal('jobmatch-consent-page-v1'),ownerId:z.uuid(),through:sequence,notice:NoticeSchema.nullable(),legacyObservation:legacy.nullable(),latestReceipt:ReceiptSchema.nullable(),rows:z.array(ReceiptSchema).max(consentLimits.page),nextAfter:sequence.nullable()}).strict();
+export const ConsentPageSchema=z.object({format:z.literal('jobmatch-consent-page-v1'),ownerId:z.uuid(),through:sequence,notice:NoticeSchema.nullable(),legacyObservation:legacy.nullable(),latestReceipt:ReceiptSchema.nullable(),noticeReceipt:ReceiptSchema.nullable(),rows:z.array(ReceiptSchema).max(consentLimits.page),nextAfter:sequence.nullable()}).strict();
 export type ConsentPage=z.infer<typeof ConsentPageSchema>;
 export async function noticeDigest(text:string){if(!validText(text))throw Error('INVALID_NOTICE');return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',encoder.encode(text))),byte=>byte.toString(16).padStart(2,'0')).join('');}
 export async function validateNotice(value:unknown){const notice=NoticeSchema.parse(value);if(await noticeDigest(notice.text)!==notice.sha256)throw Error('INVALID_NOTICE');return notice;}
@@ -22,6 +22,7 @@ export async function validateConsentPage(value:unknown,ownerId:string,noticeLoc
  if(page.through===0){if(page.latestReceipt!==null)throw Error('INVALID_LATEST');}
  else if(!page.latestReceipt||page.latestReceipt.sequence!==page.through)throw Error('INVALID_LATEST');
  if(page.latestReceipt)await validateConsentReceipt(page.latestReceipt,ownerId);
+ if(page.noticeReceipt){await validateConsentReceipt(page.noticeReceipt,ownerId);if(!page.notice||page.noticeReceipt.sequence>page.through||JSON.stringify(page.noticeReceipt.notice)!==JSON.stringify(page.notice))throw Error('INVALID_NOTICE_RECEIPT');}
  if(page.rows.length!==Math.min(consentLimits.page,page.through-after))throw Error('INCOMPLETE_PAGE');
  for(let index=0;index<page.rows.length;index++){const row=await validateConsentReceipt(page.rows[index],ownerId);if(row.sequence!==after+index+1)throw Error('INVALID_SEQUENCE');}
  if(new Set(page.rows.map(row=>row.id)).size!==page.rows.length||new Set(page.rows.map(row=>row.commandId)).size!==page.rows.length||new Set(page.rows.map(row=>row.notice.version+'\n'+row.notice.locale)).size!==page.rows.length)throw Error('DUPLICATE');
@@ -50,3 +51,5 @@ export async function collectConsentExport(ownerId:string,noticeLocale:'ru'|'en'
  if(encoder.encode(JSON.stringify(result,null,2)).byteLength>byteLimit)throw Error('EXPORT_LIMIT');
  return result;
 }
+
+export const ConsentReadResponseSchema=z.object({page:ConsentPageSchema,acceptanceEnabled:z.boolean()}).strict();

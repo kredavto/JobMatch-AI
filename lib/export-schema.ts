@@ -7,6 +7,8 @@ export const ExportSchema=z.object({
  scope:z.literal('workspace-audit-consent'),exported_at:z.iso.datetime({offset:true}),
  fact_history_export:z.literal('/api/fact-history?export=1'),
  structured_profile_export:z.literal('/api/structured-profile?export=1').optional(),
+ consent_observation_kind:z.literal('legacy-workspace-observation').optional(),
+ consent_receipts_export:z.literal('settings-consent-panel').optional(),
  reminder_export:z.literal('/api/reminders?export=1').optional(),
  structured_version_export:z.literal('/api/structured-versions?export=1').optional(),
  user:z.object({id:z.string().min(1),email:z.email().optional()}),

@@ -7,5 +7,10 @@ export async function receiptFor(sequence=1,notice?:ProcessingNotice,ownerId=con
 export async function pageFor(count=0,after=0,through=count,locale:'ru'|'en'='ru'):Promise<ConsentPage>{
  const all=await Promise.all(Array.from({length:count},(_,index)=>receiptFor(index+1)));
  const rows=all.slice(after,Math.min(after+20,through)),last=after+rows.length;
- return {format:'jobmatch-consent-page-v1',ownerId:consentOwner,through,notice:await noticeFor(locale),legacyObservation:{kind:'legacy-workspace-observation',version:'privacy-v1',observedAt:'2020-01-01T00:00:00Z'},latestReceipt:through?all[through-1]:null,rows,nextAfter:last<through?last:null};
+ return {format:'jobmatch-consent-page-v1',ownerId:consentOwner,through,notice:await noticeFor(locale),legacyObservation:{kind:'legacy-workspace-observation',version:'privacy-v1',observedAt:'2020-01-01T00:00:00Z'},latestReceipt:through?all[through-1]:null,noticeReceipt:null,rows,nextAfter:last<through?last:null};
+}
+
+export function pageFromReceipts(receipts:ConsentReceipt[],notice:ProcessingNotice|null,after=0,through=receipts.length):ConsentPage{
+ const rows=receipts.filter(row=>row.sequence>after&&row.sequence<=through).slice(0,20),last=after+rows.length;
+ return {format:'jobmatch-consent-page-v1',ownerId:consentOwner,through,notice,legacyObservation:{kind:'legacy-workspace-observation',version:'privacy-v1',observedAt:'2020-01-01T00:00:00Z'},latestReceipt:receipts.find(row=>row.sequence===through)??null,noticeReceipt:notice?receipts.find(row=>row.sequence<=through&&row.notice.version===notice.version&&row.notice.locale===notice.locale)??null:null,rows,nextAfter:last<through?last:null};
 }

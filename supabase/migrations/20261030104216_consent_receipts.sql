@@ -62,7 +62,7 @@ revoke all on function private.consent_receipt_json(public.processing_consent_re
 -- Narrow private definer: read only this active account's journal and published notice.
 create function private.read_consent_receipts(p_locale text,p_after integer,p_through integer) returns jsonb
 language plpgsql security definer set search_path='' set timezone='UTC' set lock_timeout='2s' as $$
-declare uid uuid:=auth.uid();head integer;total integer;boundary integer;items jsonb;last_at integer;notice jsonb;legacy jsonb;latest jsonb;
+declare uid uuid:=auth.uid();head integer;total integer;boundary integer;items jsonb;last_at integer;notice jsonb;legacy jsonb;latest jsonb;current_receipt jsonb;
 begin
  if uid is null or not private.session_is_active() then raise exception 'AUTH';end if;
  if p_locale is null or p_locale not in ('ru','en') or p_after is null or p_after not between 0 and 200 or (p_through is not null and p_through not between 0 and 200) then raise exception 'INVALID_WRITE';end if;
@@ -71,11 +71,12 @@ begin
  boundary:=coalesce(p_through,head);
  if boundary>head or p_after>boundary then raise exception 'CONFLICT';end if;
  select private.processing_notice_json(version,locale,body,sha256) into notice from private.processing_notices where locale=p_locale and active;
+ select private.consent_receipt_json(r) into current_receipt from public.processing_consent_receipts r where user_id=uid and notice_version=notice->>'version' and notice_locale=p_locale and sequence<=boundary;
  select jsonb_build_object('kind','legacy-workspace-observation','version',version,'observedAt',created) into legacy from public.consent_records where user_id=uid;
  select private.consent_receipt_json(r) into latest from public.processing_consent_receipts r where user_id=uid and sequence=boundary;
  select coalesce(jsonb_agg(private.consent_receipt_json(r::public.processing_consent_receipts) order by sequence),'[]'::jsonb),max(sequence) into items,last_at
  from (select * from public.processing_consent_receipts where user_id=uid and sequence>p_after and sequence<=boundary order by sequence limit 20) r;
- return jsonb_build_object('format','jobmatch-consent-page-v1','ownerId',uid,'through',boundary,'notice',notice,'legacyObservation',legacy,'latestReceipt',latest,
+ return jsonb_build_object('format','jobmatch-consent-page-v1','ownerId',uid,'through',boundary,'notice',notice,'legacyObservation',legacy,'latestReceipt',latest,'noticeReceipt',current_receipt,
   'rows',items,'nextAfter',case when last_at<boundary then last_at else null end);
 end;$$;
 revoke all on function private.read_consent_receipts(text,integer,integer) from public,anon;
