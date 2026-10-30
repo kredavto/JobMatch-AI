@@ -61,6 +61,8 @@ export const apiErrors={
  AI_MODEL_NOT_CONFIGURED:{status:503,ru:'AI-модель не настроена.',en:'The AI model has not been configured.'},
  AI_INPUT_REQUIRED:{status:400,ru:'Подтвердите факты и сохраните текст вакансии.',en:'Confirm your facts and save the vacancy text.'},
  AI_INPUT_TOO_LARGE:{status:413,ru:'Для AI-разбора сократите профиль или вакансию: лимит 48 КБ.',en:'Shorten the profile or vacancy for AI review: the limit is 48 KB.'},
+ AI_SOURCE_QUOTES_LIMIT:{status:413,ru:'Для AI-разбора сократите число или длину строк требований и объём профиля.',en:'Reduce the number or length of requirement lines and shorten the profile before AI review.'},
+ AI_SOURCE_QUOTES_UNAVAILABLE:{status:422,ru:'В вакансии нет подходящих отдельных строк для дословного AI-разбора. Проверьте текст требований.',en:'The vacancy has no eligible standalone lines for literal AI review. Check the requirement text.'},
  AI_TIMEOUT:{status:504,ru:'AI-разбор прерван или не ответил вовремя. Повторите по желанию.',en:'AI review was interrupted or timed out. You may start a new review if needed.'},
  AI_RESPONSE_INVALID:{status:502,ru:'AI-сервис не вернул проверяемый результат. Обычный анализ доступен.',en:'The AI service did not return a verifiable result. Rule-based analysis is available.'},
  STRUCTURED_PROFILE_INVALID:{status:502,ru:'Структурированный профиль не прошёл проверку. Данные оставлены без изменений.',en:'The structured profile failed validation. Read current data before writing.'},

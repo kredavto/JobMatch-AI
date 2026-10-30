@@ -14,7 +14,8 @@ const ru={
   "conflict": "Данные изменились. Загрузите актуальный профиль.",
   "session": "Сессия истекла. Войдите повторно перед новым разбором.",
   "rate": "Слишком много запросов. Повторите разбор позже по желанию.",
-  "large": "Для AI-разбора сократите профиль или вакансию: лимит 48 КБ.",
+  "large": "Для AI-разбора сократите профиль, вакансию или число и длину строк требований.",
+  "source": "Нет подходящих отдельных строк для дословного разбора. Проверьте текст требований вакансии.",
   "invalid": "Ответ AI не прошёл проверку цитат и фактов. Повторите разбор по желанию.",
   "interrupted": "AI-разбор прерван. Повторите по желанию.",
   "network": "Связь с AI-разбором потеряна. Результат не получен. Новый запрос можно запустить вручную.",
@@ -36,7 +37,8 @@ const en:Copy<typeof ru>={
   "conflict": "Data changed. Load the current profile.",
   "session": "Your session expired. Sign in again before a new review.",
   "rate": "Too many requests. You may run a new review later.",
-  "large": "Shorten the profile or vacancy for AI review: the limit is 48 KB.",
+  "large": "Shorten the profile, vacancy, or the number and length of requirement lines before AI review.",
+  "source": "There are no eligible standalone lines for literal review. Check the vacancy requirements.",
   "invalid": "The AI response failed quote and fact validation. You may start a new review.",
   "interrupted": "AI review was interrupted. You may start a new review.",
   "network": "The connection to AI review was lost. No result was received. You can start a new request manually.",
@@ -46,4 +48,4 @@ const en:Copy<typeof ru>={
 export const aiReviewCopy={ru,en};
 export type AiReviewErrorKey=keyof typeof ru.errors;
 /** Status is authoritative; response/exception messages are never displayed. */
-export function aiReviewStatusError(status:number):AiReviewErrorKey{return ({503:'unavailable',409:'conflict',401:'session',429:'rate',413:'large',504:'interrupted'} as const)[status as 503|409|401|429|413|504]||'failed';}
+export function aiReviewStatusError(status:number):AiReviewErrorKey{return ({503:'unavailable',409:'conflict',401:'session',429:'rate',413:'large',422:'source',504:'interrupted'} as const)[status as 503|409|401|429|413|422|504]||'failed';}
