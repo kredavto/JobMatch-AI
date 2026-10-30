@@ -1,12 +1,13 @@
 'use client';
 import {useEffect,useRef,useState} from 'react';
 import Link from 'next/link';
+import {useGlobalLocale,LanguageSelector} from '../locale-context';
 import {requestJson,RequestError,validatedAuthAck} from '../../lib/client-api';
 import {mailFailure} from '../../lib/mail-feedback';
 import {mailCopy} from '../../lib/i18n/mail';
 import {normalizeLocale,type UiLocale} from '../../lib/i18n/locale';
-export default function ConfirmationForm({locale:requestedLocale='ru'}:{locale?:UiLocale}){
- const locale=normalizeLocale(requestedLocale),t=mailCopy[locale].confirmation;
+export default function ConfirmationForm({locale:requestedLocale}:{locale?:UiLocale}){
+ const globalLocale=useGlobalLocale(),locale=normalizeLocale(requestedLocale??globalLocale?.locale),t=mailCopy[locale].confirmation;
  const [email,setEmail]=useState(''),[busy,setBusy]=useState(false),[cooldown,setCooldown]=useState(false),[error,setError]=useState<number|null>(null),[notice,setNotice]=useState(false);
  const timer=useRef<ReturnType<typeof setTimeout>|null>(null),pending=useRef(false),active=useRef(true);
  useEffect(()=>{active.current=true;return()=>{active.current=false;if(timer.current)clearTimeout(timer.current);};},[]);
@@ -25,7 +26,7 @@ export default function ConfirmationForm({locale:requestedLocale='ru'}:{locale?:
    if(status===429){setCooldown(true);timer.current=setTimeout(()=>setCooldown(false),60000);}
   }finally{pending.current=false;if(active.current)setBusy(false);}
  }
- return <section className="card" lang={locale}><h1>{t.title}</h1><p>{t.help}</p>
+ return <section className="card" lang={locale}><LanguageSelector/><h1>{t.title}</h1><p>{t.help}</p>
  <form onSubmit={event=>{event.preventDefault();void submit();}}><label>{t.email}<input type="email" autoComplete="email" required maxLength={200} value={email} onChange={event=>setEmail(event.target.value)}/></label>
  {error!==null&&<p role="alert" className="error">{mailFailure(error,'request',locale)}</p>}{notice&&<p role="status" className="notice">{t.notice}</p>}
  <button className="primary" disabled={busy||cooldown}>{busy?t.busy:cooldown?t.cooldown:t.submit}</button></form>

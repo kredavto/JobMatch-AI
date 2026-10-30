@@ -1,14 +1,15 @@
 'use client';
 import {useEffect,useRef,useState} from 'react';
 import Link from 'next/link';
+import {useGlobalLocale,LanguageSelector} from '../locale-context';
 import {requestJson,RequestError} from '../../lib/client-api';
 import {mailFailure,type MailStage} from '../../lib/mail-feedback';
 import {mailCopy} from '../../lib/i18n/mail';
 import {normalizeLocale,type UiLocale} from '../../lib/i18n/locale';
 import {z} from 'zod';
 type RecoveryError={key:'invalidLink'|'mismatch'}|{status:number;stage:MailStage};
-export default function RecoveryForm({initialCode,invalid,locale:requestedLocale='ru'}:{initialCode:string;invalid:boolean;locale?:UiLocale}){
- const locale=normalizeLocale(requestedLocale),t=mailCopy[locale].recovery;
+export default function RecoveryForm({initialCode,invalid,locale:requestedLocale}:{initialCode:string;invalid:boolean;locale?:UiLocale}){
+ const globalLocale=useGlobalLocale(),locale=normalizeLocale(requestedLocale??globalLocale?.locale),t=mailCopy[locale].recovery;
  const [code,setCode]=useState(initialCode),[stage,setStage]=useState<MailStage|'done'>(initialCode?'exchange':'request');
  const [email,setEmail]=useState(''),[password,setPassword]=useState(''),[repeat,setRepeat]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState<RecoveryError|null>(invalid?{key:'invalidLink'}:null),[notice,setNotice]=useState<'requested'|'updated'|'sessionsUnknown'|null>(null);
  const pending=useRef(false),active=useRef(true);
@@ -27,7 +28,7 @@ export default function RecoveryForm({initialCode,invalid,locale:requestedLocale
   }catch(error){if(active.current)setError({status:error instanceof RequestError?error.status:502,stage});}
   finally{pending.current=false;if(active.current){setPassword('');setRepeat('');setBusy(false);}}
  }
- return <section className="card" lang={locale}><h1>{t.title}</h1><p>{t.help}</p><form onSubmit={event=>{event.preventDefault();void submit();}}>
+ return <section className="card" lang={locale}><LanguageSelector/><h1>{t.title}</h1><p>{t.help}</p><form onSubmit={event=>{event.preventDefault();void submit();}}>
  {stage==='request'&&<label>{t.email}<input type="email" required maxLength={200} autoComplete="email" value={email} onChange={e=>setEmail(e.target.value)}/></label>}
  {stage==='exchange'&&<p>{t.exchangeHelp}</p>}
  {stage==='update'&&<><label>{t.password}<input type="password" required minLength={12} maxLength={128} autoComplete="new-password" value={password} onChange={e=>setPassword(e.target.value)}/></label><label>{t.repeat}<input type="password" required minLength={12} maxLength={128} autoComplete="new-password" value={repeat} onChange={e=>setRepeat(e.target.value)}/></label><p>{t.length}</p></>}

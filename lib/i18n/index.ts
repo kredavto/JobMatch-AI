@@ -25,5 +25,5 @@ export const en:Messages={
  auth:{create:'Create an account',welcome:'Welcome back',email:'Email address',password:'Password · at least 12 characters',wait:'Please wait…',signUp:'Create account →',signIn:'Sign in →',existing:'Already have an account? Sign in',newAccount:'Create a new account',passwordHint:'Use a separate JobMatch AI password. If you forgot it, open password recovery. A mail app password is only used by the administrator for SMTP.'},
  metadata:{title:'JobMatch AI — evidence-based resumes',description:'Transparent matching of experience and job requirements'}
 };
-/** Russian remains the only released UI until all screens and server errors are translated. */
+/** Compatibility fallback for callers without a locale; the public UI uses LocaleProvider. */
 export const ui=ru;
