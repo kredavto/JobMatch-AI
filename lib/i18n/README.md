@@ -46,3 +46,7 @@ Typed RU/EN copy localizes letter controls, semantic errors and known rule advic
 
 ## Analytics locales and recorded time
 AnalyticsPanel/AnalyticsTimeline use optional default-RU locale props with preserved filters and semantic CSV failures. Explicit instants use UTC; legacy day-only records keep calendar buckets and day-only CSV precision. Offset-less times never acquire the device zone: affected applications remain observable in overall recorded-status metrics but are excluded from date/month cohorts, with an explicit count. A later known event is not substituted for an unplaced first event. Source history/statuses/IDs remain unchanged. Production stays RU. See docs/ANALYTICS_TIME_LOCALIZATION.md; tracker drafts/status/date presentation and global/live acceptance remain open.
+
+
+## Inline evidence review integration
+`requirement-evidence.ts` provides typed RU/EN whole-line confirmation/candidate copy; existing editor reason catalog remains display-only. `WorkspaceNotice` stores confirmed-before/after scores or an explicit saved-but-not-reanalyzed outcome. Changing global locale preserves expanded candidates/pending confirmation and translates feedback without replay. Saved quote/source/ID/rule output stays unchanged. See docs/INLINE_EVIDENCE.md for strict one-fact owner/revision acknowledgement and deferred-analysis behavior.
