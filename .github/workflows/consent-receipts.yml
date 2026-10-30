@@ -22,3 +22,44 @@ jobs:
       - name: Create the migration with the pinned CLI before writing SQL
         if: ${{ hashFiles('supabase/migrations/*_consent_receipts.sql') == '' }}
         run: python3 scripts/consent_migration_bootstrap.py
+  postgres:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    container: postgres:17
+    services:
+      postgres:
+        image: postgres:17
+        env: {POSTGRES_PASSWORD: synthetic-only}
+        options: --health-cmd pg_isready --health-interval 5s --health-retries 10
+    env:
+      PGHOST: postgres
+      PGUSER: postgres
+      PGPASSWORD: synthetic-only
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test empty, populated incremental and canonical schemas
+        run: |
+          psql -v ON_ERROR_STOP=1 -c 'create role anon; create role authenticated;'
+          createdb consent_empty
+          createdb consent_upgrade
+          createdb consent_fresh
+          sed '/^-- Explicit reported acceptance/,$d' supabase/schema.sql > /tmp/consent-baseline.sql
+          for database in consent_empty consent_upgrade; do
+            psql -v ON_ERROR_STOP=1 -d "$database" -f scripts/restore_fixture.sql
+            psql -v ON_ERROR_STOP=1 -d "$database" -f /tmp/consent-baseline.sql
+          done
+          psql -v ON_ERROR_STOP=1 -d consent_upgrade -f scripts/restore_seed.sql
+          for database in consent_empty consent_upgrade; do
+            psql -v ON_ERROR_STOP=1 -d "$database" -f supabase/migrations/20261030104216_consent_receipts.sql
+            psql -v ON_ERROR_STOP=1 -d "$database" -f supabase/tests/consent_receipts.sql
+          done
+          psql -v ON_ERROR_STOP=1 -d consent_fresh -f scripts/restore_fixture.sql
+          psql -v ON_ERROR_STOP=1 -d consent_fresh -f supabase/schema.sql
+          psql -v ON_ERROR_STOP=1 -d consent_fresh -f scripts/restore_seed.sql
+          psql -v ON_ERROR_STOP=1 -d consent_fresh -f supabase/tests/consent_receipts.sql
+      - name: Cleanup synthetic databases
+        if: always()
+        run: |
+          dropdb --if-exists --force consent_empty
+          dropdb --if-exists --force consent_upgrade
+          dropdb --if-exists --force consent_fresh
