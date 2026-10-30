@@ -1,3 +1,4 @@
+import {AI_FAILURE_STAGES} from '../lib/ai-diagnostics';
 import {createHash} from 'node:crypto';
 import {createReadStream,readFileSync,statSync} from 'node:fs';
 import {createServer,type IncomingMessage,type ServerResponse} from 'node:http';
@@ -79,7 +80,7 @@ async function stop(child:ChildProcess|undefined){
 }
 async function runCli(endpoint:string,signal:AbortSignal){
  if(signal.aborted)throw Error('Diagnostic interrupted');
- const env={PATH:process.env.PATH,NODE_ENV:'test',JOBMATCH_AI_ENABLED:'true',JOBMATCH_AI_SELF_HOSTED:'true',JOBMATCH_AI_ENDPOINT:endpoint,JOBMATCH_AI_MODEL:CPU_ALIAS,JOBMATCH_AI_EVAL_APPROVED:'true',JOBMATCH_AI_EVAL_MODEL_REVISION:'sha256:'+CPU_WEIGHT_SHA};
+ const env={PATH:process.env.PATH,NODE_ENV:'test',JOBMATCH_AI_ENABLED:'true',JOBMATCH_AI_SELF_HOSTED:'true',JOBMATCH_AI_ENDPOINT:endpoint,JOBMATCH_AI_MODEL:CPU_ALIAS,JOBMATCH_AI_EVAL_APPROVED:'true',JOBMATCH_AI_EVAL_DIAGNOSTICS:'stages-v1',JOBMATCH_AI_EVAL_MODEL_REVISION:'sha256:'+CPU_WEIGHT_SHA};
  const child=spawn(process.execPath,[join(__dirname,'run.cjs')],{env,stdio:['ignore','pipe','pipe']});
  const cancel=()=>child.kill('SIGTERM');signal.addEventListener('abort',cancel,{once:true});
  let stdout='',stderr='',overflow=false;const timer=setTimeout(()=>{overflow=true;child.kill('SIGKILL');},610000);
@@ -93,6 +94,12 @@ export function cpuServerArgs(){
 }
 type CpuPhase='pin'|'weights'|'binary'|'server-start'|'server-ready'|'evaluate'|'evaluation-returned'|'report';
 function phase(value:CpuPhase){process.stdout.write('CPU_DIAGNOSTIC_PHASE '+value+'\n');}
+export function validateCpuEvaluationDiagnostics(value:unknown){
+ const parsed=z.object({schemaVersion:z.literal(2),diagnosticFormat:z.literal('ai-failure-stages-v1'),errors:z.number().int().min(0).max(28),failureStageCounts:z.record(z.enum(AI_FAILURE_STAGES),z.number().int().min(0).max(28)),rows:z.array(z.object({status:z.enum(['graded','error']),failureStage:z.enum(AI_FAILURE_STAGES).optional()})).length(28)}).parse(value);
+ const errors=parsed.rows.filter(row=>row.status==='error');
+ if(errors.length!==parsed.errors||parsed.rows.some(row=>row.status==='graded'?row.failureStage!==undefined:row.failureStage===undefined)||AI_FAILURE_STAGES.some(stage=>parsed.failureStageCounts[stage]!==errors.filter(row=>row.failureStage===stage).length))throw Error('Diagnostic count mismatch');
+ return true;
+}
 export async function main(){
  if(!approvedCpuEnvironment(process.env))throw Error('CI-only approval required');
  phase('pin');
@@ -115,10 +122,11 @@ export async function main(){
   phase('evaluate');
   const startedAt=new Date().toISOString(),result=await runCli(bridge.endpoint,controller.signal);
   phase('evaluation-returned');
+  validateCpuEvaluationDiagnostics(result.report);
   if(!result.report.complete||result.report.completed!==28||bridge.stats.acceptedRequests!==28||bridge.stats.backendResponses<1||bridge.stats.generatedTokens<1||await sha256(MODEL)!==pin.sha256)throw Error('No complete model diagnostic');
   const quality=result.report.passed?'synthetic-exact-gold-passed':result.report.errors?'synthetic-provider-or-contract-errors':'synthetic-quality-mismatch';
   phase('report');
-  process.stdout.write('JOBMATCH_CPU_DIAGNOSTIC_V1 '+JSON.stringify({format:'jobmatch-cpu-diagnostic-v1',runKind:'actual-local-cpu-inference/synthetic-only',startedAt,finishedAt:new Date().toISOString(),pin,weightsFileVerified:true,executionBinding:'readonly-file-and-owned-local-process',deploymentIdentityVerified:false,acceptance:'not-accepted',containerImageId:image,llamaBinarySha256:binarySha,licenseFileSha256:licenseSha,runtime:{node:process.version,architecture:process.arch,cpu:cpus()[0]?.model?.slice(0,200)??'unknown'},bridge:bridge.stats,diagnosticQuality:quality,evaluatorExitCode:result.exitCode,evaluation:result.report})+'\n');
+  process.stdout.write('JOBMATCH_CPU_DIAGNOSTIC_V2 '+JSON.stringify({format:'jobmatch-cpu-diagnostic-v2',runKind:'actual-local-cpu-inference/synthetic-only',startedAt,finishedAt:new Date().toISOString(),pin,weightsFileVerified:true,executionBinding:'readonly-file-and-owned-local-process',deploymentIdentityVerified:false,acceptance:'not-accepted',containerImageId:image,llamaBinarySha256:binarySha,licenseFileSha256:licenseSha,runtime:{node:process.version,architecture:process.arch,cpu:cpus()[0]?.model?.slice(0,200)??'unknown'},bridge:bridge.stats,diagnosticQuality:quality,evaluatorExitCode:result.exitCode,evaluation:result.report})+'\n');
  }finally{clearTimeout(timer);process.removeListener('SIGINT',cancel);process.removeListener('SIGTERM',cancel);await bridge?.close();await stop(server);}
 }
 if(require.main===module)main().catch(()=>{process.stderr.write('CPU diagnostic refused or incomplete; no provider output or paths emitted.\n');process.exitCode=2;});
