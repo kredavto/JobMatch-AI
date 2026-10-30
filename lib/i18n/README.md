@@ -50,3 +50,7 @@ AnalyticsPanel/AnalyticsTimeline use optional default-RU locale props with prese
 
 ## Inline evidence review integration
 `requirement-evidence.ts` provides typed RU/EN whole-line confirmation/candidate copy; existing editor reason catalog remains display-only. `WorkspaceNotice` stores confirmed-before/after scores or an explicit saved-but-not-reanalyzed outcome. Changing global locale preserves expanded candidates/pending confirmation and translates feedback without replay. Saved quote/source/ID/rule output stays unchanged. See docs/INLINE_EVIDENCE.md for strict one-fact owner/revision acknowledgement and deferred-analysis behavior.
+
+
+## Explicit acceptance records
+`consent-receipts.ts` has typed RU/EN display feedback. Operator notice language is a separate explicit choice: UI locale changes preserve the exact published body/version/hash and acknowledgement. Terms/receipt text is never translated. Lost writes require manual reconciliation and an unchanged explicit retry reuses its command ID. The new complete journal is the sixth archive file; old consent rows remain separate observations. The empty operator catalog/web-write default-off do not establish legal/placement approval. See docs/CONSENT_RECEIPTS.md for the owner/session protocol and evidence limits.

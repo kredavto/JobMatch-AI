@@ -60,13 +60,14 @@ jobs:
       - name: Concurrent saved reminder commands
         env: {JOBMATCH_LOCAL_STRUCTURED_TEST: '1', PGDATABASE: structured_upgrade}
         run: python3 scripts/reminder_concurrency.py
-      - name: Verify nineteen populated table fingerprints and restored profile
+      - name: Verify twenty-one populated table fingerprints and restored profile
         run: |
           psql -v ON_ERROR_STOP=1 -d structured_full -f scripts/structured_profile_seed.sql
           psql -v ON_ERROR_STOP=1 -d structured_full -f scripts/structured_version_seed.sql
           psql -v ON_ERROR_STOP=1 -d structured_full -f scripts/reminder_seed.sql
+          psql -v ON_ERROR_STOP=1 -d structured_full -f scripts/consent_receipts_seed.sql
           PGDATABASE=structured_full python3 scripts/backup_manifest.py snapshot /tmp/structured-before.json --include-structured
-          python3 -c "import json; d=json.load(open('/tmp/structured-before.json')); assert len(d['tables'])==19 and all(v['rows']>0 for v in d['tables'].values())"
+          python3 -c "import json; d=json.load(open('/tmp/structured-before.json')); assert len(d['tables'])==21 and all(v['rows']>0 for v in d['tables'].values())"
           pg_dump -Fc -d structured_full -f /tmp/structured.dump
           pg_restore --exit-on-error -d structured_restore /tmp/structured.dump
           PGDATABASE=structured_restore python3 scripts/backup_manifest.py snapshot /tmp/structured-after.json --include-structured
@@ -74,6 +75,7 @@ jobs:
           psql -v ON_ERROR_STOP=1 -d structured_restore -f supabase/tests/structured_profile.sql
           psql -v ON_ERROR_STOP=1 -d structured_restore -f supabase/tests/structured_versions.sql
           psql -v ON_ERROR_STOP=1 -d structured_restore -f supabase/tests/saved_reminders.sql
+          psql -v ON_ERROR_STOP=1 -d structured_restore -f supabase/tests/consent_receipts_restored.sql
           psql -v ON_ERROR_STOP=1 -d structured_restore -c "update public.structured_profile_entries set fields=jsonb_set(fields,'{title,quote}','\"Changed\"')"
           PGDATABASE=structured_restore python3 scripts/backup_manifest.py snapshot /tmp/structured-changed.json --include-structured
           set +e
@@ -94,6 +96,22 @@ jobs:
           PGDATABASE=structured_restore python3 scripts/backup_manifest.py snapshot /tmp/reminder-changed.json --include-structured
           set +e
           python3 scripts/backup_manifest.py compare /tmp/version-changed.json /tmp/reminder-changed.json
+          result=$?
+          set -e
+          test "$result" -eq 1
+      - name: Detect changed receipt and notice snapshots
+        run: |
+          psql -v ON_ERROR_STOP=1 -d structured_restore -c "alter table public.processing_consent_receipts disable trigger consent_receipt_frozen; update public.processing_consent_receipts set recorded_at=recorded_at+interval '1 second'; alter table public.processing_consent_receipts enable trigger consent_receipt_frozen;"
+          PGDATABASE=structured_restore python3 scripts/backup_manifest.py snapshot /tmp/consent-changed.json --include-structured
+          set +e
+          python3 scripts/backup_manifest.py compare /tmp/reminder-changed.json /tmp/consent-changed.json
+          result=$?
+          set -e
+          test "$result" -eq 1
+          psql -v ON_ERROR_STOP=1 -d structured_restore -c "alter table private.processing_notices disable trigger processing_notice_frozen; update private.processing_notices set body=body||' Changed',sha256=encode(extensions.digest(convert_to(body||' Changed','UTF8'),'sha256'),'hex'); alter table private.processing_notices enable trigger processing_notice_frozen;"
+          PGDATABASE=structured_restore python3 scripts/backup_manifest.py snapshot /tmp/notice-changed.json --include-structured
+          set +e
+          python3 scripts/backup_manifest.py compare /tmp/consent-changed.json /tmp/notice-changed.json
           result=$?
           set -e
           test "$result" -eq 1

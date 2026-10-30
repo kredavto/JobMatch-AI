@@ -28,3 +28,5 @@ mark{background:#d9f2e8;color:#174b3f;padding:2px 0}
 
 /* Keep whole-line evidence and its explicit confirmation readable inside the scrollable table. */
 .requirement-evidence{min-width:280px;max-width:520px}.requirement-evidence .card{padding:14px;margin:14px 0}.requirement-evidence p{overflow-wrap:anywhere}.requirement-evidence button{max-width:100%}
+
+.consent-panel code{display:block;overflow-wrap:anywhere}.consent-panel .consent-text{max-height:24rem;overflow:auto;border:1px solid var(--line);border-radius:9px;padding:16px;margin-bottom:16px}.consent-panel .consent-text:focus-visible{outline:3px solid #0a8c85;outline-offset:3px}.consent-panel .notice p{color:inherit}

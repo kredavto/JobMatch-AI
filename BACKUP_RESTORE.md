@@ -76,3 +76,13 @@ SQL-заменитель Auth моделирует только таблицы �
 
 ## Сохранённые задачи (следующий additive этап)
 После saved_reminders migration полный --include-structured manifest имеет формат jobmatch-backup-structured-v5 и19 таблиц: добавлены reminder_boards/reminders/reminder_events. v3/15 и v4/16 — исторические форматы; неполный набор нельзя пометить v5. До изменения схемы копии сравнивайте её с эталоном исходной схемы. Новая native suite supabase/tests/saved_reminders.sql проверяет state/history/limits/session/cascade; workflow seed/dump/restore19 и отдельный negative history corruption probe. Это не восстановление реальной копии провайдера. Пользовательский полный архив теперь требует5 файлов; reminder NDJSON complete:true означает отсутствие замеченных изменений board revision на протяжении экспорта, а не общий snapshot с остальными файлами.
+
+
+## Явные acceptance receipts: текущий v6/21, PR #42
+После consent_receipts migration --include-structured создаёт jobmatch-backup-structured-v6 с21 tables: добавлены private.processing_notices и public.processing_consent_receipts. Historical v5/19, v4/16 и v3/15 по-прежнему проверяются в своих форматах; нельзя переименовать неполный manifest в v6. Native full-schema seed/dump/restore заполняет все21 таблицы, проверяет owned receipt после восстановления и обнаруживает отдельные изменения recorded_at receipt и body/hash notice.
+
+Реестр юридических текстов в самой миграции пуст. Seed SYNTHETIC ONLY используется исключительно в disposable CI; он не является операторским одобрением и не предназначен для рабочей базы. Consent event — заявление аккаунта о точном тексте/языке/версии с серверным временем, не цифровая подпись, проверка личности или legal approval. Старые consent_records не backfill и остаются legacy observations.
+
+В пользовательском архиве теперь6 файлов; новый journal JSON скачивается из отдельной панели настроек только после проверки всех страниц до фиксированного номера. Это не общий snapshot остальных файлов. Удаление аккаунта требует существующую сессию и каскадно удаляет собственные receipts из активной базы; backup/download retention остаётся решением оператора. При откате кода сохраните reader/export или подготовьте проверенный операторский путь — старый код о шестом файле не знает.
+
+v6 по-прежнему не включает private.auth_quota_config/auth_quotas/auth_quota_outcomes и остальную схему Supabase/секреты провайдера. Unrestricted dump может содержать signing key; защищённое хранение и rekey до traffic после restore проверяются отдельно. Native PostgreSQL17 fixture имеет минимальную Auth schema, а не настоящую копию Supabase. Реальный provider-copy restore, Auth/PostgREST, SMTP, RPO/RTO и политика размещения/удаления копий не закрыты. Контракт: docs/CONSENT_RECEIPTS.md.

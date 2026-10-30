@@ -11,7 +11,7 @@ it('exports all short pages, filters by owner and retains the separate history l
  db.supabase.mockResolvedValueOnce([row(1)]).mockResolvedValueOnce([row(2)]).mockResolvedValueOnce([]).mockResolvedValueOnce([{version:'privacy-v1',created:'2020-01-01T00:00:00Z'}]);
  const result=await personalExport(owner);
  expect(result.audit).toEqual([row(1),row(2)]);expect(result.complete).toBe(true);
- expect(result.scope).toBe('workspace-audit-consent');expect(result.fact_history_export).toBe('/api/fact-history?export=1');
+ expect(result.scope).toBe('workspace-audit-consent');expect(result.consent_observation_kind).toBe('legacy-workspace-observation');expect(result.consent_receipts_export).toBe('settings-consent-panel');expect(result.fact_history_export).toBe('/api/fact-history?export=1');
  expect(db.supabase.mock.calls[1][0]).toContain('&id=gt.'+id(1));
  for(const call of db.supabase.mock.calls){expect(call[0]).toContain('user_id=eq.owner');expect(call[3]).toBe(owner.token);}
  expect(JSON.stringify(result)).not.toContain(owner.token);
