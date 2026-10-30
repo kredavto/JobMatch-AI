@@ -3,7 +3,7 @@ import {mkdtempSync,writeFileSync,rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {spawnSync} from 'node:child_process';
-import {createOpsObserver,OPS_PREFIX,OpsStreamEventSchema,OpsObservationSchema,type OpsStreamOutcome} from '../lib/ops-telemetry';
+import {createOpsObserver,observeRoute,OPS_PREFIX,OpsStreamEventSchema,OpsObservationSchema,type OpsStreamOutcome} from '../lib/ops-telemetry';
 import {historyStream} from '../lib/history-stream';
 import {structuredVersionStream} from '../lib/structured-version-db';
 import {reminderExportStream} from '../lib/reminders-db';
@@ -105,7 +105,7 @@ describe('actual export source branches with native ReadableStream',()=>{
  it('native helper events pass the Python reader and failed-after-200 file check alerts',async()=>{
   const dir=mkdtempSync(join(tmpdir(),'jobmatch-stream-'));
   try{
-   const f=(await factories())[0];const response=new Response(f.bad());expect(response.status).toBe(200);await response.text();
+   const f=(await factories())[0];const response=await observeRoute('fact-history','GET',()=>new Response(f.bad()))();expect(response.status).toBe(200);await response.text();
    // Only bounded event lines cross the language boundary, never the export body.
    const path=join(dir,'events.jsonl');writeFileSync(path,lines.join('\n')+'\n',{mode:0o600});
    const result=spawnSync('python3',['scripts/ops_report.py','stream-check',path,'--min-streams','1','--max-incomplete-fraction','0','--max-cancelled-fraction','0','--max-age-seconds','120'],{encoding:'utf8',timeout:10000});
