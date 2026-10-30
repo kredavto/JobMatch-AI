@@ -1,7 +1,8 @@
 import {test,expect} from '@playwright/test';
 import {readFile} from 'node:fs/promises';
-const workspace={revision:1,original:'Вымышленный профиль SQL',vacancy:'',goal:'',facts:[],versions:[],applications:[]};
-const archive={format:'jobmatch-personal-data-v1',complete:true,scope:'workspace-audit-consent',exported_at:'2026-10-25T00:00:00Z',fact_history_export:'/api/fact-history?export=1',user:{id:'fixture',email:'demo@example.test'},workspace,audit:[],consent:[]};
+const ownerId='11111111-1111-4111-8111-111111111111';
+const workspace={ownerId,revision:1,original:'Вымышленный профиль SQL',vacancy:'',goal:'',facts:[],versions:[],applications:[]};
+const archive={format:'jobmatch-personal-data-v1',complete:true,scope:'workspace-audit-consent',exported_at:'2026-10-25T00:00:00Z',fact_history_export:'/api/fact-history?export=1',user:{id:ownerId,email:'demo@example.test'},workspace,audit:[],consent:[]};
 test('valid personal archive downloads with explicit scope and separate history instructions',async({page})=>{
  await page.route('**/api/service',r=>r.fulfill({json:r.request().method()==='GET'?workspace:archive}));
  await page.goto('/');await page.getByRole('navigation').getByRole('button',{name:'Настройки',exact:true}).click();
