@@ -59,3 +59,6 @@ Runtime `eb9a270a6eef7bdb40cb2f9807abff971bec7307`: [English structured version 
 
 ## Source-mode schema3 compatibility — #49
 Source-lines-v1 adds a separately versioned prompt/quote constraint and report3/quoteContractVersion. Stage format/categories remain the same; a quote outside its exact allowed whole-line pool maps to citation after the existing validation checks. Input/pool/framed-byte refusals remain input failures before provider access. CPU validates report schema against the explicitly selected contract; legacy schema2 and archived generic failures are not relabelled. See SOURCE_QUOTES.md. A different prompt/schema/CPU experiment cannot establish causal model-quality improvement.
+
+## Audit schema4 compatibility — #50
+Opt-in link audit adds schema4 while retaining the same static stage format and original error/grade semantics. Only validated reviews can be audited; provider/source/evidence failures have unavailable audit coverage with null notes/counts and no-validated-review reason, not zero successful warnings. CPU validates complete stage counts and a separate strict audit summary. Audit failure does not rewrite model output or the original grading. See LINK_AUDIT.md; source quote mode and stage observers remain independently configured.
