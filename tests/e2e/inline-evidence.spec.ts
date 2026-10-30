@@ -23,7 +23,7 @@ test('explicit inline confirmation recalculates score and saves a separate downl
  await expect(page.getByRole('table')).toContainText('Вела корпоративные продажи B2B.');expect(actions).toEqual(['analyze']);
  expect((await new AxeBuilder({page}).include('table').withTags(['wcag2a','wcag2aa','wcag21aa']).analyze()).violations).toEqual([]);
  await page.getByRole('button',{name:'Подтвердить факт e1',exact:true}).click();
- await expect(page.getByRole('status')).toContainText('Match Score: 0 → 100');
+ await expect(page.getByRole('status').filter({hasText:'Match Score:'})).toContainText('Match Score: 0 → 100');
  await expect(page.locator('.stats article').first()).toContainText('100 / 100');
  expect(actions).toEqual(['analyze','verify','analyze']);expect(state.facts[1].verified).toBe(false);
  await page.getByRole('button',{name:'Принять все подтвержденные'}).click();
@@ -42,5 +42,5 @@ for(const status of [409,503])test('failed confirmation '+status+' never raises 
   const req=parseVacancy(state.vacancy);return route.fulfill({json:{analysis:match(state.facts,req),edits:propose(state.facts,req)}});
  });
  await openAnalysis(page);await page.getByText('Найдено в резюме, но не подтверждено (1)',{exact:true}).click();await page.getByRole('button',{name:'Подтвердить факт e1',exact:true}).click();
- await expect(page.getByRole('alert')).toContainText('Подтверждение не выполнено');await expect(page.locator('.stats article').first()).toContainText('0 / 100');expect(actions).toEqual(['analyze','verify']);expect(state.facts[0].verified).toBe(false);
+ await expect(page.locator('main').getByRole('alert')).toContainText('Подтверждение не выполнено');await expect(page.locator('.stats article').first()).toContainText('0 / 100');expect(actions).toEqual(['analyze','verify']);expect(state.facts[0].verified).toBe(false);
 });
