@@ -1,6 +1,6 @@
-# Source-backed structured profile (manual candidate)
+# Source-backed structured profile (manual records and labelled suggestions)
 
-This implementation adds persisted, manually assembled employment/education/certification/achievement records. It does not run a model, infer seniority/durations/qualifications, normalize ambiguous dates, or change Match Score/ordinary resume versions. Selected confirmed entries can now create separate literal versions; see STRUCTURED_VERSIONS.md. Automated extraction and semantic verification remain separate work.
+This implementation adds persisted, manually assembled employment/education/certification/achievement records. It does not run a model, infer seniority/durations/qualifications, normalize ambiguous dates, or change Match Score/ordinary resume versions. Selected confirmed entries can now create separate literal versions; see STRUCTURED_VERSIONS.md. Optional local labelled-source suggestions can fill a reviewed draft; see STRUCTURED_PROPOSALS.md. General free-text/model extraction and semantic verification remain separate work.
 
 ## User flow and provenance
 
@@ -41,3 +41,6 @@ Rolling application code back can leave additive tables/RPCs in place: older wor
 
 ### After saved task migration
 The current --include-structured snapshot is now v5/19 tables, including reminder_boards/reminders/reminder_events; v3/v4 references above describe historical feature acceptance. Full user export now requires five downloads, including task/history NDJSON. See SAVED_REMINDERS.md; older manifest formats cannot stand in for the new complete backup.
+
+## Optional labelled source suggestions — candidate #51
+The saved source can produce bounded literal candidates from explicit RU/EN section/field labels, exact code-point ranges and optional literal-date warnings. Preview/close/copy have no write; copying requires an empty draft, add remains unconfirmed and confirmation is separate. Unknown sections never inherit the prior kind. Source-context changes preserve a matching snapshot's old draft for comparison and block save/capture until explicit clear; outdated sources retain the existing closed manual editor. Locale-only changes preserve report/draft without requests. No SQL/format/template/Score change. See [STRUCTURED_PROPOSALS.md](STRUCTURED_PROPOSALS.md) for grammar,20-candidate cap, dates, compatibility, tests and remaining acceptance.
