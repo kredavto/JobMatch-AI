@@ -4,7 +4,7 @@ import {createServer} from 'node:http';
 import {once} from 'node:events';
 import {readFileSync} from 'node:fs';
 import {spawnSync} from 'node:child_process';
-import {createCpuBridge,cpuServerArgs,approvedCpuEnvironment,validateCpuPin,CPU_ALIAS} from '../dist/evaluation/cpu-diagnostic.cjs';
+import {createCpuBridge,cpuServerArgs,validateCpuEvaluationDiagnostics,approvedCpuEnvironment,validateCpuPin,CPU_ALIAS} from '../dist/evaluation/cpu-diagnostic.cjs';
 import {evaluationCorpus} from '../dist/evaluation/corpus.js';
 import {AI_SYSTEM_PROMPT} from '../dist/lib/ai-prompt.js';
 import {AiReviewSchema,eligibleAiFacts} from '../dist/lib/ai-review.js';
@@ -30,3 +30,11 @@ test('client disconnect aborts backend without fabricated completion',async()=>{
 test('CI entrypoint refuses before weights or network with generic output',()=>{const result=spawnSync(process.execPath,['evaluation/dist/evaluation/cpu-diagnostic.cjs'],{env:{PATH:process.env.PATH},encoding:'utf8',timeout:5000});assert.equal(result.status,2);assert.equal(result.stdout,'');assert.equal(result.stderr,'CPU diagnostic refused or incomplete; no provider output or paths emitted.\n');});
 
 test('pinned server uses current load-mode enum and fixed offline loopback/CPU bounds',()=>{const args=cpuServerArgs();assert.equal(args.includes('--no-mmap'),false);assert.equal(args[args.indexOf('--load-mode')+1],'none');assert.equal(args[args.indexOf('--host')+1],'127.0.0.1');assert.equal(args[args.indexOf('--n-gpu-layers')+1],'0');assert.equal(args[args.indexOf('--ctx-size')+1],'4096');assert.equal(args.includes('--offline'),true);});
+
+test('CPU v2 requires complete coherent stage counts and refuses legacy/misleading diagnostics',()=>{
+ const names=['configuration','input','transport','http-status-or-type','body-read','envelope-json','envelope-schema','content-json','review-schema','citation','evidence','review-validation','cancelled','timeout','grading-validation','unknown'];
+ const counts=Object.fromEntries(names.map(stage=>[stage,stage==='review-schema'?28:0]));
+ const report={schemaVersion:2,diagnosticFormat:'ai-failure-stages-v1',errors:28,failureStageCounts:counts,rows:Array.from({length:28},()=>({status:'error',failureStage:'review-schema'}))};
+ assert.equal(validateCpuEvaluationDiagnostics(report),true);
+ for(const changed of [{schemaVersion:1},{errors:27},{failureStageCounts:{...counts,'review-schema':27}},{failureStageCounts:{...counts,private:1}},{failureStageCounts:{'review-schema':28}},{rows:report.rows.slice(1)},{rows:report.rows.map(()=>({status:'error'}))},{rows:report.rows.map(()=>({status:'graded',failureStage:'review-schema'}))},{rows:report.rows.map(()=>({status:'error',failureStage:'private'}))}])assert.throws(()=>validateCpuEvaluationDiagnostics({...report,...changed}));
+});

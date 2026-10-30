@@ -26,7 +26,7 @@ test('real local HTTP fixture exercises production provider/CLI; no model is inv
  });await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
  try{
   const env={...configured,JOBMATCH_AI_ENDPOINT:`http://127.0.0.1:${server.address().port}/api/chat`};
-  const result=await run(env);assert.equal(result.code,0,result.stderr);const report=JSON.parse(result.stdout);assert.equal(report.completed,28);assert.equal(report.passed,true);assert.equal(report.modelIdentityVerified,false);assert.equal(report.runKind,'operator-configured-endpoint');assert.equal(report.promptVersion,'requirements-evidence-v2');assert.match(report.corpusSha256,/^[a-f0-9]{64}$/);assert.equal(calls,28);
+  const result=await run(env);assert.equal(result.code,0,result.stderr);const report=JSON.parse(result.stdout);assert.equal(report.schemaVersion,1);assert.equal('failureStageCounts'in report,false);assert.equal(report.completed,28);assert.equal(report.passed,true);assert.equal(report.modelIdentityVerified,false);assert.equal(report.runKind,'operator-configured-endpoint');assert.equal(report.promptVersion,'requirements-evidence-v2');assert.match(report.corpusSha256,/^[a-f0-9]{64}$/);assert.equal(calls,28);
   for(const forbidden of ['synthetic-token','127.0.0.1','evidence_ids','"vacancy":','upstream-sensitive-diagnostic'])assert.ok(!result.stdout.includes(forbidden),forbidden);
   mode='empty';assert.equal((await run(env)).code,1);assert.equal(calls,56);
   mode='outage';const failed=await run(env);assert.equal(failed.code,2);assert.equal(JSON.parse(failed.stdout).errors,28);assert.ok(!failed.stdout.includes('upstream-sensitive'));assert.equal(calls,84);
