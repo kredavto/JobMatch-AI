@@ -28,6 +28,7 @@ test('explicit English headings keep source words and history literal across UI 
  await expect(page.getByText(versionsCopy.en.unrecordedTemplate,{exact:true})).toHaveCount(1);await expect(page.getByText(versionsCopy.en.recordedTemplate+': '+EN,{exact:true})).toHaveCount(1);
  const jsonPending=page.waitForEvent('download');await page.getByRole('button',{name:versionsCopy.en.json,exact:true}).first().click();expect(JSON.parse(await readFile((await (await jsonPending).path())!,'utf8'))).toEqual(expected.versions.at(-1));
  const txtPending=page.waitForEvent('download');await page.getByRole('button',{name:versionsCopy.en.txt,exact:true}).first().click();expect(await readFile((await (await txtPending).path())!,'utf8')).toBe(expected.versions.at(-1)!.text);
+ await page.getByRole('navigation').getByRole('button',{name:en.navigation.editor,exact:true}).click();await expect(page.getByLabel(editorCopy.en.templateLanguage,{exact:true})).toHaveValue(EN);await page.getByRole('navigation').getByRole('button',{name:en.navigation.versions,exact:true}).click();expect(writes).toBe(1);
  expect((await new AxeBuilder({page}).include('#main-content').withTags(['wcag2a','wcag2aa','wcag21aa']).analyze()).violations).toEqual([]);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
  const jpeg=await page.screenshot({type:'jpeg',quality:75,fullPage:true,path:'test-results/ordinary-english-mobile.jpg'});console.log('JOBMATCH_SYNTHETIC_ORDINARY_ENGLISH_JPEG '+jpeg.toString('base64'));
 });
