@@ -21,8 +21,6 @@ it.each([
  ['Рост выручки на 30%',['Рост выручки на 10%']],
  ['Python at most 5 years',['Python 6 years']],
  ['Python не более 5 лет',['Python 6 лет']],
- ['Python not more than 5 years',['Python 6 years']],
- ['Python not less than 5 years',['Python 4 years']],
  ['Python more than 5 years',['Python 5 years']],
  ['Python less than 5 years',['Python 5 years']],
  ['Python 5 years',['Python 6 years']]
@@ -33,7 +31,6 @@ it.each([
  ['Python at most 5 years',['Python 5 years']],
  ['Python не более 5 лет',['Python 4 года']],
  ['Python не менее 5 лет',['Python 6 лет']],
- ['Python not more than 5 years',['Python 4 years']],
  ['Python less than 5 years',['Python 4 years']],
  ['Python at least 5,5 years',['Python 5.75 years']],
  ['Revenue growth of 30%',['Revenue growth of 30%']]
@@ -43,7 +40,6 @@ it.each([
 it.each([
  ['Python experience of 5–7 years',['Python 6 years']],
  ['Python about 5 years',['Python 6 years']],
- ['Python not at least 5 years',['Python 6 years']],
  ['Python at least 5 years',['Python 2 years','Python 6 years']],
  ['Python at least 5 years',['Python 5–7 years']],
  ['Python at least 5 years',['Python 2024 года']],
@@ -92,4 +88,8 @@ it('audits are immutable, bounded to safe code summaries and do not fetch',()=>{
  expect(summary.version).toBe(AI_LINK_AUDIT_VERSION);expect(summary.semanticAssessment).toBe('not-performed');
  expect(Object.keys(summary.signalCounts??{})).toEqual([...AI_LINK_SIGNALS]);expect(JSON.stringify(summary)).not.toMatch(/SENSITIVE|At least|f1|quote/);
  expect(summary.warningLinks).toBe(1);expect(summary.notes).toHaveLength(1);
+});
+
+it.each(['Python not more than 5 years','Python not less than 5 years','Python not at least 5 years','Python not at most 5 years'])('upstream negation guard stays unavailable instead of being bypassed: %s',quote=>{
+ const result=audit(quote,['Python 6 years']);expect(result.status).toBe('unavailable');expect(summarizeAiLinkAudit(result).warningLinks).toBeNull();
 });
