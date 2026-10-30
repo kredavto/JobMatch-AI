@@ -42,6 +42,7 @@ export function sourceQuoteContract(vacancy:string){
  }
  if(!candidates.length)unavailable();
  const entry=AiReviewSchema.shape.requirements.element;
- const format=z.toJSONSchema(AiReviewSchema.extend({requirements:z.array(entry.extend({quote:z.enum(candidates.map(row=>row.quote))})).strict()).max(AI_MAX_REQUIREMENTS)}));
+ const quotedEntry=entry.extend({quote:z.enum(candidates.map(row=>row.quote))}).strict();
+ const format=z.toJSONSchema(AiReviewSchema.extend({requirements:z.array(quotedEntry).max(AI_MAX_REQUIREMENTS)}));
  return {version:SOURCE_QUOTE_CONTRACT,candidates,nonemptyLines,omittedRiskyLines,sourceCodepoints:chars.length,format};
 }
