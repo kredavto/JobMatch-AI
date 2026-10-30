@@ -1,0 +1,109 @@
+name: English ordinary version acceptance
+on:
+  pull_request:
+    paths: ['app/**', 'lib/**', 'tests/**', 'supabase/**', 'scripts/**', '.github/workflows/ordinary-english.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  migration-bootstrap:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '24'}
+      - name: Create empty migration with actual pinned CLI
+        if: ${{ hashFiles('supabase/migrations/*_ordinary_english_versions.sql') == '' }}
+        run: python3 scripts/ordinary_english_migration_bootstrap.py
+  postgres:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    container: postgres:17
+    services:
+      postgres:
+        image: postgres:17
+        env: {POSTGRES_PASSWORD: synthetic-only}
+        options: --health-cmd pg_isready --health-interval 5s --health-retries 10
+    env:
+      PGHOST: postgres
+      PGUSER: postgres
+      PGPASSWORD: synthetic-only
+    steps:
+      - uses: actions/checkout@v4
+      - run: apt-get update && apt-get install -y python3
+      - name: Empty and populated upgrades preserve Russian rows and default candidate
+        run: |
+          psql -v ON_ERROR_STOP=1 -c 'create role anon; create role authenticated;'
+          sed '/^-- Explicit English ordinary literal framing;/,$d' supabase/schema.sql > /tmp/ordinary-english-baseline.sql
+          for database in ordinary_english_empty ordinary_english_upgrade; do
+            createdb "$database"
+            psql -v ON_ERROR_STOP=1 -d "$database" -f scripts/restore_fixture.sql
+            psql -v ON_ERROR_STOP=1 -d "$database" -f /tmp/ordinary-english-baseline.sql
+          done
+          psql -v ON_ERROR_STOP=1 -d ordinary_english_upgrade -f scripts/restore_seed.sql
+          psql -X -qAt -v ON_ERROR_STOP=1 -d ordinary_english_upgrade -f scripts/ordinary_english_legacy_probe.sql > /tmp/legacy-before.txt
+          for database in ordinary_english_empty ordinary_english_upgrade; do
+            psql -v ON_ERROR_STOP=1 -d "$database" -f supabase/migrations/20261030123130_ordinary_english_versions.sql
+          done
+          psql -X -qAt -v ON_ERROR_STOP=1 -d ordinary_english_upgrade -f scripts/ordinary_english_legacy_probe.sql > /tmp/legacy-after.txt
+          cmp /tmp/legacy-before.txt /tmp/legacy-after.txt
+          echo 'PASS: existing Russian rows and default candidate text/metadata unchanged.'
+          for database in ordinary_english_empty ordinary_english_upgrade; do
+            psql -v ON_ERROR_STOP=1 -d "$database" -f supabase/tests/ordinary_english_versions.sql
+            psql -v ON_ERROR_STOP=1 -d "$database" -f supabase/tests/version_commands.sql
+          done
+      - name: Fresh schema and mixed-language history
+        run: |
+          createdb ordinary_english_fresh
+          psql -v ON_ERROR_STOP=1 -d ordinary_english_fresh -f scripts/restore_fixture.sql
+          psql -v ON_ERROR_STOP=1 -d ordinary_english_fresh -f supabase/schema.sql
+          psql -v ON_ERROR_STOP=1 -d ordinary_english_fresh -f supabase/tests/version_commands.sql
+          psql -v ON_ERROR_STOP=1 -d ordinary_english_fresh -f supabase/tests/ordinary_english_versions.sql
+      - name: Twenty real English commands and unchanged legacy row
+        env: {CI: 'true', JOBMATCH_LOCAL_ORDINARY_ENGLISH_TEST: '1', PGDATABASE: ordinary_english_parallel}
+        run: |
+          createdb ordinary_english_parallel
+          psql -v ON_ERROR_STOP=1 -d ordinary_english_parallel -f scripts/restore_fixture.sql
+          psql -v ON_ERROR_STOP=1 -d ordinary_english_parallel -f supabase/schema.sql
+          psql -v ON_ERROR_STOP=1 -d ordinary_english_parallel -f scripts/restore_seed.sql
+          python3 scripts/ordinary_english_concurrency.py
+      - name: Cleanup synthetic databases
+        if: always()
+        run: |
+          dropdb --if-exists --force ordinary_english_empty
+          dropdb --if-exists --force ordinary_english_upgrade
+          dropdb --if-exists --force ordinary_english_fresh
+          dropdb --if-exists --force ordinary_english_parallel
+  local-advisors:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    services:
+      postgres:
+        image: postgres:17
+        env: {POSTGRES_PASSWORD: synthetic-only}
+        ports: ['5432:5432']
+        options: --health-cmd pg_isready --health-interval 5s --health-retries 10
+    env:
+      CI: 'true'
+      PGHOST: 127.0.0.1
+      PGPORT: '5432'
+      PGUSER: postgres
+      PGPASSWORD: synthetic-only
+      JOBMATCH_LOCAL_ORDINARY_ENGLISH_ADVISORS: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '24'}
+      - run: sudo apt-get update && sudo apt-get install -y postgresql-client
+      - name: Create disposable previous schema
+        run: |
+          psql -v ON_ERROR_STOP=1 -c 'create role anon; create role authenticated;'
+          createdb ordinary_english_advisors
+          sed '/^-- Explicit English ordinary literal framing;/,$d' supabase/schema.sql > /tmp/ordinary-english-baseline.sql
+          psql -v ON_ERROR_STOP=1 -d ordinary_english_advisors -f scripts/restore_fixture.sql
+          psql -v ON_ERROR_STOP=1 -d ordinary_english_advisors -f /tmp/ordinary-english-baseline.sql
+      - name: Apply actual migration once, verify CLI list and compare advisors
+        run: python3 scripts/ordinary_english_local_advisors.py
+      - if: always()
+        run: dropdb --if-exists --force ordinary_english_advisors

@@ -3,6 +3,7 @@ import {NextRequest} from 'next/server';
 import type {Workspace} from '../lib/db';
 const db=vi.hoisted(()=>({identity:vi.fn(),consumeQuota:vi.fn(),applyWorkspaceCommand:vi.fn(),readWorkspace:vi.fn(),saveWorkspace:vi.fn(),supabase:vi.fn()}));
 vi.mock('../lib/db',()=>db);
+import {ordinaryState,ordinaryResult,ordinaryIds} from './fixtures/ordinary-version';
 import {POST} from '../app/api/service/route';
 const owner='11111111-1111-4111-8111-111111111111';
 const workspace:Workspace={revision:2,original:'SQL',vacancy:'SQL',goal:'',facts:[{id:'f1',text:'SQL',source:'input',verified:true}],versions:[],applications:[]};
@@ -35,4 +36,18 @@ it('enforces owner/origin/session/quota before restoration',async()=>{
  db.identity.mockRejectedValueOnce(new Error('AUTH'));expect((await call(command)).status).toBe(401);
  db.consumeQuota.mockRejectedValueOnce(new Error('RATE'));expect((await call(command)).status).toBe(429);
  expect(db.applyWorkspaceCommand).not.toHaveBeenCalled();expect(db.readWorkspace).not.toHaveBeenCalled();
+});
+
+it('explicit English passes only the fixed tag and verifies the full acknowledged append against its saved source',async()=>{
+ const s={...ordinaryState(),revision:2};db.readWorkspace.mockResolvedValueOnce(s);db.applyWorkspaceCommand.mockResolvedValueOnce(ordinaryResult(s));
+ const r=await call({action:'version',ids:ordinaryIds,templateVersion:'ordinary-literal-en-v1',text:'forged',template_version:'forged'});
+ expect(r.status).toBe(200);expect((await r.json()).versions.at(-1).template_version).toBe('ordinary-literal-en-v1');
+ expect(db.applyWorkspaceCommand.mock.calls[0][2].template_version).toBe('ordinary-literal-en-v1');expect(db.applyWorkspaceCommand.mock.calls[0][2]).not.toHaveProperty('text');
+});
+it('invalid template values do not reach a mutation and valid mismatching replies fail once without raw data',async()=>{
+ for(const templateVersion of ['en',null,'ordinary-literal-en-v2'])expect((await call({action:'version',ids:[],templateVersion})).status).toBe(400);
+ expect(db.applyWorkspaceCommand).not.toHaveBeenCalled();
+ const s={...ordinaryState(),revision:2},next=ordinaryResult(s);next.versions.at(-1)!.text='PRIVATE FORGED TEXT';
+ db.readWorkspace.mockResolvedValueOnce(s);db.applyWorkspaceCommand.mockResolvedValueOnce(next);
+ const r=await call({action:'version',ids:ordinaryIds,templateVersion:'ordinary-literal-en-v1'});expect(r.status).toBe(502);expect(await r.text()).not.toContain('PRIVATE FORGED TEXT');expect(db.applyWorkspaceCommand).toHaveBeenCalledTimes(1);
 });
