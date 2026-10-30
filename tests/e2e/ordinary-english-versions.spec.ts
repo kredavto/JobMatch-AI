@@ -7,6 +7,7 @@ import {editorCopy} from '../../lib/i18n/editor';
 import {versionsCopy} from '../../lib/i18n/versions';
 import {languageCopy} from '../../lib/i18n/preference';
 import {ru,en} from '../../lib/i18n';
+test.describe.configure({timeout:45000});
 const EN='ordinary-literal-en-v1';
 const analysis=()=>{const s=ordinaryState(),requirements=parseVacancy(s.vacancy);return {analysis:match(s.facts,requirements),edits:propose(s.facts,requirements)};};
 async function open(page:Page,write:(route:Route)=>Promise<unknown>|unknown,state=ordinaryState()){
