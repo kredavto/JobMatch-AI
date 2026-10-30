@@ -107,3 +107,16 @@ for(const locale of ['ru','en'] as const)for(const pending of [false,true]){
   await expect(page.getByRole('button',{name:copy.run,exact:true})).toBeDisabled();expect(calls).toBe(1);
  });
 }
+
+for(const locale of ['ru','en'] as const)for(const field of ['factText','factEligibility'] as const){
+ test(locale+' changing only '+field+' at unchanged vacancy/owner/revision clears stale review and consent',async({page})=>{
+  test.setTimeout(45000);let calls=0;
+  await page.route('**/api/ai-review',async route=>{calls++;await route.fulfill({json:envelope()});});
+  await page.goto(origin+'/panel-'+locale);const copy=aiReviewCopy[locale];
+  await page.getByRole('checkbox',{name:copy.consent,exact:true}).check();await page.getByRole('button',{name:copy.run,exact:true}).click();
+  await expect(page.getByRole('status')).toContainText('SYNTHETIC PROFILE SQL');
+  await page.getByRole('button',{name:'Change only '+field,exact:true}).click();
+  await expect(page.getByRole('status')).toHaveCount(0);await expect(page.getByRole('checkbox',{name:copy.consent,exact:true})).not.toBeChecked();
+  await expect(page.getByRole('button',{name:copy.run,exact:true})).toBeDisabled();expect(calls).toBe(1);
+ });
+}
