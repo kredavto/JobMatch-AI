@@ -28,6 +28,8 @@ export default function StructuredVersionPanel({profile,disabled,onConflict,loca
     const next=VersionListSchema.parse(value);if(next.ownerId!==profile.ownerId)throw Error();if(!active.current)return;setList(next);
    }else{
     const next=await validateStructuredVersion(value,profile.ownerId);
+    const summary=action==='detail'?list?.versions.find(row=>row.id===id):undefined;
+    if(summary&&(next.template_version!==summary.template_version||next.preview_hash!==summary.preview_hash))throw Error();
     if((action==='save'&&(next.template_version!==preview!.template_version||next.preview_hash!==preview!.preview_hash||next.snapshot.revision!==profile.revision||next.snapshot.workspace_revision!==profile.workspace_revision))||(action==='detail'&&next.id!==id))throw Error();
     if(!active.current)return;setSaved(next);if(action==='save'){setPreview(null);setSelected([]);setAccepted(false);setList(null);}
    }

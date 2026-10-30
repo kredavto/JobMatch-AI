@@ -40,7 +40,7 @@ test('explicit English document survives UI locale changes; mixed history and ex
 });
 test('changing document template discards preview/approval and a valid alternate-language reply is rejected',async({page})=>{
  const ru=structuredVersionCopy('ru'),enPreview=await previewFor(snapshot,EN),legacy=await previewFor();let requests=0;
- await page.route('**/api/structured-versions',route=>{requests++;return route.fulfill({json:requests===1?enPreview:enPreview});});
+ await page.route('**/api/structured-versions',route=>{requests++;return route.fulfill({json:enPreview});});
  const panel=await open(page);await panel.getByLabel(ru.templateLabel).selectOption(EN);await panel.getByRole('checkbox',{name:'Включить: Python'}).check();await panel.getByRole('button',{name:ru.preview,exact:true}).click();await panel.getByRole('checkbox',{name:ru.accept,exact:true}).check();
  await panel.getByLabel(ru.templateLabel).selectOption('structured-literal-v1');await expect(panel.getByRole('button',{name:ru.save,exact:true})).toHaveCount(0);await expect(panel.getByRole('checkbox',{name:ru.accept,exact:true})).toHaveCount(0);
  await panel.getByRole('button',{name:ru.preview,exact:true}).click();await expect(panel.getByRole('alert')).toHaveCount(2);await expect(panel.locator('pre')).toHaveCount(0);expect(requests).toBe(2);expect(enPreview.preview_hash).not.toBe(legacy.preview_hash);

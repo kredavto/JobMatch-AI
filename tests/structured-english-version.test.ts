@@ -12,8 +12,8 @@ it('English labels copy exact mixed-script source, dates, positions and snapshot
  expect(await validateStructuredPreview(en,owner,1,2,[entryId],EN)).toEqual(en);
 });
 it.each([['employment','Employment'],['education','Education'],['certification','Certification'],['achievement','Achievement']] as const)('freezes all English section and field labels for %s',async(kind,label)=>{
- const field={quote:'😀 42%',start:0,end:5},p={...snapshot,source_original:field.quote,entries:[{...snapshot.entries[0],kind,fields:{title:field,organization:field,start:field,end:field,description:field,credential:field}}]};
- const en=await previewFor(p,EN);expect(en.text).toBe('Structured information\n\n'+label+'\nTitle: 😀 42%\nOrganization: 😀 42%\nStart / issue date: 😀 42%\nEnd: 😀 42%\nDescription: 😀 42%\nCredential number: 😀 42%');expect(await validateStructuredPreview(en,owner)).toEqual(en);
+ const field={quote:'😀 42%',start:0,end:5},p={...snapshot,source_original:field.quote,entries:[{...snapshot.entries[0],kind,fields:{title:field,organization:field,start:field,end:field,description:field,...(kind==='certification'?{credential:field}:{})}}]};
+ const en=await previewFor(p,EN);expect(en.text).toBe('Structured information\n\n'+label+'\nTitle: 😀 42%\nOrganization: 😀 42%\nStart / issue date: 😀 42%\nEnd: 😀 42%\nDescription: 😀 42%'+(kind==='certification'?'\nCredential number: 😀 42%':''));expect(await validateStructuredPreview(en,owner)).toEqual(en);
 });
 it('rejects valid alternate-template responses when the request bound another template',async()=>{
  const en=await previewFor(snapshot,EN),ru=await previewFor();await expect(validateStructuredPreview(en,owner,1,2,[entryId],TEMPLATE_VERSION)).rejects.toThrow();await expect(validateStructuredPreview(ru,owner,1,2,[entryId],EN)).rejects.toThrow();
@@ -21,7 +21,7 @@ it('rejects valid alternate-template responses when the request bound another te
 it('rejects changed tag/body/hash and unknown future versions rather than normalizing',async()=>{
  const en=await previewFor(snapshot,EN);
  for(const bad of [{...en,template_version:TEMPLATE_VERSION},{...en,template_version:'structured-literal-en-v2'},{...en,text:en.text.replace('Орбита','Orbit')},{...en,preview_hash:'a'.repeat(64)}])await expect(validateStructuredPreview(bad,owner)).rejects.toThrow();
- const tagOnly={...en,template_version:TEMPLATE_VERSION};expect(await structuredPreviewHash(tagOnly)).not.toBe(en.preview_hash);
+ const tagOnly={...en,template_version:TEMPLATE_VERSION} as const;expect(await structuredPreviewHash(tagOnly)).not.toBe(en.preview_hash);
  for(const tag of ['en','ru','STRUCTURED-LITERAL-EN-V1','structured-literal-en-v2',null])expect(TemplateVersionSchema.safeParse(tag).success).toBe(false);
 });
 it('accepts only optional exact known request tags and mixed bounded history',async()=>{

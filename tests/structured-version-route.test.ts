@@ -44,3 +44,15 @@ it('invalid template/locale metadata is rejected before quota and RPC; mixed imm
  const en=await versionFor(undefined,'structured-literal-en-v1');db.supabase.mockResolvedValueOnce(en);
  expect((await GET(get('?id='+versionId))).status).toBe(200);
 });
+
+it('exports a fixed mixed-language list and rejects a mismatching template summary without a complete marker',async()=>{
+ const ru=await versionFor(),en={...await versionFor(undefined,'structured-literal-en-v1'),id:'44444444-4444-4444-8444-444444444444'};
+ const summary=(v:typeof ru)=>({id:v.id,created:v.created,template_version:v.template_version,profile_revision:2,workspace_revision:1,text_length:Array.from(v.text).length,preview_hash:v.preview_hash});
+ const list={format:'jobmatch-structured-version-list-v1',ownerId:owner,versions:[summary(ru),summary(en)]};
+ db.supabase.mockResolvedValueOnce(list).mockResolvedValueOnce(ru).mockResolvedValueOnce(en);
+ const rows=(await (await GET(get('?export=1'))).text()).trim().split('\n').map(line=>JSON.parse(line));
+ expect(rows.slice(0,2)).toEqual([ru,en]);expect(rows[2].complete).toBe(true);
+ db.supabase.mockResolvedValueOnce({...list,versions:[{...summary(en),template_version:'structured-literal-v1'}]}).mockResolvedValueOnce(en);
+ const refused=(await (await GET(get('?export=1'))).text()).trim().split('\n').map(line=>JSON.parse(line));
+ expect(refused).toEqual([{complete:false,error:expect.any(String)}]);
+});
