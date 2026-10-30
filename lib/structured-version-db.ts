@@ -1,3 +1,4 @@
+import {observeStream} from './ops-telemetry';
 import {supabase,type Identity} from './db';
 import {TEMPLATE_VERSION,ENGLISH_TEMPLATE_VERSION,VersionRequestSchema,VersionListSchema,validateStructuredPreview,validateStructuredVersion,type VersionList,type StructuredVersion} from './structured-version';
 import {UserError} from './errors';
@@ -25,16 +26,17 @@ export async function readStructuredVersion(user:Identity,id:string){
 }
 /** Fixed list, one validated record per pull. Only complete:true closes a full archive. */
 export function structuredVersionStream(list:VersionList,read:(id:string)=>Promise<StructuredVersion>,limit=40*1024*1024){
+ const finish=observeStream('structured-versions');
  let index=0,bytes=0,cancelled=false;const encoder=new TextEncoder();
  const line=(value:unknown)=>encoder.encode(JSON.stringify(value)+'\n');
  return new ReadableStream<Uint8Array>({async pull(controller){
   if(cancelled)return;
   try{
-   if(index===list.versions.length){controller.enqueue(line({complete:true,format:'jobmatch-structured-version-export-v1',ownerId:list.ownerId,versions:index}));controller.close();return;}
+   if(index===list.versions.length){controller.enqueue(line({complete:true,format:'jobmatch-structured-version-export-v1',ownerId:list.ownerId,versions:index}));controller.close();finish('completion-enqueued');return;}
    const summary=list.versions[index];const version=await read(summary.id);if(cancelled)return;
    // A fixed immutable list must not silently substitute a different record.
    if(version.template_version!==summary.template_version||version.id!==summary.id||version.preview_hash!==summary.preview_hash||version.snapshot.ownerId!==list.ownerId)throw Error();
    const chunk=line(version);if(bytes+chunk.byteLength>limit)throw Error();bytes+=chunk.byteLength;index++;controller.enqueue(chunk);
-  }catch{if(cancelled)return;controller.enqueue(line({complete:false,error:'Экспорт прерван. Файл неполный; повторите чтение истории.'}));controller.close();}
- },cancel(){cancelled=true;}});
+  }catch{if(cancelled)return;controller.enqueue(line({complete:false,error:'Экспорт прерван. Файл неполный; повторите чтение истории.'}));controller.close();finish('incomplete-enqueued');}
+ },cancel(){cancelled=true;finish('cancelled');}});
 }

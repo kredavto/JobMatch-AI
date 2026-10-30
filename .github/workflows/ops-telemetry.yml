@@ -23,8 +23,8 @@ jobs:
       - uses: actions/setup-node@v4
         with: {node-version: '24', cache: npm}
       - run: npm ci --ignore-scripts
-      - run: npx vitest run tests/ops-telemetry.test.ts
-      - run: python3 -m unittest discover -s scripts -p 'test_ops_report.py'
+      - run: npx vitest run tests/ops-telemetry.test.ts tests/ops-stream-telemetry.test.ts
+      - run: python3 -m unittest discover -s scripts -p 'test_ops*report.py'
       - run: npm run build
       - name: Actual Next process, safe events and bounded operator checks
         run: python3 scripts/ops_telemetry_smoke.py
