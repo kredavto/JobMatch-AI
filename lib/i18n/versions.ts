@@ -91,7 +91,8 @@ const ru={
  },
  "dates": {
   "only": "только дата; время и часовой пояс не сохранены",
-  "unspecified": "часовой пояс не сохранён; значение без пересчёта"
+  "unspecified": "часовой пояс или поддерживаемый формат даты не установлен; значение без пересчёта",
+  "minute": "точность до минуты"
  }
 } as const;
 const en:Copy<typeof ru>={
@@ -186,7 +187,8 @@ const en:Copy<typeof ru>={
  },
  "dates": {
   "only": "date only; time and time zone were not saved",
-  "unspecified": "time zone was not saved; value shown without conversion"
+  "unspecified": "time zone or supported date format is not established; value shown without conversion",
+  "minute": "minute precision"
  }
 };
 export const versionsCopy={ru,en};
