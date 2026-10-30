@@ -2,7 +2,7 @@ import type {Copy} from './locale';
 const ru={
  "historyRegion": "Сохранённые версии резюме",
  "historyTitle": "История резюме",
- "recordedTemplate":"Сохранённая метка шаблона","unrecordedTemplate":"Метка шаблона не сохранена; язык не реконструируется",
+ "recordedTemplate":"Сохранённая метка шаблона","unsupportedTemplate":"Сохранённая метка имеет неподдерживаемый формат; исходное значение сохранено в JSON","unrecordedTemplate":"Метка шаблона не сохранена; язык не реконструируется",
  "empty": "Сохраненные версии появятся после анализа и подтверждения правок.",
  "version": "Версия",
  "profileRevision": "Ревизия профиля",
@@ -99,7 +99,7 @@ const ru={
 const en:Copy<typeof ru>={
  "historyRegion": "Saved resume versions",
  "historyTitle": "Resume history",
- "recordedTemplate":"Recorded template tag","unrecordedTemplate":"Template tag was not recorded; language is not reconstructed",
+ "recordedTemplate":"Recorded template tag","unsupportedTemplate":"Recorded tag has an unsupported format; its original value is preserved in JSON","unrecordedTemplate":"Template tag was not recorded; language is not reconstructed",
  "empty": "Saved versions appear after analysis and confirmation of edits.",
  "version": "Version",
  "profileRevision": "Profile revision",

@@ -52,3 +52,8 @@ it('does not infer a template for history or allow risky/unconfirmed selection t
  const s=ordinaryState();s.facts[0].verified=false;expect(()=>prepareVersionCommand(s,ordinaryIds,EN)).toThrow();
  s.facts[0].verified=true;s.facts[0].text='Never used Python';expect(()=>prepareVersionCommand(s,ordinaryIds,EN)).toThrow();
 });
+
+it.each([null,3,{future:'opaque'},['future'],'future-template'])('preserves opaque legacy tag %j while still validating the new English append',tag=>{
+ const s=ordinaryState();s.versions[0].template_version=tag;const next=ordinaryResult(s);
+ expect(validateEnglishVersionResult(next,s,ordinaryIds,ordinaryOwner).versions[0].template_version).toEqual(tag);
+});
