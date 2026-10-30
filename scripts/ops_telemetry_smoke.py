@@ -19,6 +19,16 @@ from ops_report import PREFIX, ROUTES, parse_event
 ROOT = Path(__file__).resolve().parent.parent
 PRIVATE = ('OPS_PRIVATE_QUERY', 'OPS_PRIVATE_COOKIE', 'OPS_PRIVATE_BODY', 'OPS_PRIVATE_PASSWORD')
 POST_ONLY = {'ai-review', 'auth-email', 'import', 'recovery'}
+CURRENT_PHASE = 'guard'
+
+
+def phase(name):
+    global CURRENT_PHASE
+    if name not in {'off-start', 'off-check', 'stdout-start', 'sample', 'routes', 'canaries', 'alert-check', 'options', 'cap', 'limited-check', 'cleanup'}:
+        raise ValueError('Unknown smoke phase')
+    CURRENT_PHASE = name
+    print('JOBMATCH_OPS_SMOKE_PHASE ' + name, flush=True)
+
 GUARD = r"""
 const nativeFetch=globalThis.fetch;
 globalThis.fetch=function(input,init){
@@ -156,8 +166,10 @@ def main():
             or os.environ.get('JOBMATCH_OPS_SMOKE') != '1'):
         raise ValueError('Explicit disposable CI opt-in required')
     with tempfile.TemporaryDirectory(prefix='jobmatch-ops-smoke-') as task:
+        phase('off-start')
         off = Server('off', task)
         try:
+            phase('off-check')
             if off.request('/api/service?email=OPS_PRIVATE_QUERY') != 401:
                 raise ValueError('Unexpected unauthenticated behavior')
         finally:
@@ -165,9 +177,11 @@ def main():
         if off.bad or off.lines:
             raise ValueError('Disabled telemetry emitted data')
 
+        phase('stdout-start')
         server = Server('stdout', task)
         try:
             # An explicit sample condition on 401 headers is not application/provider readiness.
+            phase('sample')
             for _ in range(3):
                 if server.request('/api/service?email=OPS_PRIVATE_QUERY') != 401:
                     raise ValueError('Unexpected unauthenticated status')
@@ -176,12 +190,14 @@ def main():
             sample.write_text(''.join(server.lines[:3]), encoding='utf8')
             if check_file(sample, 0)['verdict'] != 'observed-within-thresholds':
                 raise ValueError('Supplied sample check differs')
+            phase('routes')
             for route in sorted(ROUTES):
                 method = 'POST' if route in POST_ONLY else 'GET'
                 status = server.request('/api/' + route, method, b'{}' if method == 'POST' else None)
                 if status not in {400, 401, 403, 503}:
                     raise ValueError('Unexpected guard response')
             # No valid mailbox, credentials, provider configuration or side-effect intent is supplied.
+            phase('canaries')
             if server.request('/api/service', 'POST',
                               b'{"action":"login","email":"OPS_PRIVATE_BODY","password":"OPS_PRIVATE_PASSWORD"}') != 400:
                 raise ValueError('Invalid-input guard differs')
@@ -191,10 +207,12 @@ def main():
                 raise ValueError('Blank provider config guard differs')
             server.wait(lambda rows: {row.get('route') for row in rows} >= ROUTES)
             server.wait(lambda rows: any(row.get('status') == 503 for row in rows))
+            phase('alert-check')
             alert = Path(task, 'alert.events')
             alert.write_text(''.join(server.lines), encoding='utf8')
             if check_file(alert, 1)['verdict'] != 'observed-alert':
                 raise ValueError('Known header failure did not alert')
+            phase('options')
             before = len(server.lines)
             if server.request('/api/auth-email', 'OPTIONS') != 204:
                 raise ValueError('Framework OPTIONS behavior differs')
@@ -202,6 +220,7 @@ def main():
             if len(server.lines) != before:
                 raise ValueError('Automatic framework response was misclassified')
             # At most two UTC minute windows in a bounded local burst: at least one must cap.
+            phase('cap')
             started = time.monotonic()
             for _ in range(130):
                 if server.request('/api/service') != 401:
@@ -213,12 +232,14 @@ def main():
                               if row['kind'] == 'returned' and row['route'] == 'service' and row['handler'] == 'GET')
             if not grouped or max(grouped.values()) > 60:
                 raise ValueError('Per-realm observation bound differs')
+            phase('limited-check')
             limited = Path(task, 'limited.events')
             limited.write_text(''.join(server.lines), encoding='utf8')
             if check_file(limited, 2, max_5xx='1')['verdict'] != 'inconclusive':
                 raise ValueError('Capped observations looked complete')
         finally:
             server.close()
+        phase('cleanup')
         if server.bad:
             raise ValueError('Unexpected child output/provider fetch attempt')
     print('PASS: real Next handlers off/on, eleven static route labels, private-canary refusal, unchanged guard statuses, observed alert and capped/inconclusive file checks; loopback-only fixture, no live-provider acceptance.')
@@ -229,5 +250,5 @@ if __name__ == '__main__':
     try:
         raise SystemExit(main())
     except (OSError, ValueError, TypeError, KeyError, subprocess.SubprocessError):
-        print('FAIL: synthetic operational smoke incomplete; no child output, input contents, paths or credentials emitted.')
+        print('FAIL: synthetic operational smoke incomplete at phase=' + CURRENT_PHASE + '; no child output, input contents, paths or credentials emitted.')
         raise SystemExit(1)

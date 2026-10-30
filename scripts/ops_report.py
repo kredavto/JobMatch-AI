@@ -209,6 +209,8 @@ def main(argv=None):
             now = datetime.strptime(args.now, '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=UTC)
         else:
             now = datetime.now(UTC)
+        if now.year < 1970:
+            raise InputError('Invalid clock')
         report = summarize(events_from_file(args.input), now, int(args.window_minutes), args.route)
         report['evaluationClock'] = 'explicit' if args.now is not None else 'local-wall-clock'
         code = 0
@@ -219,7 +221,7 @@ def main(argv=None):
             report['verdict'] = 'not-checked'
         print(json.dumps(report, sort_keys=True, separators=(',', ':'), allow_nan=False))
         return code
-    except (OSError, ValueError, TypeError, KeyError, UnicodeError):
+    except (OSError, ValueError, TypeError, KeyError, UnicodeError, OverflowError):
         print('Operational telemetry input/parameters refused; no input contents or paths emitted.', file=sys.stderr)
         return 2
 

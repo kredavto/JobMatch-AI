@@ -152,6 +152,12 @@ class OpsReportTests(unittest.TestCase):
         self.assertEqual(result.returncode, 2)
         self.assertNotIn('PRIVATE', result.stdout + result.stderr)
 
+    def test_cli_invalid_early_clock_is_generic(self):
+        result = subprocess.run([sys.executable, str(Path(ops.__file__)), 'report', 'PRIVATE_PATH',
+                                 '--now', '0001-01-01T00:00:00Z'], capture_output=True, text=True, timeout=10)
+        self.assertEqual(result.returncode, 2)
+        self.assertNotIn('PRIVATE', result.stdout + result.stderr)
+
     def test_report_mode_does_not_assign_threshold_readiness(self):
         with tempfile.TemporaryDirectory() as task:
             path = Path(task) / 'events'
