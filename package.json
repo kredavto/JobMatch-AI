@@ -14,7 +14,7 @@
     "test:parser-worker": "npm run build:parser-worker && node --test worker/tests/supervisor.test.mjs worker/tests/ocr.test.mjs worker/tests/clamav.test.mjs worker/tests/scan-gate.test.mjs worker/tests/scanner-readiness.test.mjs worker/tests/scanner-attestation.test.mjs worker/tests/scanner-observer-client.test.mjs worker/tests/scanner-measurement.test.mjs",
     "build:ai-evaluation": "tsc -p evaluation/tsconfig.json",
     "evaluate:ai": "npm run build:ai-evaluation --silent && node evaluation/dist/evaluation/run.cjs",
-    "test:ai-evaluation": "npm run build:ai-evaluation && node --test evaluation/tests/runtime.test.mjs"
+    "test:ai-evaluation": "npm run build:ai-evaluation && node --test evaluation/tests/*.test.mjs"
   },
   "dependencies": {
     "@napi-rs/canvas": "0.1.80",

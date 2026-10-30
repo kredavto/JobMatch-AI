@@ -1,6 +1,6 @@
 # RU/EN evaluation of the optional self-hosted requirement linker
 
-This is a runnable evaluation harness, **not a verified model**. No real model has been run in this change. CI calls only a loopback synthetic HTTP fixture through the real application provider and asserts CLI behavior. It must never receive inference credentials. SMTP, Supabase and hh.ru are not called.
+The original PR #16 adds a runnable evaluation harness, **not a verified model**: its fixture job calls a scripted loopback HTTP server only. PR #47 adds a separately guarded actual local CPU diagnostic on pinned public weights and the same synthetic corpus; see [cpu/README.md](cpu/README.md) and the immutable execution report. Scripted fixture success and actual model quality remain separate. Neither job receives production inference credentials or personal data. SMTP, Supabase and hh.ru are not called.
 
 ## What is measured
 
@@ -19,7 +19,7 @@ npm test
 
 The first compiles the CLI and uses a real local HTTP server that returns scripted gold, empty or error responses. It verifies success/quality/operational exit codes and safe reports. These are **harness tests**, not live inference or semantic evaluation results.
 
-## Explicit endpoint run (operator action, not performed)
+## Operator-configured deployment run (separate from CI diagnostic)
 
 Use the approved **own** inference endpoint and model under the same configuration as the application. Do not point this command at a hosted third-party LLM. Agree cost/resources, hosting, logging and processing boundaries first. No infrastructure is created and no environment variables are changed by the CLI. The flags do not establish endpoint ownership or authorization; those remain operator assertions.
 
