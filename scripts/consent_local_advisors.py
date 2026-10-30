@@ -72,9 +72,15 @@ def main():
         destination.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(source, destination)
         run('migration', 'up', '--db-url', URL)
-        listed = run('migration', 'list', '--db-url', URL, '--output-format', 'text').stdout
+        listed = json.loads(run('migration', 'list', '--db-url', URL, '--output-format', 'json').stdout)
         stamp = MIGRATION.split('_', 1)[0]
-        if not re.search(r'(?m)^\s*' + stamp + r'\s*[|│]\s*' + stamp + r'\s*[|│]', listed):
+        if (not isinstance(listed, dict) or set(listed) != {'migrations', 'message'}
+                or listed['message'] != 'Migrations listed'
+                or not isinstance(listed['migrations'], list) or len(listed['migrations']) != 1):
+            raise ValueError('Unexpected migration list response')
+        applied = listed['migrations'][0]
+        if (not isinstance(applied, dict) or set(applied) != {'local', 'remote', 'time'}
+                or applied['local'] != stamp or applied['remote'] != stamp or not isinstance(applied['time'], str)):
             raise ValueError('Migration list does not confirm local and applied history')
         after = report()
         known = {row['cache_key'] for row in before}
@@ -94,6 +100,9 @@ def main():
 if __name__ == '__main__':
     try:
         raise SystemExit(main())
-    except (OSError, ValueError, KeyError, TypeError, subprocess.SubprocessError):
+    except ValueError as issue:
+        print('FAIL: disposable advisor verification: ' + str(issue)[:200])
+        raise SystemExit(1)
+    except (OSError, KeyError, TypeError, subprocess.SubprocessError):
         print('FAIL: disposable advisor/migration verification incomplete; connection strings and credentials are redacted.')
         raise SystemExit(1)
