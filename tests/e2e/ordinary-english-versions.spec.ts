@@ -38,8 +38,8 @@ test('pending English save preserves a later source draft and navigation without
  await panel.getByRole('button',{name:editorCopy.ru.save,exact:true}).evaluate((button:HTMLButtonElement)=>{button.click();button.click();});await expect.poll(()=>writes).toBe(1);
  await expect(panel.getByLabel(editorCopy.ru.templateLanguage,{exact:true})).toBeDisabled();await page.getByLabel(languageCopy.ru.label,{exact:true}).selectOption('en');
  panel=page.getByRole('region',{name:editorCopy.en.region,exact:true});await expect(panel.getByLabel(editorCopy.en.templateLanguage,{exact:true})).toHaveValue(EN);
- await page.getByRole('navigation').getByRole('button',{name:en.navigation.vacancy,exact:true}).click();await page.getByLabel('Vacancy text',{exact:true}).fill('SYNTHETIC NEWER DRAFT');
- release();await expect(page.getByLabel('Vacancy text',{exact:true})).toHaveValue('SYNTHETIC NEWER DRAFT');await expect(page.getByRole('status')).toHaveText('Saved');
+ await page.getByRole('navigation').getByRole('button',{name:en.navigation.vacancy,exact:true}).click();await page.getByRole('textbox',{name:'Vacancy text',exact:true}).fill('SYNTHETIC NEWER DRAFT');
+ release();await expect(page.getByRole('textbox',{name:'Vacancy text',exact:true})).toHaveValue('SYNTHETIC NEWER DRAFT');await expect(page.getByRole('status')).toHaveText('Saved');
  await page.getByRole('navigation').getByRole('button',{name:en.navigation.versions,exact:true}).click();await expect(page.getByText(versionsCopy.en.recordedTemplate+': '+EN,{exact:true})).toBeVisible();expect(writes).toBe(1);
 });
 for(const failure of ['forged','lost'] as const)test(failure+' English acknowledgement never installs a false saved history or retries automatically',async({page})=>{
