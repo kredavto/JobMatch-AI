@@ -1,0 +1,228 @@
+#!/usr/bin/env python3
+"""Read-only bounded operational-event reporting. No network, IDs, payloads or alert delivery."""
+import argparse
+from collections import Counter, defaultdict
+from datetime import datetime, timedelta, timezone
+import json
+import math
+from pathlib import Path
+import re
+import sys
+
+PREFIX = 'JOBMATCH_OPS_V1 '
+FORMAT = 'jobmatch-ops-event-v1'
+ROUTES = {'ai-review', 'auth-email', 'consent-receipts', 'fact-history', 'import', 'recovery', 'reminders', 'resume-export', 'service', 'structured-profile', 'structured-versions'}
+BUCKETS = {'lt100ms', 'lt500ms', 'lt2s', 'lt10s', 'ge10s', 'unknown'}
+MAX_BYTES = 16 * 1024 * 1024
+MAX_LINE = 1024
+UTC = timezone.utc
+
+
+class InputError(ValueError):
+    pass
+
+
+def unique_object(pairs):
+    value = {}
+    for key, item in pairs:
+        if key in value:
+            raise InputError('Invalid telemetry input')
+        value[key] = item
+    return value
+
+
+def parse_minute(value):
+    if not isinstance(value, str) or not re.fullmatch(r'\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:00Z', value):
+        raise InputError('Invalid telemetry input')
+    stamp = datetime.strptime(value, '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=UTC)
+    if stamp.year < 1970:
+        raise InputError('Invalid telemetry input')
+    return stamp
+
+
+def parse_event(line):
+    if not isinstance(line, str) or not line.startswith(PREFIX):
+        raise InputError('Invalid telemetry input')
+    event = json.loads(line[len(PREFIX):], object_pairs_hook=unique_object)
+    if not isinstance(event, dict):
+        raise InputError('Invalid telemetry input')
+    base = {'format', 'scope', 'kind', 'minute'}
+    if event.get('format') != FORMAT or event.get('scope') != 'route-handler':
+        raise InputError('Invalid telemetry input')
+    parse_minute(event.get('minute'))
+    kind = event.get('kind')
+    if type(kind) is not str:
+        raise InputError('Invalid telemetry input')
+    if kind == 'coverage-capped':
+        if set(event) != base | {'limit'} or type(event['limit']) is not int or event['limit'] != 60:
+            raise InputError('Invalid telemetry input')
+    elif kind in {'returned', 'unhandled'}:
+        if (set(event) != base | {'route', 'handler', 'status', 'duration'}
+                or type(event['route']) is not str or event['route'] not in ROUTES
+                or type(event['handler']) is not str or event['handler'] not in {'GET', 'POST'}
+                or type(event['duration']) is not str or event['duration'] not in BUCKETS):
+            raise InputError('Invalid telemetry input')
+        status = event['status']
+        if status is not None and (type(status) is not int or not 100 <= status <= 599):
+            raise InputError('Invalid telemetry input')
+        if kind == 'unhandled' and status is not None:
+            raise InputError('Invalid telemetry input')
+    else:
+        raise InputError('Invalid telemetry input')
+    return event
+
+
+def events_from_file(path):
+    total = 0
+    with Path(path).open('rb') as source:
+        while True:
+            raw = source.readline(MAX_LINE + 1)
+            if not raw:
+                break
+            total += len(raw)
+            if total > MAX_BYTES or len(raw) > MAX_LINE or not raw.endswith(b'\n'):
+                raise InputError('Incomplete or oversized telemetry input')
+            yield parse_event(raw[:-1].removesuffix(b'\r').decode('utf-8', errors='strict'))
+
+
+def utc_text(value):
+    return value.strftime('%Y-%m-%dT%H:%M:%SZ')
+
+
+def summarize(events, now, window_minutes=15, route=None):
+    if not 1 <= window_minutes <= 1440 or (route is not None and route not in ROUTES):
+        raise InputError('Invalid parameters')
+    end = now.astimezone(UTC).replace(second=0, microsecond=0)
+    start = end - timedelta(minutes=window_minutes - 1)
+    counts, statuses, latency = Counter(), Counter(), Counter()
+    groups = defaultdict(lambda: {'returned': 0, 'unhandled': 0, 'statuses': Counter(), 'duration': Counter()})
+    latest = None
+    for event in events:
+        counts['input'] += 1
+        stamp = parse_minute(event['minute'])
+        if stamp > end:
+            counts['future'] += 1
+            continue
+        if stamp < start:
+            counts['outsideWindow'] += 1
+            continue
+        if event['kind'] == 'coverage-capped':
+            counts['coverageMarkers'] += 1
+            continue
+        if route is not None and event['route'] != route:
+            counts['otherRoute'] += 1
+            continue
+        latest = stamp if latest is None else max(latest, stamp)
+        kind = event['kind']
+        counts[kind] += 1
+        group = groups[(event['route'], event['handler'])]
+        group[kind] += 1
+        group['duration'][event['duration']] += 1
+        if event['duration'] == 'unknown':
+            counts['unknown'] += 1
+        if kind == 'returned':
+            latency[event['duration']] += 1
+            if event['status'] is None:
+                counts['unknown'] += 1
+                group['statuses']['unknown'] += 1
+            else:
+                statuses[str(event['status'])] += 1
+                group['statuses'][str(event['status'])] += 1
+                if event['status'] >= 500:
+                    counts['response5xx'] += 1
+            if event['duration'] in {'lt10s', 'ge10s'}:
+                counts['responseGe2s'] += 1
+    returned = counts['returned']
+    return {
+        'format': 'jobmatch-ops-report-v1',
+        'scope': 'supplied-file/registered-route-handlers-only',
+        'collectionCompleteness': 'not-established',
+        'windowStartMinute': utc_text(start), 'windowEndMinute': utc_text(end),
+        'routeFilter': route,
+        'inputRecords': counts['input'], 'outsideWindowRecords': counts['outsideWindow'],
+        'otherRouteRecords': counts['otherRoute'], 'futureRecords': counts['future'],
+        'returned': returned, 'unhandled': counts['unhandled'],
+        'coverageMarkers': counts['coverageMarkers'], 'unknownMeasurements': counts['unknown'],
+        'lastObservationMinute': utc_text(latest) if latest is not None else None,
+        # Minute quantization gives an upper bound, not the exact age of the last request.
+        'ageUpperBoundSeconds': max(0, int((now.astimezone(UTC) - latest).total_seconds())) if latest is not None else None,
+        'observedResponse5xxFraction': counts['response5xx'] / returned if returned else None,
+        'observedResponseGe2sFraction': counts['responseGe2s'] / returned if returned else None,
+        'responseStatusCounts': dict(sorted(statuses.items())), 'responseDurationCounts': dict(sorted(latency.items())),
+        'groups': [{'route': key[0], 'handler': key[1], 'returned': value['returned'],
+                    'unhandled': value['unhandled'], 'statuses': dict(sorted(value['statuses'].items())),
+                    'duration': dict(sorted(value['duration'].items()))} for key, value in sorted(groups.items())],
+    }
+
+
+def check_report(report, min_responses, max_5xx, max_ge2s, max_unhandled, max_age):
+    if (type(min_responses) is not int or not 1 <= min_responses <= 1_000_000
+            or type(max_unhandled) is not int or not 0 <= max_unhandled <= 1_000_000
+            or type(max_age) is not int or not 60 <= max_age <= 86400
+            or not all(type(value) in (int, float) and math.isfinite(value) and 0 <= value <= 1 for value in (max_5xx, max_ge2s))):
+        raise InputError('Invalid thresholds')
+    issues, breaches = [], []
+    if report['returned'] < min_responses:
+        issues.append('insufficient-responses')
+    if report['coverageMarkers']:
+        issues.append('coverage-capped')
+    if report['unknownMeasurements']:
+        issues.append('unknown-measurement')
+    if report['futureRecords']:
+        issues.append('future-event')
+    if report['ageUpperBoundSeconds'] is None or report['ageUpperBoundSeconds'] > max_age:
+        issues.append('stale-or-empty')
+    if report['unhandled'] > max_unhandled:
+        breaches.append('unhandled')
+    if report['observedResponse5xxFraction'] is not None and report['observedResponse5xxFraction'] > max_5xx:
+        breaches.append('observed-response-5xx')
+    if report['observedResponseGe2sFraction'] is not None and report['observedResponseGe2sFraction'] > max_ge2s:
+        breaches.append('observed-response-ge2s')
+    verdict = 'inconclusive' if issues else 'observed-alert' if breaches else 'observed-within-thresholds'
+    return {**report, 'verdict': verdict, 'issues': issues, 'breaches': breaches,
+            'thresholds': {'minResponses': min_responses, 'max5xxFraction': max_5xx, 'maxGe2sFraction': max_ge2s,
+                           'maxUnhandled': max_unhandled, 'maxAgeUpperBoundSeconds': max_age}}, (2 if issues else 1 if breaches else 0)
+
+
+class SafeParser(argparse.ArgumentParser):
+    def error(self, message):
+        self.exit(2, 'Invalid operational-report parameters.\n')
+
+
+def main(argv=None):
+    parser = SafeParser(prog='jobmatch-ops', description=__doc__)
+    sub = parser.add_subparsers(dest='command', required=True, parser_class=SafeParser)
+    for name in ('report', 'check'):
+        command = sub.add_parser(name)
+        command.add_argument('input')
+        command.add_argument('--window-minutes', default='15')
+        command.add_argument('--route', choices=sorted(ROUTES))
+        command.add_argument('--now', help='Explicit UTC second clock for reproducible file-only replay')
+        if name == 'check':
+            for flag in ('min-responses', 'max-5xx-fraction', 'max-ge2s-fraction', 'max-unhandled', 'max-age-seconds'):
+                command.add_argument('--' + flag, required=True)
+    args = parser.parse_args(argv)
+    try:
+        if args.now is not None:
+            if not re.fullmatch(r'\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z', args.now):
+                raise InputError('Invalid clock')
+            now = datetime.strptime(args.now, '%Y-%m-%dT%H:%M:%SZ').replace(tzinfo=UTC)
+        else:
+            now = datetime.now(UTC)
+        report = summarize(events_from_file(args.input), now, int(args.window_minutes), args.route)
+        report['evaluationClock'] = 'explicit' if args.now is not None else 'local-wall-clock'
+        code = 0
+        if args.command == 'check':
+            report, code = check_report(report, int(args.min_responses), float(args.max_5xx_fraction),
+                                        float(args.max_ge2s_fraction), int(args.max_unhandled), int(args.max_age_seconds))
+        else:
+            report['verdict'] = 'not-checked'
+        print(json.dumps(report, sort_keys=True, separators=(',', ':'), allow_nan=False))
+        return code
+    except (OSError, ValueError, TypeError, KeyError, UnicodeError):
+        print('Operational telemetry input/parameters refused; no input contents or paths emitted.', file=sys.stderr)
+        return 2
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())

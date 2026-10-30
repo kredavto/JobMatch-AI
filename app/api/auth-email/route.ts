@@ -1,3 +1,4 @@
+import {observeRoute} from '../../../lib/ops-telemetry';
 import {consumeAuthQuota,localAuthKey} from '../../../lib/auth-quota';
 import {NextRequest,NextResponse} from 'next/server';
 import {z} from 'zod';
@@ -8,7 +9,7 @@ import {mailOrigin} from '../../../lib/mail-origin';
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
 const input=z.object({email:z.email().max(200).transform(value=>value.toLowerCase())}).strict();
-export async function POST(req:NextRequest){try{
+async function post(req:NextRequest){try{
  sameOrigin(req);rateLimit('confirmation-global',30);
  const body=input.parse(JSON.parse(new TextDecoder().decode(await boundedBody(req,4096))));
  const origin=mailOrigin(req.nextUrl.origin);
@@ -18,3 +19,5 @@ export async function POST(req:NextRequest){try{
  // The provider deliberately does not disclose whether an account is eligible.
  return NextResponse.json({ok:true},{headers:{'Cache-Control':'no-store'}});
  }catch(error){return failure(error);}}
+
+export const POST=observeRoute('auth-email','POST',post);
