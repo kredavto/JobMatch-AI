@@ -1,3 +1,5 @@
+> Current comparison protocol: [paired v2](PAIRED_V2.md). Historical v1 contract and negative result remain below unchanged. V2 uses48calls, per-quote grading and separately denominated graded false links; it does not accept a model.
+
 # Exact-main adaptation diagnostic v1
 
 This isolated CI experiment executes the current main `adaptResume` → `aiReview`

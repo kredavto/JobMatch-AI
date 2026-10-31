@@ -1,0 +1,314 @@
+[
+  {
+    "id": "probe-ru-multiple-link-mapping",
+    "language": "ru",
+    "original": "Синтетический кандидат — не реальный человек\nПисал SQL-запросы для отчётов.\nИспользовал Git для контроля версий.\nВёл таблицы расходов в Excel.",
+    "facts": [
+      {
+        "id": "f1",
+        "text": "Писал SQL-запросы для отчётов.",
+        "source": "Independent synthetic prospective probe v2; not a real person",
+        "verified": true
+      },
+      {
+        "id": "f2",
+        "text": "Использовал Git для контроля версий.",
+        "source": "Independent synthetic prospective probe v2; not a real person",
+        "verified": true
+      },
+      {
+        "id": "f3",
+        "text": "Вёл таблицы расходов в Excel.",
+        "source": "Independent synthetic prospective probe v2; not a real person",
+        "verified": true
+      }
+    ],
+    "vacancy": "Практический опыт SQL\nПрактический опыт Git",
+    "expectedRequirements": [
+      {
+        "quote": "Практический опыт SQL",
+        "evidence_ids": [
+          "f1"
+        ]
+      },
+      {
+        "quote": "Практический опыт Git",
+        "evidence_ids": [
+          "f2"
+        ]
+      }
+    ],
+    "expectedEvidenceIds": [
+      "f1",
+      "f2"
+    ],
+    "expectedRequirementQuotes": [
+      "Практический опыт SQL",
+      "Практический опыт Git"
+    ],
+    "selectedEvidenceIds": [
+      "f1",
+      "f2"
+    ],
+    "rationale": "Two independent requirements need distinct evidence mappings. A correct union with swapped links is a failure; Excel is irrelevant."
+  },
+  {
+    "id": "probe-en-reversed-link-mapping",
+    "language": "en",
+    "original": "Synthetic candidate — not a real person\nWrote Python scripts to process invoices.\nBuilt web interfaces using JavaScript.",
+    "facts": [
+      {
+        "id": "f1",
+        "text": "Wrote Python scripts to process invoices.",
+        "source": "Independent synthetic prospective probe v2; not a real person",
+        "verified": true
+      },
+      {
+        "id": "f2",
+        "text": "Built web interfaces using JavaScript.",
+        "source": "Independent synthetic prospective probe v2; not a real person",
+        "verified": true
+      }
+    ],
+    "vacancy": "Practical JavaScript experience\nPractical Python experience",
+    "expectedRequirements": [
+      {
+        "quote": "Practical JavaScript experience",
+        "evidence_ids": [
+          "f2"
+        ]
+      },
+      {
+        "quote": "Practical Python experience",
+        "evidence_ids": [
+          "f1"
+        ]
+      }
+    ],
+    "expectedEvidenceIds": [
+      "f1",
+      "f2"
+    ],
+    "expectedRequirementQuotes": [
+      "Practical JavaScript experience",
+      "Practical Python experience"
+    ],
+    "selectedEvidenceIds": [
+      "f1",
+      "f2"
+    ],
+    "rationale": "Reversed requirement order must not assign facts by position. Per-quote mapping, not evidence union, is the gold."
+  },
+  {
+    "id": "probe-ru-duration-sufficient",
+    "language": "ru",
+    "original": "Синтетический кандидат — не реальный человек\nИмею 6 лет практического опыта SQL.",
+    "facts": [
+      {
+        "id": "f1",
+        "text": "Имею 6 лет практического опыта SQL.",
+        "source": "Independent synthetic prospective probe v2; not a real person",
+        "verified": true
+      }
+    ],
+    "vacancy": "Не менее 4 лет практического опыта SQL",
+    "expectedRequirements": [
+      {
+        "quote": "Не менее 4 лет практического опыта SQL",
+        "evidence_ids": [
+          "f1"
+        ]
+      }
+    ],
+    "expectedEvidenceIds": [
+      "f1"
+    ],
+    "expectedRequirementQuotes": [
+      "Не менее 4 лет практического опыта SQL"
+    ],
+    "selectedEvidenceIds": [
+      "f1"
+    ],
+    "rationale": "Same skill, duration unit and experience scope; explicitly stated six years supports a minimum of four. Guards against blanket refusal of all quantitative requirements."
+  },
+  {
+    "id": "probe-en-equal-number-wrong-outcome",
+    "language": "en",
+    "original": "Synthetic candidate — not a real person\nReduced operating costs by 18% in 2024.",
+    "facts": [
+      {
+        "id": "f1",
+        "text": "Reduced operating costs by 18% in 2024.",
+        "source": "Independent synthetic prospective probe v2; not a real person",
+        "verified": true
+      }
+    ],
+    "vacancy": "Increased sales revenue by at least 18% in 2024",
+    "expectedRequirements": [
+      {
+        "quote": "Increased sales revenue by at least 18% in 2024",
+        "evidence_ids": []
+      }
+    ],
+    "expectedEvidenceIds": [],
+    "expectedRequirementQuotes": [
+      "Increased sales revenue by at least 18% in 2024"
+    ],
+    "selectedEvidenceIds": [],
+    "rationale": "Equal percentage and date do not equate cost reduction with revenue growth. Exact citations are insufficient support."
+  },
+  {
+    "id": "probe-ru-calendar-not-duration",
+    "language": "ru",
+    "original": "Синтетический кандидат — не реальный человек\nВыполнил проект на Python в 2020 году.\nВыполнил проект на Python в 2025 году.",
+    "facts": [
+      {
+        "id": "f1",
+        "text": "Выполнил проект на Python в 2020 году.",
+        "source": "Independent synthetic prospective probe v2; not a real person",
+        "verified": true
+      },
+      {
+        "id": "f2",
+        "text": "Выполнил проект на Python в 2025 году.",
+        "source": "Independent synthetic prospective probe v2; not a real person",
+        "verified": true
+      }
+    ],
+    "vacancy": "Не менее 5 лет непрерывного опыта разработки на Python",
+    "expectedRequirements": [
+      {
+        "quote": "Не менее 5 лет непрерывного опыта разработки на Python",
+        "evidence_ids": []
+      }
+    ],
+    "expectedEvidenceIds": [],
+    "expectedRequirementQuotes": [
+      "Не менее 5 лет непрерывного опыта разработки на Python"
+    ],
+    "selectedEvidenceIds": [],
+    "rationale": "Two project dates five years apart do not establish five years of continuous development. Both source lines are eligible, neither establishes duration."
+  },
+  {
+    "id": "probe-en-compound-complete",
+    "language": "en",
+    "original": "Synthetic candidate — not a real person\nWrote automated unit tests.\nConfigured continuous integration pipelines.",
+    "facts": [
+      {
+        "id": "f1",
+        "text": "Wrote automated unit tests.",
+        "source": "Independent synthetic prospective probe v2; not a real person",
+        "verified": true
+      },
+      {
+        "id": "f2",
+        "text": "Configured continuous integration pipelines.",
+        "source": "Independent synthetic prospective probe v2; not a real person",
+        "verified": true
+      }
+    ],
+    "vacancy": "Experience writing unit tests and configuring continuous integration pipelines",
+    "expectedRequirements": [
+      {
+        "quote": "Experience writing unit tests and configuring continuous integration pipelines",
+        "evidence_ids": [
+          "f1",
+          "f2"
+        ]
+      }
+    ],
+    "expectedEvidenceIds": [
+      "f1",
+      "f2"
+    ],
+    "expectedRequirementQuotes": [
+      "Experience writing unit tests and configuring continuous integration pipelines"
+    ],
+    "selectedEvidenceIds": [
+      "f1",
+      "f2"
+    ],
+    "rationale": "One compound requirement is fully supported by the two complementary source lines; both links required."
+  },
+  {
+    "id": "probe-ru-team-direct-scope",
+    "language": "ru",
+    "original": "Синтетический кандидат — не реальный человек\nЛично руководил командой из 8 разработчиков.\nВ компании работало 80 сотрудников.",
+    "facts": [
+      {
+        "id": "f1",
+        "text": "Лично руководил командой из 8 разработчиков.",
+        "source": "Independent synthetic prospective probe v2; not a real person",
+        "verified": true
+      },
+      {
+        "id": "f2",
+        "text": "В компании работало 80 сотрудников.",
+        "source": "Independent synthetic prospective probe v2; not a real person",
+        "verified": true
+      }
+    ],
+    "vacancy": "Опыт личного руководства командой не менее 6 разработчиков",
+    "expectedRequirements": [
+      {
+        "quote": "Опыт личного руководства командой не менее 6 разработчиков",
+        "evidence_ids": [
+          "f1"
+        ]
+      }
+    ],
+    "expectedEvidenceIds": [
+      "f1"
+    ],
+    "expectedRequirementQuotes": [
+      "Опыт личного руководства командой не менее 6 разработчиков"
+    ],
+    "selectedEvidenceIds": [
+      "f1"
+    ],
+    "rationale": "Directly stated management of eight developers supports minimum six. Company headcount is neither relevant evidence nor a contradiction about the team."
+  },
+  {
+    "id": "probe-en-mixed-supported-and-partial",
+    "language": "en",
+    "original": "Synthetic candidate — not a real person\nImplemented services in Python.\nUsed Git for version control.",
+    "facts": [
+      {
+        "id": "f1",
+        "text": "Implemented services in Python.",
+        "source": "Independent synthetic prospective probe v2; not a real person",
+        "verified": true
+      },
+      {
+        "id": "f2",
+        "text": "Used Git for version control.",
+        "source": "Independent synthetic prospective probe v2; not a real person",
+        "verified": true
+      }
+    ],
+    "vacancy": "Practical experience with Python and PostgreSQL\nPractical experience with Git",
+    "expectedRequirements": [
+      {
+        "quote": "Practical experience with Python and PostgreSQL",
+        "evidence_ids": []
+      },
+      {
+        "quote": "Practical experience with Git",
+        "evidence_ids": [
+          "f2"
+        ]
+      }
+    ],
+    "expectedEvidenceIds": [
+      "f2"
+    ],
+    "expectedRequirementQuotes": [
+      "Practical experience with Python and PostgreSQL",
+      "Practical experience with Git"
+    ],
+    "selectedEvidenceIds": [
+      "f2"
+    ],
+    "rationale": "Abstain on the incompletely supported Python-plus-PostgreSQL requirement without losing the independently supported Git requirement."
+  }
+]
