@@ -1,0 +1,55 @@
+name: Signed AI profile acceptance (synthetic PostgreSQL)
+on:
+  pull_request:
+    paths: ['app/**','lib/**','tests/**','supabase/**','scripts/**','evaluation/**','package*.json','.github/workflows/ai-profile-acceptance.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  postgres:
+    if: github.repository == 'kredavto/JobMatch-AI' && github.event.repository.private == false && (github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    services:
+      postgres:
+        image: postgres:17
+        env: {POSTGRES_PASSWORD: synthetic-ai-profile-only}
+        ports: ['5432:5432']
+        options: --health-cmd pg_isready --health-interval 5s --health-retries 10
+    env:
+      PGHOST: 127.0.0.1
+      PGUSER: postgres
+      PGPASSWORD: synthetic-ai-profile-only
+      PGDATABASE: jobmatch_ai_profile_full
+      NEXT_TELEMETRY_DISABLED: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '24'}
+      - run: npm ci --ignore-scripts
+      - run: npm run typecheck
+      - run: npm test
+      - name: Create only disposable native fixture databases
+        run: |
+          psql -v ON_ERROR_STOP=1 -d postgres -c 'create role anon; create role authenticated;'
+          createdb jobmatch_ai_profile_full
+          createdb jobmatch_ai_profile_upgrade
+      - name: Test full schema with actual SQL and synthetic Auth sessions
+        run: |
+          psql -v ON_ERROR_STOP=1 -f scripts/restore_fixture.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/schema.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/tests/ai_profile_acceptances.sql
+      - name: Test populated upgrade without rewriting prior migrations
+        env: {PGDATABASE: jobmatch_ai_profile_upgrade}
+        run: |
+          psql -v ON_ERROR_STOP=1 -f scripts/restore_fixture.sql
+          sed '/^-- Independent derived profile/,$d' supabase/schema.sql > /tmp/ai-profile-baseline.sql
+          psql -v ON_ERROR_STOP=1 -f /tmp/ai-profile-baseline.sql
+          psql -v ON_ERROR_STOP=1 -f scripts/restore_seed.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261029084434_structured_profile.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261029092404_structured_versions.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261029095404_saved_reminders.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261031084309_application_specialties.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261031133712_ai_profile_acceptances.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/tests/ai_profile_acceptances.sql
