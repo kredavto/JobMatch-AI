@@ -39,9 +39,9 @@ export async function main(){
   for(const [owner,session,count]of [[OWNER,SESSION,2],['66666666-6666-4666-8666-666666666666','bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',1]] as const){
    check(run(transaction('select to_jsonb(public.ai_profile_signing_ready('+literal(keyId)+'))',owner,session,true))===true);
    const list=ProfileAcceptanceListSchema.parse(run(transaction('select public.list_ai_profile_acceptances()',owner,session,true)));check(list.ownerId===owner&&list.items.length===count);if(owner===OWNER)firstId=list.items[0].id;
-   for(const item of list.items){const record=await validateProfileAcceptance(run(transaction('select public.read_ai_profile_acceptance('+literal(item.id)+')',owner,session,true)),owner);const expected=createHmac('sha256',key).update('jobmatch-ai-profile-receipt-v1\n'+record.receipt.payload).digest();check(timingSafeEqual(expected,Buffer.from(record.receipt.signature,'hex')));records++;}
+   for(const item of list.items){const record=await validateProfileAcceptance(run(transaction("select coalesce(public.read_ai_profile_acceptance("+literal(item.id)+"),'null'::jsonb)",owner,session,true)),owner);const expected=createHmac('sha256',key).update('jobmatch-ai-profile-receipt-v1\n'+record.receipt.payload).digest();check(timingSafeEqual(expected,Buffer.from(record.receipt.signature,'hex')));records++;}
   }
-  check(run(transaction('select public.read_ai_profile_acceptance('+literal(firstId)+')',OTHER,OTHER_SESSION,true))===null);
+  check(run(transaction("select coalesce(public.read_ai_profile_acceptance("+literal(firstId)+"),'null'::jsonb)",OTHER,OTHER_SESSION,true))===null);
   phase('complete');process.stdout.write('JOBMATCH_AI_PROFILE_NATIVE_RESTORE_V1 '+JSON.stringify({format:'jobmatch-ai-profile-native-restore-v1',runKind:'actual-native-postgres-dump-restore/synthetic-only',readOnly:true,verifiedHistoricalRecords:records,restoredSigningKeyReady:true,frozenSourceAndMacVerified:true,modelIdentityVerified:false,modelAcceptance:'not-accepted',providerAuth:'not-performed',providerRestore:'not-performed'})+'\n');return;
  }
  phase('empty-fixture');check(database!=='jobmatch_ai_profile_restore');
@@ -68,10 +68,10 @@ export async function main(){
  const results=await Promise.all(Array.from({length:20},()=>asyncRun(sql)));
  check(results.filter(x=>x==='saved').length===1&&results.filter(x=>x==='conflict').length===19);check(current().revision===3&&current().entries.length===3&&current().entries.every(entry=>!entry.confirmed));
  check(run(transaction('select count(*) from public.ai_profile_acceptances'))===2);
- phase('history');const read=run(transaction('select public.read_ai_profile_acceptance('+literal(accepted.record.id)+')'));await validateProfileAcceptance(read,OWNER);
- check(run(transaction('select public.read_ai_profile_acceptance('+literal(accepted.record.id)+')',OTHER,OTHER_SESSION))===null);
+ phase('history');const read=run(transaction("select coalesce(public.read_ai_profile_acceptance("+literal(accepted.record.id)+"),'null'::jsonb)"));await validateProfileAcceptance(read,OWNER);
+ check(run(transaction("select coalesce(public.read_ai_profile_acceptance("+literal(accepted.record.id)+"),'null'::jsonb)",OTHER,OTHER_SESSION))===null);
  const row=run('begin;update private.ai_profile_signing_config set signing_key=decode(repeat(\'cd\',32),\'hex\');select to_jsonb(true);commit;');check(row===true);
- await validateProfileAcceptance(run(transaction('select public.read_ai_profile_acceptance('+literal(accepted.record.id)+')')),OWNER);
+ await validateProfileAcceptance(run(transaction("select coalesce(public.read_ai_profile_acceptance("+literal(accepted.record.id)+"),'null'::jsonb)")),OWNER);
  denial(call(issueProfileReceipt(current(),preview,config),3),'AI_PROFILE_RECEIPT_INVALID');
  run("begin;update private.ai_profile_signing_config set signing_key=decode(repeat('ab',32),'hex');select to_jsonb(true);commit;");
  phase('complete');process.stdout.write('JOBMATCH_AI_PROFILE_NATIVE_V1 '+JSON.stringify({format:'jobmatch-ai-profile-native-v1',runKind:'actual-native-postgres/synthetic-auth-and-source-only',nodeIssuer:true,macVerifiedByPostgres:true,unicodeAndCrlfOffsets:true,batchRecords:2,concurrentWriters:20,concurrentCommits:1,concurrentConflicts:19,partialBatchRolledBack:true,replayRefused:true,crossOwnerReadRefused:true,keyRotationRefusedPending:true,historicalReadAfterRotation:true,profileRevision:3,unconfirmedRecords:3,workspaceRevision:1,modelIdentityVerified:false,modelAcceptance:'not-accepted',providerAuth:'not-performed',providerRestore:'not-performed',userData:'not-used'})+'\n');
