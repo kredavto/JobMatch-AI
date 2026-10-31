@@ -53,3 +53,8 @@ Candidate PR #57 separately measured official pinned7B Q3_K_M/8GiB on the same v
 
 
 Candidate PR #58 actual v2 runtime f734451:0.5B12stop responses/9citation/1mismatch/2neutral passes;1.5B12stop/3citation/7mismatches/2neutral passes;7B11/12stop/1HTTP-stage+2citation/5mismatches/4passes (2neutral+2positive EN). No schema errors observed, but2previous schema-error achievement rows7B are now graded mismatches, not new passes. All models not-accepted;7B backend incomplete. [Full original reports and36compiled-body proof](../evaluation/results/20261031-profile-grammar-v2-cpu.md).1156unit/57Node/102Python/277browser PASS/2liveSKIP/76worker and10runtime workflows SUCCESS; no independent/deployment/durable accepted-change acceptance.
+
+
+## Optional explicit acceptance candidate (PR #59)
+
+Preview generation and its download remain read-only. A separate default-off signing/acceptance feature can issue a ten-minute source-bound receipt and expose individually reviewed atomic unconfirmed-field saving, an owner-scoped historical journal and validated complete-journal export. The current v2 model request is unchanged; model/semantic acceptance is not implied. See [protocol and operator gates](AI_PROFILE_ACCEPTANCE.md); historical receipts use a frozen v2 decoder.

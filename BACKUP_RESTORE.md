@@ -96,3 +96,12 @@ Ordinary snapshot содержит только выбранные факты и
 
 ## Операционные наблюдения, PR #45
 Телеметрия route handlers по умолчанию выключена; новых DB tables нет, structured-v6/21 и шесть user archive files сохраняются. Bounded counters в JS realm не durable/не global и не являются резервной копией. Операторский JSONL log/export не добавляется к пользовательским архивам или app manifest; collection/access/retention/удаление/резервирование логов требуют отдельного решения. Report/check работают с переданным read-only файлом и никогда не удостоверяют полноту, доставку, provider restore или RPO/RTO. Подробности: docs/OPERATIONS_MONITORING.md.
+
+
+## AI field acceptance journal, candidate PR #59
+
+Current --include-structured uses jobmatch-backup-structured-v7/23 tables: public.ai_profile_acceptances and private.ai_profile_signing_config are added to historical v6/21. Earlier v3–v6 retain their exact table sets; do not compare across versions as if new tables were absent. The new private key and full source snapshots require protected storage/access and a reviewed rotation process before traffic after restore. No real key is seeded or provisioned by this migration. Private Auth-quota tables and the wider provider schema remain excluded.
+
+The main personal JSON now points to the structured-profile AI journal panel; full archive guidance requires seven files, including its complete validated JSON journal. It contains the initial bounded list, not later writes or a global transactional snapshot; cancellation, unavailable/corrupt records or metadata mismatch produce no complete file. Individual saved snapshots remain downloadable. Source/receipt JSON is editable and is not offline MAC/semantic/legal attestation.
+
+Actual disposable PostgreSQL17 full/upgrade/Node-MAC/concurrency and23-populated-table dump/restore/read-only historical source/MAC/key/tamper proof: [archive](evaluation/results/20261031-profile-acceptance-native.md). Synthetic Auth/session fixtures are not Supabase Auth. No provider copy or SMTP recovery was exercised; real provider restore/RPO/RTO, retention/withdrawal and final operational acceptance remain open. Rollback must preserve historical readers/export and data rather than drop tables. [Protocol](docs/AI_PROFILE_ACCEPTANCE.md).

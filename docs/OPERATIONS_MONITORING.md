@@ -103,3 +103,6 @@ Runtime `d31b48e824b602678243f9c182d3eca13cb5b71a`: [Consent receipt protocol (s
 ## Кандидат #56: новый POST-only profile preview
 
 ai-profile добавлен как фиксированная allowlisted route label без owner/source/model/digest properties; default telemetry off сохранён. Первый real Next smoke41196910565 правильно отказал на phase=routes: smoke выбрал GET для нового POST-only endpoint и получил framework405 вне handler. Исправлен POST_ONLY, допустимые guard statuses/приватность/thresholds не ослаблялись. Новый Python test сверяет выбранный метод probe с фактическими GET/POST exports всех route files. Локальный и corrected CI41198109603/job124528290987 real Next smoke PASS для12labels, canaries/off/on/alert/OPTIONS/cap/inconclusive/owned cleanup; это не global collector/delivery/model/provider acceptance.
+
+
+PR #59 uses the existing ai-profile route label for both POST preview/explicit batch saves and GET journal metadata/snapshots. The fixed12-route inventory and bounded payload-free observation schema remain unchanged; receipt/source/selection/owner/key data are never telemetry fields. The actual Next smoke and static inventory checks cover GET as well. Journal tables are app data in v7/23 backups; operator logs remain outside that manifest, with independent collection/access/retention/coverage gates. See [AI acceptance protocol](AI_PROFILE_ACCEPTANCE.md).
