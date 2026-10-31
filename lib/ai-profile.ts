@@ -3,6 +3,7 @@ import {evidenceIssue} from './evidence-review';
 import {PROFILE_FIELDS,PROFILE_KINDS,ProfileFieldsSchema,StructuredCommandSchema,type ProfileFields} from './structured-profile';
 import {structuredDateWarnings,type ProposalWarning} from './structured-proposals';
 import {UserError} from './errors';
+import {observeAiFailure,type AiFailureObserver,type AiFailureStage} from './ai-diagnostics';
 
 export const AI_PROFILE_VERSION='paragraph-quotes-v1';
 export const AI_PROFILE_PROMPT_VERSION='profile-paragraph-quotes-v1';
@@ -41,20 +42,22 @@ export function aiProfileRequest(source:string){
 }
 export type ProfileCandidate={blockId:number;kind:typeof PROFILE_KINDS[number];context:ProfileBlock;fields:ProfileFields;unknownFields:typeof PROFILE_FIELDS[number][];dateInterpretation:'not-performed';warnings:ProposalWarning[]};
 /** Resolve exact unique occurrences ourselves; model offsets, guesses and ambiguous duplicates are refused. */
-export function validateAiProfileExtraction(value:unknown,source:string):ProfileCandidate[]{
- const input=AiProfileRawSchema.parse(value),prepared=aiProfileSource(source),seen=new Set<string>();
+export function validateAiProfileExtraction(value:unknown,source:string,onFailure?:AiFailureObserver):ProfileCandidate[]{
+ const reject=(stage:AiFailureStage):never=>{observeAiFailure(onFailure,stage);throw Error('AI profile extraction refused');};
+ const parsed=AiProfileRawSchema.safeParse(value);if(!parsed.success)return reject('review-schema');
+ const input=parsed.data,prepared=aiProfileSource(source),seen=new Set<string>();
  return input.entries.map(entry=>{
-  const block=prepared.blocks.find(row=>row.id===entry.blockId);if(!block)throw Error('AI profile provenance refused');
+  const block=prepared.blocks.find(row=>row.id===entry.blockId);if(!block)return reject('citation');
   const points=Array.from(block.quote),fields:ProfileFields={};
   for(const name of PROFILE_FIELDS){const text=entry.fields[name];if(text===null)continue;
    const needle=Array.from(text);let found=-1;
-   for(let i=0;i<=points.length-needle.length;i++)if(needle.every((point,n)=>point===points[i+n])){if(found!==-1)throw Error('AI profile ambiguous quote');found=i;}
-   if(found<0)throw Error('AI profile quote refused');
+   for(let i=0;i<=points.length-needle.length;i++)if(needle.every((point,n)=>point===points[i+n])){if(found!==-1)return reject('citation');found=i;}
+   if(found<0)return reject('citation');
    fields[name]={quote:text,start:block.start+found,end:block.start+found+needle.length};
   }
-  const command=StructuredCommandSchema.parse({action:'add',kind:entry.kind,fields});if(command.action!=='add')throw Error();
-  const key=JSON.stringify([entry.blockId,entry.kind,PROFILE_FIELDS.map(name=>entry.fields[name])]);if(seen.has(key))throw Error('AI profile duplicate refused');seen.add(key);
-  return {blockId:entry.blockId,kind:entry.kind,context:block,fields:command.fields,unknownFields:PROFILE_FIELDS.filter(name=>entry.fields[name]===null),dateInterpretation:'not-performed',warnings:structuredDateWarnings(command.fields)};
+  const command=StructuredCommandSchema.safeParse({action:'add',kind:entry.kind,fields});if(!command.success||command.data.action!=='add')return reject('review-schema');
+  const key=JSON.stringify([entry.blockId,entry.kind,PROFILE_FIELDS.map(name=>entry.fields[name])]);if(seen.has(key))return reject('review-validation');seen.add(key);
+  return {blockId:entry.blockId,kind:entry.kind,context:block,fields:command.data.fields,unknownFields:PROFILE_FIELDS.filter(name=>entry.fields[name]===null),dateInterpretation:'not-performed',warnings:structuredDateWarnings(command.data.fields)};
  });
 }
 export const AiProfileOriginSchema=z.object({model:z.string().min(1).max(100).regex(/^[a-zA-Z0-9_./:-]+$/),operatorDeclaredModelDigest:z.string().regex(/^sha256:[a-f0-9]{64}$/),modelIdentityVerified:z.literal(false)}).strict();
@@ -64,9 +67,9 @@ export const AiProfilePreviewSchema=z.object({format:z.literal('jobmatch-ai-prof
  candidates:z.array(z.object({blockId:z.number().int().min(0).max(39),kind:z.enum(PROFILE_KINDS),context,fields:ProfileFieldsSchema,unknownFields:z.array(z.enum(PROFILE_FIELDS)).max(6),dateInterpretation:z.literal('not-performed'),warnings:z.array(z.enum(['date-uninterpreted','date-order'])).max(2)}).strict()).max(AI_PROFILE_LIMITS.candidates),
 }).strict();
 export type AiProfilePreview=z.infer<typeof AiProfilePreviewSchema>;
-export function profilePreview(value:unknown,source:string,origin:z.infer<typeof AiProfileOriginSchema>):AiProfilePreview{
+export function profilePreview(value:unknown,source:string,origin:z.infer<typeof AiProfileOriginSchema>,onFailure?:AiFailureObserver):AiProfilePreview{
  const prepared=aiProfileSource(source);
- return {format:'jobmatch-ai-profile-preview-v1',contractVersion:AI_PROFILE_VERSION,promptVersion:AI_PROFILE_PROMPT_VERSION,semanticAssessment:'not-performed',acceptance:'not-accepted',origin:AiProfileOriginSchema.parse(origin),sourceBlocks:{eligible:prepared.blocks.length,excluded:prepared.excludedBlocks,total:prepared.totalBlocks},candidates:validateAiProfileExtraction(value,source)};
+ return {format:'jobmatch-ai-profile-preview-v1',contractVersion:AI_PROFILE_VERSION,promptVersion:AI_PROFILE_PROMPT_VERSION,semanticAssessment:'not-performed',acceptance:'not-accepted',origin:AiProfileOriginSchema.parse(origin),sourceBlocks:{eligible:prepared.blocks.length,excluded:prepared.excludedBlocks,total:prepared.totalBlocks},candidates:validateAiProfileExtraction(value,source,onFailure)};
 }
 /** Browser validates source context/unknowns/ranges again; an HTTP success alone is insufficient. */
 export function validateAiProfilePreview(value:unknown,source:string):AiProfilePreview{

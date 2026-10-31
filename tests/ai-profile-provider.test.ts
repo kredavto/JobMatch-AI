@@ -23,8 +23,8 @@ it.each([
  ['missing stop',():string=>JSON.stringify({done:true,message:envelope().message}), 'envelope-schema'],
  ['length stop',():string=>JSON.stringify({...envelope(),done_reason:'length'}), 'envelope-schema'],
  ['content JSON',():string=>JSON.stringify({...envelope(),message:{role:'assistant',content:'```json PRIVATE'}}), 'content-json'],
- ['invented quote',():string=>JSON.stringify(envelope({entries:[{...raw.entries[0],fields:{...raw.entries[0].fields,title:'PRIVATE'}}]})), 'review-validation'],
- ['extra property',():string=>JSON.stringify(envelope({...raw,normalizedDate:'2020-04-03'})), 'review-validation'],
+ ['invented quote',():string=>JSON.stringify(envelope({entries:[{...raw.entries[0],fields:{...raw.entries[0].fields,title:'PRIVATE'}}]})), 'citation'],
+ ['extra property',():string=>JSON.stringify(envelope({...raw,normalizedDate:'2020-04-03'})), 'review-schema'],
  ['oversized body',():string=> 'x'.repeat(64001), 'body-read'],
  ] as const)('native scripted %s fails closed without raw output or inference retries',async(_name,content,stage)=>{let calls=0;const observer=vi.fn();await backend((_req,res)=>{calls++;res.setHeader('Content-Type','application/json');res.end(content());},async()=>{await expect(aiProfilePreview(source,new AbortController().signal,observer)).rejects.toMatchObject({code:'AI_PROFILE_RESPONSE_INVALID',status:502,message:''});expect(observer.mock.calls).toEqual([[stage]]);});expect(calls).toBe(1);});
 it('HTTP/type errors and invalid UTF8 are redacted',async()=>{for(const mode of ['status','type','utf8'])await backend((_req,res)=>{res.statusCode=mode==='status'?500:200;res.setHeader('Content-Type',mode==='type'?'text/plain':'application/json');res.end(mode==='utf8'?Buffer.from([255]):'PRIVATE');},async()=>{await expect(aiProfilePreview(source,new AbortController().signal)).rejects.toMatchObject({code:'AI_PROFILE_RESPONSE_INVALID',message:''});});});

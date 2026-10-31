@@ -31,7 +31,7 @@ export async function aiProfilePreview(source:string,signal:AbortSignal,onFailur
   stage='envelope-json';const decoded=JSON.parse(new TextDecoder('utf8',{fatal:true}).decode(bytes));
   stage='envelope-schema';const envelope=z.object({done:z.literal(true),done_reason:z.literal('stop'),message:z.object({role:z.literal('assistant'),content:z.string().max(60000)})}).parse(decoded);
   stage='content-json';const value=JSON.parse(envelope.message.content);
-  stage='review-validation';return profilePreview(value,source,config.origin);
+  stage='review-validation';return profilePreview(value,source,config.origin,onFailure?failure=>{stage=failure;}:undefined);
  }catch{
   observeAiFailure(onFailure,combined.aborted?(signal.aborted?'cancelled':'timeout'):stage);
   throw new UserError('',combined.aborted?504:502,combined.aborted?'AI_PROFILE_TIMEOUT':'AI_PROFILE_RESPONSE_INVALID');

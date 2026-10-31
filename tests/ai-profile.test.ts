@@ -52,4 +52,11 @@ describe('literal free-text profile contract, not model quality',()=>{
  it('source and value objects remain unchanged; no persisted record or semantic truth is claimed',()=>{
   const value=raw(),before=structuredClone(value),result=profilePreview(value,'Engineer',origin);expect(value).toEqual(before);expect(result.candidates[0].fields.title?.quote).toBe('Engineer');expect('confirmed' in result.candidates[0]).toBe(false);expect(AI_PROFILE_PROMPT).toContain('null when absent or uncertain');expect(AI_PROFILE_VERSION).toBe('paragraph-quotes-v1');
  });
+ it('optional failure diagnostics distinguish shape/domain, source membership and duplicates using static labels only',()=>{
+  const examples:[unknown,string,string][]=[[{PRIVATE:'payload'},'Engineer','review-schema'],[raw({}),'Engineer','review-schema'],[raw({title:'PRIVATE'}),'Engineer','citation'],[raw(),'Engineer Engineer','citation'],[raw({title:'Engineer'},'employment',1),'Engineer','citation'],[{entries:[raw().entries[0],raw().entries[0]]},'Engineer','review-validation']];
+  for(const[value,source,stage]of examples){const observed:unknown[][]=[];expect(()=>validateAiProfileExtraction(value,source,(...args)=>{observed.push(args);})).toThrow();expect(observed).toEqual([[stage]]);expect(JSON.stringify(observed)).not.toContain('PRIVATE');}
+ });
+ it('success and sink failures preserve validation and result bytes without repairing the response',()=>{
+  const observed:unknown[]=[];const plain=validateAiProfileExtraction(raw(),'Engineer');expect(validateAiProfileExtraction(raw(),'Engineer',stage=>{observed.push(stage);})).toEqual(plain);expect(observed).toEqual([]);expect(()=>validateAiProfileExtraction(raw({title:'PRIVATE'}),'Engineer',()=>{throw Error('PRIVATE sink');})).toThrow('AI profile extraction refused');
+ });
 });
