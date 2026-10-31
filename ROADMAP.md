@@ -616,3 +616,9 @@ Prod mode/collector/cron/alerts/recipient/paid infra, SQL/merge/release не в�
 - Реальные harmless before/after fixtures подтверждают библиотечные ZIP/redirect fixes; не заявлена компрометация старого приложения, принятой модели или provider restore. Source/master/Score/SQL/consent/templates unchanged.
 - Следующий блок: Совместимое исправление lint-цепочки minimatch (GHSA-g3hv-75wg-m249): проверить API/версии ESLint/Next plugins и устранить remaining16 dev records без force-downgrade/непроверенной blanket major override, затем добиться audit:dependencies:all=0. Отдельная независимая security и финальная эксплуатационная приёмка остаются открытыми.
 - Release/merge/production config не выполнялись. Operator/external acceptance gates и полный проект остаются открытыми.
+
+## Кандидат #53 — совместимость TypeScript lint dependency, 31 октября 2026
+
+Проверенный version-qualified override typescript-estree 8.72.0 → minimatch 11.0.3 удаляет его affected 10.2.6; добавлены реальные project-service/allowlist/ESLint/preprocessing проверки. Legacy callable minimatch 3.1.5 не подменён несовместимым major. Свежий full audit 16 → 15 moderate записей, runtime 0; full gate exit 1 и независимая security acceptance открыты. Нужна поддерживаемая совместимая миграция оставшегося lint-графа, без удаления правил и waiver. Реальные результаты и следующие общепроектные gates: COMPLETION_PLAN.md, VERIFICATION.md, [разбор](security/LINT_COMPATIBILITY_20261031.md).
+
+Следующий доступный внутренний блок: явная метка специальности у отклика с серверной проверкой владельца/ревизии, сохранностью старых клиентов и черновиков, RU/EN интерфейсом и агрегатами исходов по указанной пользователем метке. Не выводить специальность автоматически из названия вакансии, не переносить текущую цель поиска на старые отклики и не заявлять причинный рост приглашений. Legacy lint findings / поддерживаемый ESLint остаются отдельной совместимой миграцией с открытым full gate.

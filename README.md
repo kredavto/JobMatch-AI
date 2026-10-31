@@ -105,3 +105,7 @@ Tracker notes now use an explicit Save button. Unsaved notes survive list filter
 
 ## Проверка зависимостей — кандидат PR #52, 31 октября 2026
 В кандидате обновлены PDF.js/yauzl и совместимая patch-версия follow-redirects. Новый npm run audit:dependencies закрывает CI при runtime-находках или неполном/недоступном отчёте и явно сохраняет полный граф. На проверенном lock runtime0, full16 moderate от одного advisory minimatch в dev-инструментах; это не полный security clearance. npm run audit:dependencies:all остаётся ненулевым до закрытия полного графа. [Версии, первичные advisory, реальные регрессии и safe snapshots](security/DEPENDENCY_AUDIT_20261031.md). Кандидат не объединён/не выпущен; production0.34.0 не объявляется обновлённым.
+
+### Lint dependency compatibility — candidate #53
+
+Only the reviewed typescript-estree 8.72.0 consumer uses minimatch 11.0.3; legacy callable consumers stay separate. Real parser/project-service and effective ESLint rule/config regressions are included in `npm run test:dependency-security`. Fresh audit: runtime 0, full 15 moderate package records for one advisory; `npm run audit:dependencies:all` still fails. This does not close security acceptance. See [compatibility evidence and snapshots](security/LINT_COMPATIBILITY_20261031.md).
