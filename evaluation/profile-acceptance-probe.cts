@@ -27,7 +27,7 @@ function call(receipt:{payload:string;signature:string},revision:number,indices=
 function denial(expression:string,tag:string,owner=OWNER,session=SESSION){
  const result=run(transaction('do $probe$begin begin perform '+expression+';raise exception \'UNEXPECTED_ACCEPT\';exception when others then if sqlerrm is distinct from '+literal(tag)+' then raise exception \'UNEXPECTED_DENIAL\';end if;end;end$probe$;select true',owner,session));check(result===true);
 }
-function phase(name:'guard'|'issue'|'native-save'|'rollback'|'concurrent'|'history'|'complete'){process.stdout.write('PROFILE_ACCEPTANCE_NATIVE_PHASE '+name+'\n');}
+function phase(name:'guard'|'empty-fixture'|'fixture-create'|'import'|'source-check'|'preview'|'issue'|'native-save'|'rollback'|'concurrent'|'history'|'complete'){process.stdout.write('PROFILE_ACCEPTANCE_NATIVE_PHASE '+name+'\n');}
 export async function main(){
  if(process.argv.length!==2||process.env.CI!=='true'||process.env.GITHUB_ACTIONS!=='true'||process.env.GITHUB_REPOSITORY!=='kredavto/JobMatch-AI'||process.env.JOBMATCH_LOCAL_AI_PROFILE_TEST!=='1'||process.env.PGHOST!=='127.0.0.1'||process.env.PGUSER!=='postgres'||!['jobmatch_ai_profile_full','jobmatch_ai_profile_upgrade','jobmatch_ai_profile_restore'].includes(process.env.PGDATABASE??'')||process.platform!=='linux'||process.arch!=='x64'||!/^v24\./.test(process.version))throw Error();
  const mode=process.env.JOBMATCH_AI_PROFILE_NATIVE_MODE??'write-test';
@@ -44,15 +44,15 @@ export async function main(){
   check(run(transaction('select public.read_ai_profile_acceptance('+literal(firstId)+')',OTHER,OTHER_SESSION,true))===null);
   phase('complete');process.stdout.write('JOBMATCH_AI_PROFILE_NATIVE_RESTORE_V1 '+JSON.stringify({format:'jobmatch-ai-profile-native-restore-v1',runKind:'actual-native-postgres-dump-restore/synthetic-only',readOnly:true,verifiedHistoricalRecords:records,restoredSigningKeyReady:true,frozenSourceAndMacVerified:true,modelIdentityVerified:false,modelAcceptance:'not-accepted',providerAuth:'not-performed',providerRestore:'not-performed'})+'\n');return;
  }
- check(database!=='jobmatch_ai_profile_restore');
+ phase('empty-fixture');check(database!=='jobmatch_ai_profile_restore');
  check(run('select count(*) from private.ai_profile_signing_config')===0);check(run('select count(*) from auth.users where id in('+literal(OWNER)+','+literal(OTHER)+')')===0);
- run("begin;insert into auth.users values("+literal(OWNER)+"),("+literal(OTHER)+");insert into auth.sessions(id,user_id) values("+literal(SESSION)+","+literal(OWNER)+"),("+literal(OTHER_SESSION)+","+literal(OTHER)+");insert into private.ai_profile_signing_config values(true,decode(repeat('ab',32),'hex'));select true;commit;");
- run(transaction('select public.apply_workspace_command(0,jsonb_build_object(\'action\',\'import\',\'text\','+('convert_from(decode('+literal(Buffer.from(SOURCE,'utf8').toString('hex'))+',\'hex\'),\'UTF8\')')+'))'));
+ phase('fixture-create');run("begin;insert into auth.users values("+literal(OWNER)+"),("+literal(OTHER)+");insert into auth.sessions(id,user_id) values("+literal(SESSION)+","+literal(OWNER)+"),("+literal(OTHER_SESSION)+","+literal(OTHER)+");insert into private.ai_profile_signing_config values(true,decode(repeat('ab',32),'hex'));select true;commit;");
+ phase('import');run(transaction('select public.apply_workspace_command(0,jsonb_build_object(\'action\',\'import\',\'text\','+('convert_from(decode('+literal(Buffer.from(SOURCE,'utf8').toString('hex'))+',\'hex\'),\'UTF8\')')+'))'));
  const current=()=>validateStructuredProfile(run(transaction('select public.read_structured_profile()')),OWNER,1);
- const initial=current();check(initial.source_original===SOURCE&&initial.revision===0);
+ phase('source-check');const initial=current();check(initial.source_original===SOURCE&&initial.revision===0);
  Object.assign(process.env,{JOBMATCH_AI_PROFILE_ACCEPTANCE_ENABLED:'true',JOBMATCH_AI_PROFILE_SIGNING_SECRET:KEY});
  const config=requiredProfileSigningConfig(),fields=(title:string,organization:string)=>({title,organization,start:null,end:null,description:null,credential:null});
- const preview=profilePreview({entries:[{blockId:0,kind:'employment',fields:fields('Engineer','Orbit')},{blockId:1,kind:'employment',fields:fields('Analyst','River')}]},SOURCE,{model:'synthetic-native-fixture',operatorDeclaredModelDigest:'sha256:'+'c'.repeat(64),modelIdentityVerified:false});
+ phase('preview');const preview=profilePreview({entries:[{blockId:0,kind:'employment',fields:fields('Engineer','Orbit')},{blockId:1,kind:'employment',fields:fields('Analyst','River')}]},SOURCE,{model:'synthetic-native-fixture',operatorDeclaredModelDigest:'sha256:'+'c'.repeat(64),modelIdentityVerified:false});
  phase('issue');check(run(transaction('select public.ai_profile_signing_ready('+literal(config.keyId)+')'))===true);
  const receipt=issueProfileReceipt(initial,preview,config);verifyProfileReceipt(receipt,OWNER,config);
  denial(call({...receipt,signature:'0'.repeat(64)},0),'AI_PROFILE_RECEIPT_INVALID');check(current().revision===0);
