@@ -7,8 +7,8 @@ export const ADAPTATION_FORMAT='jobmatch-ai-resume-adaptation-v1';
 const schema=z.object({format:z.literal(ADAPTATION_FORMAT),generator:z.literal('ai-selected-literal'),modelAcceptance:z.literal('not-accepted'),review:z.unknown()}).strict();
 /** Only whole original lines are promotable. A fact added independently to the profile is not a resume citation. */
 export function adaptationFacts(facts:Fact[],original:string){
- const lines=new Set(original.split(/\r?\n/).map(line=>line.trim()).filter(Boolean));
- return eligibleAiFacts(facts).filter(f=>lines.has(f.text)&&facts.filter(other=>other.id===f.id).length===1);
+ const lines=original.split(/\r?\n/).map(line=>line.trim()).filter(Boolean);
+ return eligibleAiFacts(facts).filter(f=>lines.filter(line=>line===f.text).length===1&&facts.filter(other=>other.id===f.id).length===1);
 }
 export type AdaptationPreview={format:typeof ADAPTATION_FORMAT;generator:'ai-selected-literal';modelAcceptance:'not-accepted';review:AiReview};
 export function validateAdaptation(value:unknown,facts:Fact[],original:string,vacancy:string):AdaptationPreview{

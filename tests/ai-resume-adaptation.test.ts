@@ -10,3 +10,5 @@ it('rejects freeform rewritten text, fabricated citations and acceptance claims'
 it.each([{selected:[]},{selected:['foreign']},{selected:['ai-adaptation-f1','ai-adaptation-f1']}])('requires a nonempty distinct manually selected subset %j',({selected})=>{expect(()=>renderAdaptation(preview,selected,facts,original,'SQL')).toThrow();});
 it('revalidates against revoked facts or changed originals before rendering',()=>{expect(()=>renderAdaptation(preview,['ai-adaptation-f1'],[{...facts[0],verified:false}],original,'SQL')).toThrow();expect(()=>renderAdaptation(preview,['ai-adaptation-f1'],facts,'New resume','SQL')).toThrow();});
 it('empty AI output stays empty, without deterministic fallback',()=>{expect(adaptationEdits({...preview,review:{requirements:[]}},facts,original,'SQL')).toEqual([]);});
+
+it('does not promote an ambiguous repeated original line and collapse source occurrences',()=>{expect(adaptationFacts(facts,'SQL\nName\nSQL')).toEqual([]);expect(()=>validateAdaptation(preview,facts,'SQL\nSQL','SQL')).toThrow();});
