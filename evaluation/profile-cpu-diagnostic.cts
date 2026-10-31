@@ -9,7 +9,7 @@ import {aiProfileBody,aiProfilePreview} from '../lib/ai-profile-provider';
 import {AI_PROFILE_PROMPT,AI_PROFILE_PROMPT_VERSION,AI_PROFILE_VERSION} from '../lib/ai-profile';
 import {AI_FAILURE_STAGES,type AiFailureStage} from '../lib/ai-diagnostics';
 import {profileCorpus,PROFILE_CORPUS_VERSION,gradeProfile} from './profile-corpus';
-import {approvedCpuEnvironment,cpuModelSlot,cpuModelIdentity,cpuServerArgs,validateCpuPin,cpuFileSha256,waitCpuReady,stopCpuProcess,CPU_LICENSE_SHA,type CpuModelSlot} from './cpu-diagnostic.cjs';
+import {approvedCpuEnvironment,cpuModelSlot,cpuModelIdentity,cpuManifestPath,cpuServerArgs,validateCpuPin,cpuFileSha256,waitCpuReady,stopCpuProcess,CPU_LICENSE_SHA,type CpuModelSlot} from './cpu-diagnostic.cjs';
 const MODEL='/model/model.gguf',BINARY='/opt/llama/build/bin/llama-server';
 const hash=(text:string)=>createHash('sha256').update(text).digest('hex');
 function send(response:ServerResponse,status:number,value:unknown){if(!response.destroyed){response.writeHead(status,{'Content-Type':'application/json','Cache-Control':'no-store'});response.end(JSON.stringify(value));}}
@@ -53,7 +53,7 @@ async function evaluate(signal:AbortSignal){
 function phase(name:'pin'|'weights'|'binary'|'server-start'|'server-ready'|'evaluate'|'evaluation-returned'|'report'){process.stdout.write('PROFILE_CPU_PHASE '+name+'\n');}
 export async function main(){
  if(!approvedProfileCpuEnvironment(process.env)||process.argv.length!==2||process.platform!=='linux'||process.arch!=='x64'||!/^v24\./.test(process.version))throw Error();phase('pin');const slot=cpuModelSlot(process.env.JOBMATCH_AI_CPU_MODEL_SLOT);
- const pin=validateCpuPin(JSON.parse(readFileSync(slot==='baseline'?'evaluation/cpu-model.json':'evaluation/cpu-model-candidate.json','utf8')),slot),image=process.env.JOBMATCH_AI_CPU_IMAGE_ID;
+ const pin=validateCpuPin(JSON.parse(readFileSync(cpuManifestPath(slot),'utf8')),slot),image=process.env.JOBMATCH_AI_CPU_IMAGE_ID;
  if(!image||!/^sha256:[a-f0-9]{64}$/.test(image)||profileCorpus.length!==12)throw Error();
  phase('weights');const stat=statSync(MODEL);if(!stat.isFile()||stat.size!==pin.bytes||(stat.mode&0o222)!==0||await cpuFileSha256(MODEL)!==pin.sha256)throw Error();
  phase('binary');const binarySha=await cpuFileSha256(BINARY),licenseSha=await cpuFileSha256('/model/LICENSE');if(licenseSha!==CPU_LICENSE_SHA)throw Error();

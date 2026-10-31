@@ -127,6 +127,37 @@ class ModelDownload(unittest.TestCase):
             self.assertNotIn('PRIVATE', err.getvalue())
             self.assertNotIn(str(target), err.getvalue())
 
+    def test_larger_exact_identity_refuses_changes_and_cross_slot(self):
+        pin = json.loads(model.LARGER_PIN.read_text())
+        self.assertEqual(model.validate_pin(pin, 'larger'), pin)
+        for slot in ['baseline', 'candidate', 'PRIVATE']:
+            with self.assertRaises(ValueError):
+                model.validate_pin(pin, slot)
+        for change in [{'revision':'main'}, {'bytes':3808391071}, {'sha256':'0'*64},
+                       {'file':'PRIVATE'}, {'repository':'PRIVATE'}, {'threads':8},
+                       {'endpoint':'https://PRIVATE'}, {'seed':1}]:
+            with self.assertRaises(ValueError):
+                model.validate_pin({**pin, **change}, 'larger')
+
+    def test_larger_existing_directory_preserved_before_network(self):
+        with tempfile.TemporaryDirectory() as directory, patch.dict(os.environ, APPROVED, clear=True), \
+                patch.object(model.urllib.request, 'build_opener') as opener:
+            keep = Path(directory) / 'keep'
+            keep.write_text('existing')
+            with contextlib.redirect_stderr(io.StringIO()):
+                self.assertEqual(model.main(['--larger', directory]), 2)
+            self.assertEqual(keep.read_text(), 'existing')
+            opener.assert_not_called()
+
+    def test_larger_bad_metadata_never_downloads_weights(self):
+        with tempfile.TemporaryDirectory() as directory, patch.dict(os.environ, APPROVED, clear=True), \
+                patch.object(model, 'small', return_value=b'PRIVATE') as metadata, \
+                patch.object(model, 'copy_verified') as weights, contextlib.redirect_stderr(io.StringIO()) as err:
+            self.assertEqual(model.main(['--larger', str(Path(directory)/'new')]), 2)
+            self.assertEqual(metadata.call_count, 1)
+            weights.assert_not_called()
+            self.assertNotIn('PRIVATE', err.getvalue())
+
 
 if __name__ == '__main__':
     unittest.main()

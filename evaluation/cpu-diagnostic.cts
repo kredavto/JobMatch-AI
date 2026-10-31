@@ -17,16 +17,18 @@ export const CPU_ALIAS='jobmatch-qwen2.5-0.5b-q8-diagnostic';
 export const CPU_WEIGHT_SHA='ca59ca7f13d0e15a8cfa77bd17e65d24f6844b554a7b6c12e07a5f89ff76844e';
 export const CPU_LLAMA_SHA='8642541b255bfb5dc39cd351a178be09013a55d6';
 export const CPU_LICENSE_SHA='832dd9e00a68dd83b3c3fb9f5588dad7dcf337a0db50f7d9483f310cd292e92e';
-export type CpuModelSlot='baseline'|'candidate';
+export type CpuModelSlot='baseline'|'candidate'|'larger';
 export function cpuModelSlot(value:unknown):CpuModelSlot {
  if(value===undefined||value===''||value==='baseline')return 'baseline';
- if(value==='candidate')return 'candidate';throw Error('Unreviewed CPU model slot');
+ if(value==='candidate'||value==='larger')return value;throw Error('Unreviewed CPU model slot');
 }
 export function cpuModelIdentity(slot:CpuModelSlot='baseline') {
  if(slot==='baseline')return {repository:'Qwen/Qwen2.5-0.5B-Instruct-GGUF',revision:'df5bf01389a39c743ab467d734bf501681e041c5',file:'qwen2.5-0.5b-instruct-q8_0.gguf',sha256:CPU_WEIGHT_SHA,bytes:675710816,modelAlias:CPU_ALIAS} as const;
  if(slot==='candidate')return {repository:'Qwen/Qwen2.5-1.5B-Instruct-GGUF',revision:'91cad51170dc346986eccefdc2dd33a9da36ead9',file:'qwen2.5-1.5b-instruct-q8_0.gguf',sha256:'d7efb072e7724d25048a4fda0a3e10b04bdef5d06b1403a1c93bd9f1240a63c8',bytes:1894532128,modelAlias:'jobmatch-qwen2.5-1.5b-q8-diagnostic'} as const;
+ if(slot==='larger')return {"repository":"Qwen/Qwen2.5-7B-Instruct-GGUF","revision":"bb5d59e06d9551d752d08b292a50eb208b07ab1f","file":"qwen2.5-7b-instruct-q3_k_m.gguf","sha256":"a96b16179dc6cc9afdf0cf7a96a80c199cbd00b9be207c3465be21cb721cca5e","bytes":3808391072,"modelAlias":"jobmatch-qwen2.5-7b-q3-k-m-diagnostic"} as const;
  throw Error('Unreviewed CPU model slot');
 }
+export function cpuManifestPath(slot:CpuModelSlot='baseline'){cpuModelIdentity(slot);return slot==='baseline'?'evaluation/cpu-model.json':slot==='candidate'?'evaluation/cpu-model-candidate.json':'evaluation/cpu-model-larger.json';}
 const format=z.toJSONSchema(AiReviewSchema);
 const inputFor=(test:typeof evaluationCorpus[number])=>JSON.stringify({vacancy:test.vacancy,facts:eligibleAiFacts(test.facts).map(({id,text})=>({id,text}))});
 export function approvedCpuEnvironment(env:NodeJS.ProcessEnv){
@@ -147,7 +149,7 @@ export async function main(){
  const requested=process.env.JOBMATCH_AI_CPU_QUOTE_CONTRACT;
  if(requested!==undefined&&requested!==''&&requested!=='legacy'&&requested!=='source-lines-v1')throw Error('Unknown CPU quote contract');
  const quoteContract:AiQuoteContract=requested==='source-lines-v1'?'source-lines-v1':'legacy';
- const pin=validateCpuPin(JSON.parse(readFileSync(slot==='baseline'?'evaluation/cpu-model.json':'evaluation/cpu-model-candidate.json','utf8')),slot);
+ const pin=validateCpuPin(JSON.parse(readFileSync(cpuManifestPath(slot),'utf8')),slot);
  const image=process.env.JOBMATCH_AI_CPU_IMAGE_ID;
  if(!image||!/^sha256:[a-f0-9]{64}$/.test(image))throw Error('Container identity required');
  phase('weights');
