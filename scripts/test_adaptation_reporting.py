@@ -17,6 +17,21 @@ class Reporting(unittest.TestCase):
             with patch('sys.argv',['summary',str(log)]), patch.dict(os.environ,{'GITHUB_STEP_SUMMARY':str(out)}): summary.main()
             self.assertIn('NOT ACCEPTED',out.read_text())
             self.assertNotIn('PRIVATE',out.read_text())
+    def test_paired_report_has_separate_arm_counts(self):
+        with tempfile.TemporaryDirectory() as d:
+            log,out=Path(d)/'log',Path(d)/'summary'
+            log.write_text('JOBMATCH_MAIN_ADAPTATION_PAIRED_V2 '+json.dumps(dict(acceptance='not-accepted',planned=48,completed=48,backendResponses=48,goldPasses=7,arms={'baseline':{'completed':24,'gradedCases':2,'goldPasses':0,'gradedFalseLinks':2},'candidate':{'completed':24,'gradedCases':10,'goldPasses':7,'gradedFalseLinks':1}})))
+            with patch('sys.argv',['summary',str(log)]),patch.dict(os.environ,{'GITHUB_STEP_SUMMARY':str(out)}): summary.main()
+            self.assertIn('candidate: goldPasses=7/24',out.read_text())
+            self.assertIn('NOT ACCEPTED',out.read_text())
+    def test_paired_report_rejects_invalid_arm_counters(self):
+        for bad in ['<script>',True,-1,24001]:
+            with tempfile.TemporaryDirectory() as d:
+                log,out=Path(d)/'log',Path(d)/'summary'
+                arm={'completed':24,'gradedCases':10,'goldPasses':7,'gradedFalseLinks':bad}
+                log.write_text('JOBMATCH_MAIN_ADAPTATION_PAIRED_V2 '+json.dumps(dict(acceptance='not-accepted',planned=48,completed=48,backendResponses=48,goldPasses=14,arms={'baseline':arm,'candidate':arm})))
+                with patch('sys.argv',['summary',str(log)]),patch.dict(os.environ,{'GITHUB_STEP_SUMMARY':str(out)}):
+                    with self.assertRaises(ValueError): summary.main()
     def test_missing_report_is_explicit(self):
         with tempfile.TemporaryDirectory() as d:
             log,out=Path(d)/'log',Path(d)/'summary'

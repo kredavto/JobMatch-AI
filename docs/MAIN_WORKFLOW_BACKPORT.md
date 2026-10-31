@@ -9,3 +9,12 @@ HH URL/ID import is separately default-off (`JOBMATCH_HH_VACANCY_IMPORT=approved
 AI adaptation additionally requires `JOBMATCH_AI_ADAPTATION_ENABLED=true` and all existing self-hosted provider gates. It sends only eligible confirmed whole original lines and the saved vacancy after per-request consent. It proposes source-linked line selection; the existing main literal renderer promotes selected original wording. It is NOT generative rephrasing, accepted model quality or proof of semantic relevance. Source/owner/revision checks, reread after inference, manual review and a read-only memory-only draft apply. No automatic save/export/submission. The main UI and literal output remain Russian; no locale-provider or newer template stack is imported.
 
 Both features remain disabled pending independent live/legal/operator acceptance. Fixtures test the software contracts only. This backport does not release the other unmerged project work or resolve SMTP, provider backup/restore, personal-data hosting, AI-quality or broader operational acceptance.
+
+## Adaptation request hardening (paired candidate v2)
+The gated adaptation-only provider now separates exact physical vacancy line
+spans from original resume facts and restricts generated quote/ID values. Existing
+provenance and literal rendering remain mandatory. Long/ambiguous/unrepresentable
+vacancy input fails closed with manual-workflow guidance. This is a constrained
+request contract, not semantic verification, accepted model quality or rewriting.
+See `evaluation/adaptation/PAIRED_V2.md` for the preregistered comparison; flags
+remain off until separate operational/model acceptance.
