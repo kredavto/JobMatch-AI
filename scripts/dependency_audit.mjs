@@ -43,7 +43,7 @@ export function assessAudits(fullRaw,runtimeRaw,lock){
 export function auditExit(assessment,requireAll=false){return assessment.runtime.packagesAffected!==0||requireAll&&assessment.full.packagesAffected!==0?1:0;}
 function query(runtime){
  const args=['audit','--json','--ignore-scripts','--fetch-retries=0','--fetch-timeout=20000',...(runtime?['--omit=dev']:[])];
- return new Promise((resolve,reject)=>execFile('npm',args,{encoding:'utf8',timeout:45000,maxBuffer:4*1024*1024},(error,stdout)=>{
+ return new Promise((resolve,reject)=>execFile('npm',args,{encoding:'utf8',timeout:120000,maxBuffer:4*1024*1024},(error,stdout)=>{
   if(error&&error.code!==1){reject(Error('Audit unavailable'));return;}
   try{resolve(JSON.parse(stdout));}catch{reject(Error('Audit unavailable'));}
  }));
