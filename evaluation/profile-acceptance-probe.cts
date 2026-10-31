@@ -36,7 +36,7 @@ export async function main(){
  check(JSON.stringify(run("select jsonb_agg(column_name order by ordinal_position) from information_schema.columns where table_schema='auth' and table_name='users'"))==='["id"]');
  if(mode==='restore-check'){
   check(database==='jobmatch_ai_profile_restore');const key=Buffer.from(KEY,'hex'),keyId=createHash('sha256').update(key).digest('hex');let records=0,firstId='';
-  for(const [owner,session,count]of [[OWNER,SESSION,2],['66666666-6666-4666-8666-666666666666','bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',1]] as const){
+  for(const [owner,session,count]of [[OWNER,SESSION,2],['eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee','ffffffff-ffff-4fff-8fff-ffffffffffff',1]] as const){
    check(run(transaction('select to_jsonb(public.ai_profile_signing_ready('+literal(keyId)+'))',owner,session,true))===true);
    const list=ProfileAcceptanceListSchema.parse(run(transaction('select public.list_ai_profile_acceptances()',owner,session,true)));check(list.ownerId===owner&&list.items.length===count);if(owner===OWNER)firstId=list.items[0].id;
    for(const item of list.items){const record=await validateProfileAcceptance(run(transaction("select coalesce(public.read_ai_profile_acceptance("+literal(item.id)+"),'null'::jsonb)",owner,session,true)),owner);const expected=createHmac('sha256',key).update('jobmatch-ai-profile-receipt-v1\n'+record.receipt.payload).digest();check(timingSafeEqual(expected,Buffer.from(record.receipt.signature,'hex')));records++;}

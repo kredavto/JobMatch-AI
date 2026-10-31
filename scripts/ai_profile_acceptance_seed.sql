@@ -7,9 +7,9 @@ do $$begin
 end$$;
 insert into private.ai_profile_signing_config values(true,decode(repeat('ab',32),'hex')) on conflict(singleton) do nothing;
 do $$begin if (select signing_key from private.ai_profile_signing_config where singleton) is distinct from decode(repeat('ab',32),'hex') then raise exception 'SYNTHETIC_KEY_REQUIRED';end if;end$$;
-insert into auth.users values('66666666-6666-4666-8666-666666666666');
-insert into auth.sessions values('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb','66666666-6666-4666-8666-666666666666');
-set local request.jwt.claims='{"sub":"66666666-6666-4666-8666-666666666666","session_id":"bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"}';
+insert into auth.users values('eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee');
+insert into auth.sessions values('ffffffff-ffff-4fff-8fff-ffffffffffff','eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee');
+set local request.jwt.claims='{"sub":"eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee","session_id":"ffffffff-ffff-4fff-8fff-ffffffffffff"}';
 do $$declare p jsonb;body jsonb;raw text;sig text;issued bigint:=floor(extract(epoch from clock_timestamp()));result jsonb;begin
  perform public.apply_workspace_command(0,'{"action":"import","text":"SQL"}');
  p:=public.read_structured_profile();
