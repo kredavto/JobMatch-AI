@@ -1,6 +1,7 @@
 'use client';
 import {useEffect,useRef,useState} from 'react';
 import StructuredProposalsPanel from './structured-proposals-panel';
+import AiProfilePanel from './ai-profile-panel';
 import {structuredProposalCopy} from '../lib/i18n/structured-proposals';
 import type {StructuredProposal} from '../lib/structured-proposals';
 import {PROFILE_FIELDS,PROFILE_KINDS,sourceSelection,StructuredCommandSchema,validateStructuredProfile,type StructuredProfile,type ProfileFields,type StructuredCommand} from '../lib/structured-profile';
@@ -56,6 +57,7 @@ export default function StructuredProfilePanel({ownerId,workspaceRevision,disabl
  {!profile.source_matches&&<p role="alert" className="notice">{t.stale}</p>}
  <label>{t.source}<textarea ref={source} lang="" readOnly rows={8} value={profile.source_original}/></label>
  {profile.source_matches&&<StructuredProposalsPanel key={JSON.stringify([sourceContext,profile.revision,profile.workspace_revision,profile.source_matches,readGeneration])} source={profile.source_original} locale={locale} disabled={!canWrite||draftStale||profile.entries.length>=50} hasDraft={Object.keys(fields).length>0} onAdopt={adopt}/>}
+ {profile.source_matches&&<AiProfilePanel key={readGeneration} profile={profile} disabled={!canWrite} locale={locale} onConflict={onConflict}/>}
  {draftStale&&<p role="alert">{proposalText.stale}</p>}
  {Object.keys(fields).length>0&&<button type="button" disabled={busy} onClick={()=>{setFields({});setDraftContext(null);}}>{proposalText.clear}</button>}
  {profile.source_matches&&<fieldset disabled={!canWrite||draftStale}><legend>{t.addLegend}</legend>

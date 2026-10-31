@@ -28,7 +28,7 @@ function literalDate(text:string):number[]|null{
  if(day!==undefined){const days=[31,year%4===0&&(year%100!==0||year%400===0)?29:28,31,30,31,30,31,31,30,31,30,31];if(day<1||day>days[month!-1])return null;}
  return day!==undefined?[year,month!,day]:month!==undefined?[year,month]:[year];
 }
-function dateWarnings(fields:ProfileFields):ProposalWarning[]{
+export function structuredDateWarnings(fields:ProfileFields):ProposalWarning[]{
  const start=fields.start?literalDate(fields.start.quote):null,end=fields.end?literalDate(fields.end.quote):null;
  if(fields.start&&!start||fields.end&&!end||start&&end&&start.length!==end.length)return ['date-uninterpreted'];
  if(start&&end){for(let i=0;i<start.length;i++){if(start[i]<end[i])break;if(start[i]>end[i])return ['date-order'];}}
@@ -47,7 +47,7 @@ export function proposeStructuredEntries(source:unknown):StructuredProposals{
   const input=StructuredCommandSchema.safeParse({action:'add',kind,fields});
   if(invalid||!input.success||input.data.action!=='add')result.rejectedBlocks++;
   else if(result.candidates.length===MAX_STRUCTURED_PROPOSALS)result.limitReached=true;
-  else result.candidates.push({kind:input.data.kind,fields:input.data.fields,warnings:dateWarnings(input.data.fields)});
+  else result.candidates.push({kind:input.data.kind,fields:input.data.fields,warnings:structuredDateWarnings(input.data.fields)});
   fields={};invalid=false;seen=false;
  }
  const parts=source.split(/(\r\n|[\r\n\u2028\u2029])/u);
