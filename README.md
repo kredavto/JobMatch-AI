@@ -120,3 +120,6 @@ Applications can have an optional user-entered specialty label with explicit sav
 
 
 Signed, explicitly reviewed AI profile fields are a default-off candidate: selected records are saved unconfirmed, with an owner-scoped historical source journal, complete journal export and no Match Score change. This is not model or semantic acceptance. See [protocol, deployment gates and validation limits](docs/AI_PROFILE_ACCEPTANCE.md).
+
+
+Manual cover-letter edits now require review of every lexical finding before TXT/JSON export. The new unsigned reviewed-letter envelope preserves the frozen v1 letter and a recomputable numeric/negation audit; matching tokens do not verify meaning, units, roles or factual truth. No letter is sent or saved to the server. See [scope, compatibility and limits](docs/LETTER_EDIT_REVIEW.md).

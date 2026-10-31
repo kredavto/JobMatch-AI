@@ -1,3 +1,4 @@
+import {letterEditReviewCopy} from '../../lib/i18n/letter-edit-review';
 import {test,expect} from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import {readFile} from 'node:fs/promises';
@@ -11,7 +12,7 @@ test('letter requires review, resets approval after editing and exports exact dr
  await expect(panel.getByRole('button',{name:'Подготовить черновик письма'})).toBeDisabled();await panel.getByRole('checkbox',{name:/SQL/}).check();await panel.getByRole('button',{name:'Подготовить черновик письма'}).click();
  const draft=panel.getByLabel('Текст сопроводительного письма'),downloadButton=panel.getByRole('button',{name:'Скачать письмо (TXT)'});const original=await draft.inputValue();expect(original).toContain('\n\nSQL\n\n');expect(original).not.toContain('Python');await expect(downloadButton).toBeDisabled();
  const approval=panel.getByRole('checkbox',{name:'Я проверил письмо, факты и формулировки о своих намерениях'});await approval.check();await draft.fill(original+'\nМой ручной текст.');await expect(approval).not.toBeChecked();await expect(downloadButton).toBeDisabled();await expect(panel.getByText(/Новые формулировки не проверены/)).toBeVisible();
- await approval.check();const pending=page.waitForEvent('download');await downloadButton.click();const file=await pending;expect(await readFile((await file.path())!,'utf8')).toBe(original+'\nМой ручной текст.');
+ await approval.check();for(const box of await panel.getByRole('region',{name:letterEditReviewCopy('ru').title,exact:true}).getByRole('checkbox').all())await box.check();const pending=page.waitForEvent('download');await downloadButton.click();const file=await pending;expect(await readFile((await file.path())!,'utf8')).toBe(original+'\nМой ручной текст.');
  await panel.getByRole('button',{name:'Восстановить шаблон письма'}).click();await expect(draft).toHaveValue(original);await expect(approval).not.toBeChecked();
  expect((await new AxeBuilder({page}).include('[aria-label="Сопроводительное письмо"]').withTags(['wcag2a','wcag2aa','wcag21aa']).analyze()).violations).toEqual([]);
  await panel.getByLabel('Стиль письма').selectOption('executive');await expect(draft).toHaveCount(0);await panel.getByRole('button',{name:'Подготовить черновик письма'}).click();await expect(draft).not.toHaveValue(original);expect(writes).toBe(0);
