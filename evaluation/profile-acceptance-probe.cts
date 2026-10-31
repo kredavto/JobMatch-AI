@@ -25,7 +25,7 @@ function transaction(sql:string,owner=OWNER,session=SESSION,readOnly=false){retu
 function check(value:unknown){if(!value)throw Error();}
 function call(receipt:{payload:string;signature:string},revision:number,indices=[0,1]){return 'public.accept_ai_profile_candidates(1,'+revision+','+literal(receipt.payload)+','+literal(receipt.signature)+',array['+indices.join(',')+']::integer[],\'SAVE_REVIEWED_AI_FIELDS\')';}
 function denial(expression:string,tag:string,owner=OWNER,session=SESSION){
- const result=run(transaction('do $probe$begin begin perform '+expression+';raise exception \'UNEXPECTED_ACCEPT\';exception when others then if sqlerrm is distinct from '+literal(tag)+' then raise exception \'UNEXPECTED_DENIAL\';end if;end;end$probe$;select true',owner,session));check(result===true);
+ const result=run(transaction('do $probe$begin begin perform '+expression+';raise exception \'UNEXPECTED_ACCEPT\';exception when others then if sqlerrm is distinct from '+literal(tag)+' then raise exception \'UNEXPECTED_DENIAL\';end if;end;end$probe$;select to_jsonb(true)',owner,session));check(result===true);
 }
 function phase(name:'guard'|'empty-fixture'|'fixture-create'|'import'|'source-check'|'preview'|'issue'|'native-save'|'rollback'|'concurrent'|'history'|'complete'){process.stdout.write('PROFILE_ACCEPTANCE_NATIVE_PHASE '+name+'\n');}
 export async function main(){
@@ -37,7 +37,7 @@ export async function main(){
  if(mode==='restore-check'){
   check(database==='jobmatch_ai_profile_restore');const key=Buffer.from(KEY,'hex'),keyId=createHash('sha256').update(key).digest('hex');let records=0,firstId='';
   for(const [owner,session,count]of [[OWNER,SESSION,2],['66666666-6666-4666-8666-666666666666','bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',1]] as const){
-   check(run(transaction('select public.ai_profile_signing_ready('+literal(keyId)+')',owner,session,true))===true);
+   check(run(transaction('select to_jsonb(public.ai_profile_signing_ready('+literal(keyId)+'))',owner,session,true))===true);
    const list=ProfileAcceptanceListSchema.parse(run(transaction('select public.list_ai_profile_acceptances()',owner,session,true)));check(list.ownerId===owner&&list.items.length===count);if(owner===OWNER)firstId=list.items[0].id;
    for(const item of list.items){const record=await validateProfileAcceptance(run(transaction('select public.read_ai_profile_acceptance('+literal(item.id)+')',owner,session,true)),owner);const expected=createHmac('sha256',key).update('jobmatch-ai-profile-receipt-v1\n'+record.receipt.payload).digest();check(timingSafeEqual(expected,Buffer.from(record.receipt.signature,'hex')));records++;}
   }
@@ -46,14 +46,14 @@ export async function main(){
  }
  phase('empty-fixture');check(database!=='jobmatch_ai_profile_restore');
  check(run('select count(*) from private.ai_profile_signing_config')===0);check(run('select count(*) from auth.users where id in('+literal(OWNER)+','+literal(OTHER)+')')===0);
- phase('fixture-create');run("begin;insert into auth.users values("+literal(OWNER)+"),("+literal(OTHER)+");insert into auth.sessions(id,user_id) values("+literal(SESSION)+","+literal(OWNER)+"),("+literal(OTHER_SESSION)+","+literal(OTHER)+");insert into private.ai_profile_signing_config values(true,decode(repeat('ab',32),'hex'));select true;commit;");
+ phase('fixture-create');run("begin;insert into auth.users values("+literal(OWNER)+"),("+literal(OTHER)+");insert into auth.sessions(id,user_id) values("+literal(SESSION)+","+literal(OWNER)+"),("+literal(OTHER_SESSION)+","+literal(OTHER)+");insert into private.ai_profile_signing_config values(true,decode(repeat('ab',32),'hex'));select to_jsonb(true);commit;");
  phase('import');run(transaction('select public.apply_workspace_command(0,jsonb_build_object(\'action\',\'import\',\'text\','+('convert_from(decode('+literal(Buffer.from(SOURCE,'utf8').toString('hex'))+',\'hex\'),\'UTF8\')')+'))'));
  const current=()=>validateStructuredProfile(run(transaction('select public.read_structured_profile()')),OWNER,1);
  phase('source-check');const initial=current();check(initial.source_original===SOURCE&&initial.revision===0);
  Object.assign(process.env,{JOBMATCH_AI_PROFILE_ACCEPTANCE_ENABLED:'true',JOBMATCH_AI_PROFILE_SIGNING_SECRET:KEY});
  const config=requiredProfileSigningConfig(),fields=(title:string,organization:string)=>({title,organization,start:null,end:null,description:null,credential:null});
  phase('preview');const preview=profilePreview({entries:[{blockId:0,kind:'employment',fields:fields('Engineer','Orbit')},{blockId:1,kind:'employment',fields:fields('Analyst','River')}]},SOURCE,{model:'synthetic-native-fixture',operatorDeclaredModelDigest:'sha256:'+'c'.repeat(64),modelIdentityVerified:false});
- phase('issue');check(run(transaction('select public.ai_profile_signing_ready('+literal(config.keyId)+')'))===true);
+ phase('issue');check(run(transaction('select to_jsonb(public.ai_profile_signing_ready('+literal(config.keyId)+'))'))===true);
  const receipt=issueProfileReceipt(initial,preview,config);verifyProfileReceipt(receipt,OWNER,config);
  denial(call({...receipt,signature:'0'.repeat(64)},0),'AI_PROFILE_RECEIPT_INVALID');check(current().revision===0);
  phase('native-save');const accepted=await validateProfileAcceptanceResult(run(transaction('select '+call(receipt,0))),OWNER,1,0,receipt,[0,1]);
@@ -70,10 +70,10 @@ export async function main(){
  check(run(transaction('select count(*) from public.ai_profile_acceptances'))===2);
  phase('history');const read=run(transaction('select public.read_ai_profile_acceptance('+literal(accepted.record.id)+')'));await validateProfileAcceptance(read,OWNER);
  check(run(transaction('select public.read_ai_profile_acceptance('+literal(accepted.record.id)+')',OTHER,OTHER_SESSION))===null);
- const row=run('begin;update private.ai_profile_signing_config set signing_key=decode(repeat(\'cd\',32),\'hex\');select true;commit;');check(row===true);
+ const row=run('begin;update private.ai_profile_signing_config set signing_key=decode(repeat(\'cd\',32),\'hex\');select to_jsonb(true);commit;');check(row===true);
  await validateProfileAcceptance(run(transaction('select public.read_ai_profile_acceptance('+literal(accepted.record.id)+')')),OWNER);
  denial(call(issueProfileReceipt(current(),preview,config),3),'AI_PROFILE_RECEIPT_INVALID');
- run("begin;update private.ai_profile_signing_config set signing_key=decode(repeat('ab',32),'hex');select true;commit;");
+ run("begin;update private.ai_profile_signing_config set signing_key=decode(repeat('ab',32),'hex');select to_jsonb(true);commit;");
  phase('complete');process.stdout.write('JOBMATCH_AI_PROFILE_NATIVE_V1 '+JSON.stringify({format:'jobmatch-ai-profile-native-v1',runKind:'actual-native-postgres/synthetic-auth-and-source-only',nodeIssuer:true,macVerifiedByPostgres:true,unicodeAndCrlfOffsets:true,batchRecords:2,concurrentWriters:20,concurrentCommits:1,concurrentConflicts:19,partialBatchRolledBack:true,replayRefused:true,crossOwnerReadRefused:true,keyRotationRefusedPending:true,historicalReadAfterRotation:true,profileRevision:3,unconfirmedRecords:3,workspaceRevision:1,modelIdentityVerified:false,modelAcceptance:'not-accepted',providerAuth:'not-performed',providerRestore:'not-performed',userData:'not-used'})+'\n');
 }
 if(require.main===module)main().catch(()=>{for(const child of owned)child.kill('SIGKILL');process.stderr.write('Native profile acceptance probe refused or incomplete; no credentials, SQL diagnostics or row data emitted.\n');process.exitCode=2;});
