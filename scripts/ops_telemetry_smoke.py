@@ -18,7 +18,7 @@ from ops_report import PREFIX, ROUTES, parse_event
 
 ROOT = Path(__file__).resolve().parent.parent
 PRIVATE = ('OPS_PRIVATE_QUERY', 'OPS_PRIVATE_COOKIE', 'OPS_PRIVATE_BODY', 'OPS_PRIVATE_PASSWORD')
-POST_ONLY = {'ai-review', 'auth-email', 'import', 'recovery'}
+POST_ONLY = {'ai-review', 'ai-profile', 'auth-email', 'import', 'recovery'}
 CURRENT_PHASE = 'guard'
 
 
@@ -242,7 +242,7 @@ def main():
         phase('cleanup')
         if server.bad:
             raise ValueError('Unexpected child output/provider fetch attempt')
-    print('PASS: real Next handlers off/on, eleven static route labels, private-canary refusal, unchanged guard statuses, observed alert and capped/inconclusive file checks; loopback-only fixture, no live-provider acceptance.')
+    print('PASS: real Next handlers off/on, ' + str(len(ROUTES)) + ' static route labels, private-canary refusal, unchanged guard statuses, observed alert and capped/inconclusive file checks; loopback-only fixture, no live-provider acceptance.')
     return 0
 
 
