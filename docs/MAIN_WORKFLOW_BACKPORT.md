@@ -18,3 +18,5 @@ vacancy input fails closed with manual-workflow guidance. This is a constrained
 request contract, not semantic verification, accepted model quality or rewriting.
 See `evaluation/adaptation/PAIRED_V2.md` for the preregistered comparison; flags
 remain off until separate operational/model acceptance.
+
+**Candidate status:** this branch's span-based provider was rejected after the actual paired attempt. It is not deployed or accepted. Main remains da2de99; see the complete negative evidence.

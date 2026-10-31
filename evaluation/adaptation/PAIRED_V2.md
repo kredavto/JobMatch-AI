@@ -55,3 +55,6 @@ any difference cannot be attributed to one component or generalized beyond these
 synthetic cases. No human semantic or live acceptance is performed. Literal
 selection is not full paraphrasing. AI/HH flags stay off; no credentials, SQL,
 paid resources or user data are used. Final archive-only changes skip inference.
+
+## Actual result: candidate rejected
+The single [paired attempt](results/20261031-paired-rejected.md) failed the physical-completeness gate (47/48 responses) and did not meet the safety criterion. Do not promote this runtime candidate. Complete original evidence is preserved; no inference retry or gold tuning.
