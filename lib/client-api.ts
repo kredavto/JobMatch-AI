@@ -26,7 +26,7 @@ export function requestErrorMessage(error:RequestError,locale:ErrorLocale='ru'){
 }
 export async function requestJson<T>(url:string,init?:RequestInit,locale:ErrorLocale='ru'):Promise<T>{
  const language=locale==='en'?'en':'ru';let response:Response;
- try{response=await fetch(url,{...init,cache:'no-store',signal:AbortSignal.timeout(30000)});}catch{throw new RequestError(clientErrors.CLIENT_NETWORK_LOST[language],0,'CLIENT_NETWORK_LOST');}
+ try{response=await fetch(url,{...init,cache:'no-store',signal:init?.signal?AbortSignal.any([init.signal,AbortSignal.timeout(30000)]):AbortSignal.timeout(30000)});}catch{throw new RequestError(clientErrors.CLIENT_NETWORK_LOST[language],0,'CLIENT_NETWORK_LOST');}
  let data;
  try{data=await response.json();}catch{throw new RequestError(clientErrors.CLIENT_INVALID_RESPONSE[language],response.ok?0:response.status,'CLIENT_INVALID_RESPONSE');}
  if(!response.ok)throw errorFromResponse(data,response.status,language);
