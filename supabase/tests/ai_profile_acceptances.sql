@@ -7,10 +7,10 @@ grant all on ap_users to authenticated;
 insert into auth.users select a from ap_users union all select b from ap_users;
 insert into auth.sessions(id,user_id) select sa,a from ap_users union all select sb,b from ap_users;
 insert into private.ai_profile_signing_config values(true,decode(repeat('ab',32),'hex'));
-create function pg_temp.ap_sign(body jsonb) returns jsonb language sql as $$
+create function pg_temp.ap_sign(body jsonb) returns jsonb language sql security definer set search_path='' as $$
  select jsonb_build_object('payload',body::text,'signature',encode(extensions.hmac(convert_to('jobmatch-ai-profile-receipt-v1'||chr(10)||body::text,'UTF8'),decode(repeat('ab',32),'hex'),'sha256'),'hex'));
 $$;
-create function pg_temp.ap_receipt(p jsonb) returns jsonb language sql as $$
+create function pg_temp.ap_receipt(p jsonb) returns jsonb language sql security definer set search_path='' as $$
  with stamp as materialized(select floor(extract(epoch from clock_timestamp()))::bigint as issued)
  select pg_temp.ap_sign(jsonb_build_object('format','jobmatch-ai-profile-receipt-v1','id',gen_random_uuid(),
  'issuerKeyId',encode(extensions.digest(decode(repeat('ab',32),'hex'),'sha256'),'hex'),
@@ -22,7 +22,7 @@ select set_config('request.jwt.claims',jsonb_build_object('sub',a,'session_id',s
 set local role authenticated;
 select public.apply_workspace_command(0,jsonb_build_object('action','import','text',E'😀 Engineer at Orbit.\n\nAnalyst at River.'));
 do $$declare before_profile jsonb:=public.read_structured_profile();signed jsonb:=pg_temp.ap_receipt(before_profile);body jsonb;bad jsonb;result jsonb;entry uuid;rev integer;before_audit bigint;bad_indices integer[];begin
- if public.ai_profile_signing_ready(encode(extensions.digest(decode(repeat('ab',32),'hex'),'sha256'),'hex')) is distinct from true then raise exception 'READINESS';end if;
+ if public.ai_profile_signing_ready(((signed->>'payload')::jsonb->>'issuerKeyId')) is distinct from true then raise exception 'READINESS';end if;
  if public.ai_profile_signing_ready('PRIVATE') is distinct from false then raise exception 'READINESS_INPUT';end if;
  before_audit:=(select count(*) from public.audit_log);
  for bad_indices in select * from (values(array[]::integer[]),(array[0,0]),(array[1,0]),(array[-1]),(array[2]),(array[0,null])) a(indices) loop
@@ -66,7 +66,7 @@ do $$declare before_profile jsonb:=public.read_structured_profile();signed jsonb
   or exists(select 1 from jsonb_array_elements(public.read_workspace()->'facts') f where (f->>'verified')::boolean)
   or result->'record'->'modelIdentityVerified' is distinct from 'false'::jsonb
   or result->'record'->>'modelAcceptance' is distinct from 'not-accepted'
-  or result->'record'->>'payloadSha256'<>encode(extensions.digest(convert_to(signed->>'payload','UTF8'),'sha256'),'hex')
+  or result->'record'->>'payloadSha256'<>encode(sha256(convert_to(signed->>'payload','UTF8')),'hex')
   or result->'record'->'selectedIndices'<>'[0,1]'::jsonb then raise exception 'BATCH_RESULT_OR_AUTO_CONFIRM';end if;
  update ap_users set receipt=(result->'record'->>'id')::uuid;
  if public.read_ai_profile_acceptance((result->'record'->>'id')::uuid) is distinct from result->'record' or jsonb_array_length(public.list_ai_profile_acceptances()->'items')<>1 then raise exception 'READBACK';end if;
