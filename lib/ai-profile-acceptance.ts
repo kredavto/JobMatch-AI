@@ -56,3 +56,18 @@ export async function validateProfileAcceptanceResult(value:unknown,ownerId:stri
 const summary=z.object({id:z.uuid(),created:z.iso.datetime({offset:true}),entryCount:z.number().int().min(1).max(10),workspaceRevision:revision,profileRevision:revision,model:z.string().min(1).max(100).regex(/^[a-zA-Z0-9_./:-]+$/),operatorDeclaredModelDigest:z.string().regex(/^sha256:[a-f0-9]{64}$/),contractVersion:z.literal('paragraph-quotes-v2'),payloadSha256:sha,modelIdentityVerified:z.literal(false),modelAcceptance:z.literal('not-accepted')}).strict();
 export const ProfileAcceptanceListSchema=z.object({format:z.literal('jobmatch-ai-profile-acceptance-list-v1'),ownerId:z.uuid(),items:z.array(summary).max(PROFILE_ACCEPTANCE_LIMIT)}).strict().refine(value=>new Set(value.items.map(item=>item.id)).size===value.items.length);
 export type ProfileAcceptanceList=z.infer<typeof ProfileAcceptanceListSchema>;
+
+/** Bounded initial-list snapshot. Partial/cancelled reads never return a complete file. */
+export async function collectProfileAcceptanceExport(ownerId:string,readList:()=>Promise<unknown>,readRecord:(id:string)=>Promise<unknown>,signal:AbortSignal){
+ const current=()=>{if(signal.aborted)throw Error('AI profile export interrupted');};
+ current();const list=ProfileAcceptanceListSchema.parse(await readList());current();
+ if(list.ownerId!==ownerId)throw Error('AI profile export refused');
+ const records:ProfileAcceptance[]=[];
+ for(const item of list.items){
+  current();const record=await validateProfileAcceptance(await readRecord(item.id),ownerId);current();
+  const payload=decodeProfileReceipt(record.receipt);
+  if(record.id!==item.id||record.created!==item.created||record.entryIds.length!==item.entryCount||record.payloadSha256!==item.payloadSha256||payload.source.workspaceRevision!==item.workspaceRevision||payload.source.profileRevision!==item.profileRevision||payload.preview.origin.model!==item.model||payload.preview.origin.operatorDeclaredModelDigest!==item.operatorDeclaredModelDigest)throw Error('AI profile export refused');
+  records.push(record);
+ }
+ current();return {format:'jobmatch-ai-profile-acceptance-export-v1' as const,ownerId,complete:true as const,exportedAt:new Date().toISOString(),scope:'initial-metadata-list' as const,sourceStatus:'editable-local-copy' as const,modelIdentityVerified:false as const,modelAcceptance:'not-accepted' as const,records};
+}

@@ -1,6 +1,6 @@
 'use client';
 import {useEffect,useMemo,useRef,useState} from 'react';
-import {ProfileAcceptanceListSchema,validateProfileAcceptance,decodeProfileReceipt,type ProfileAcceptance,type ProfileAcceptanceList} from '../lib/ai-profile-acceptance';
+import {ProfileAcceptanceListSchema,collectProfileAcceptanceExport,validateProfileAcceptance,decodeProfileReceipt,type ProfileAcceptance,type ProfileAcceptanceList} from '../lib/ai-profile-acceptance';
 import {aiProfileAcceptanceCopy} from '../lib/i18n/ai-profile-acceptance';
 import {aiProfileCopy} from '../lib/i18n/ai-profile';
 import {structuredProfileCopy} from '../lib/i18n/structured-profile';
@@ -27,6 +27,22 @@ function History({ownerId,disabled,locale,onConflict}:Props){
   }catch(cause){if(active.current===owned){setError(cause instanceof RequestError?cause:'history');if(cause instanceof RequestError&&[401,409].includes(cause.status))onConflict();}}
   finally{clearTimeout(timer);if(active.current===owned){active.current=null;setBusy(false);}}
  }
+ async function downloadJournal(){
+  if(disabled||active.current)return;const owned=new AbortController();active.current=owned;setBusy(true);setError(null);
+  const timer=setTimeout(()=>owned.abort(),120000);let url:string|undefined;
+  async function fetchRecord(id?:string){
+   const response=await fetch('/api/ai-profile'+(id?'?id='+encodeURIComponent(id):''),{cache:'no-store',headers:{'x-jobmatch-owner':ownerId},signal:owned.signal});
+   const value:unknown=await response.json();if(active.current!==owned||owned.signal.aborted)throw Error();
+   if(!response.ok)throw errorFromResponse({code:value!==null&&typeof value==='object'&&'code' in value?value.code:undefined},response.status,locale);
+   return value;
+  }
+  try{
+   const value=await collectProfileAcceptanceExport(ownerId,()=>fetchRecord(),id=>fetchRecord(id),owned.signal);
+   if(active.current!==owned||owned.signal.aborted)return;
+   url=URL.createObjectURL(new Blob([JSON.stringify(value,null,2)],{type:'application/json'}));const link=document.createElement('a');link.href=url;link.download='jobmatch-ai-profile-acceptances.json';link.click();
+  }catch(cause){if(active.current===owned){setError(cause instanceof RequestError?cause:'history');if(cause instanceof RequestError&&[401,409].includes(cause.status))onConflict();}}
+  finally{clearTimeout(timer);if(url){const ownedUrl=url;setTimeout(()=>URL.revokeObjectURL(ownedUrl),1000);}if(active.current===owned){active.current=null;setBusy(false);}}
+ }
  function download(){
   if(disabled||active.current||!record)return;let url:string|undefined;
   try{url=URL.createObjectURL(new Blob([JSON.stringify(record,null,2)],{type:'application/json'}));const link=document.createElement('a');link.href=url;link.download='jobmatch-ai-profile-acceptance.json';link.click();}
@@ -34,7 +50,7 @@ function History({ownerId,disabled,locale,onConflict}:Props){
  }
  const payload=useMemo(()=>record?decodeProfileReceipt(record.receipt):null,[record]),dateFormat=new Intl.DateTimeFormat(locale,{dateStyle:'medium',timeStyle:'short'});
  return <section aria-labelledby="ai-profile-history-title"><h3 id="ai-profile-history-title">{t.history}</h3><p>{t.historyHelp}</p>
- <button type="button" disabled={disabled||busy} onClick={()=>void read()}>{busy?t.loading:items?t.refreshHistory:t.openHistory}</button>{busy&&<button type="button" onClick={cancel}>{t.cancel}</button>}
+ <button type="button" disabled={disabled||busy} onClick={()=>void read()}>{busy?t.loading:items?t.refreshHistory:t.openHistory}</button>{busy&&<button type="button" onClick={cancel}>{t.cancel}</button>}<button type="button" disabled={disabled||busy} onClick={()=>void downloadJournal()}>{t.downloadAll}</button>
  {error&&<p role="alert">{error instanceof RequestError?requestErrorMessage(error,locale):error==='download'?t.downloadError:t.historyError}</p>}
  {items&&items.items.length===0&&<p role="status">{t.empty}</p>}
  {items&&<ul>{items.items.map(item=><li key={item.id}><time dateTime={item.created}>{dateFormat.format(new Date(item.created))}</time>{' — '}{t.count(item.entryCount)}{' — '}<span lang="">{item.model}</span>{' '}<button type="button" disabled={disabled||busy} onClick={()=>void read(item.id)}>{t.view}</button></li>)}</ul>}

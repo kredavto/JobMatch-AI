@@ -8,6 +8,7 @@ export const ExportSchema=z.object({
  fact_history_export:z.literal('/api/fact-history?export=1'),
  structured_profile_export:z.literal('/api/structured-profile?export=1').optional(),
  consent_observation_kind:z.literal('legacy-workspace-observation').optional(),
+ ai_profile_acceptances_export:z.literal('structured-profile-ai-journal-panel').optional(),
  consent_receipts_export:z.literal('settings-consent-panel').optional(),
  reminder_export:z.literal('/api/reminders?export=1').optional(),
  structured_version_export:z.literal('/api/structured-versions?export=1').optional(),
