@@ -301,3 +301,10 @@ MVP/весь проект не объявлены полностью приня�
 ## Кандидат #54 — специальности и исходы, 31 октября 2026
 
 [PR #54](https://github.com/kredavto/JobMatch-AI/pull/54) подготовил явные пользовательские метки откликов, их current-label аналитику и отдельный CSV с RU/EN; старые записи/неизвестные значения не переклассифицируются автоматически. Executable CI:все10 workflows SUCCESS,1070unit/88Python/255browser PASS (2live-account SKIP)/76worker; native no-rewrite/20writers/21-table synthetic restore PASS. Это техническая готовность кандидата, не новая живая приёмка. Actual CPU остаётся not-accepted; full audit15moderate/strict exit1. SMTP/recovery, provider backup restore, PD decision и финальный живой сценарий не закрыты. [Контракт и доказательства](docs/APPLICATION_SPECIALTIES.md).
+
+
+## Кандидат #55 — реальные CPU-попытки, 31 октября 2026
+
+[PR #55](https://github.com/kredavto/JobMatch-AI/pull/55) подготовил два reviewed model pins, общий image/binary, строгую проверку complete comparison и отдельную проверяемую запись неполного отрицательного эксперимента. Первый strict CPU run отказал: у1.5B27/28 backend responses. Во втором реальном run41192850099/job124513002029 повторились27/28 и1error; корректно выдан ATTEMPT_V1/not-comparable/no deltas/not-accepted. Это не полное сравнение или принятая модель. Все9 executable workflows SUCCESS:1070unit/45AI Node/93Python/255browser PASS,2live-account SKIP,lint/types/build/native21-table synthetic restore PASS. Полные оба runs, включая исходный FAILURE, сохранены в [архиве](evaluation/results/20261031-qwen-controlled-comparison.md); [контракт](evaluation/CPU_COMPARISON.md).
+
+Green диагностика не закрывает live модель/SMTP/password recovery/настоящий provider-copy Supabase restore/PD decision/финальную эксплуатационную приёмку. PR не объединён/не выпущен, общий проект не объявлен принятым. Следующий внутренний блок — general free-text structured extraction с provenance/unknown/explicit preview/acceptance, затем проверяемое переписывание; schema/ranges не выдаются за смысловую верификацию.

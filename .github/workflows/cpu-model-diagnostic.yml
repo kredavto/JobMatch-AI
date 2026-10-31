@@ -42,18 +42,68 @@ jobs:
       - name: Determine whether this commit changes executable inputs
         id: scope
         run: python3 scripts/cpu_model_scope.py
-      - name: Download public pinned weights and verify exact bytes/digest/revision pointer
-        if: steps.scope.outputs.run == 'true'
-        run: python3 scripts/fetch_cpu_model.py "$RUNNER_TEMP/jobmatch-cpu-model"
-      - name: Build pinned llama.cpp locally (no registry publication or model cache)
-        if: steps.scope.outputs.run == 'true'
-        run: docker build -f evaluation/cpu/Dockerfile -t jobmatch-cpu-diagnostic:local evaluation/cpu
-      - name: Actual CPU inference, no network, fixed synthetic corpus, no quality promotion
+      - name: Prepare an exclusive job-owned model and report directory
+        id: comparison
         if: steps.scope.outputs.run == 'true'
         shell: bash
         run: |
+          comparison_root="$(mktemp -d "$RUNNER_TEMP/jobmatch-cpu-comparison.XXXXXXXX")"
+          printf 'directory=%s\n' "$comparison_root" >> "$GITHUB_OUTPUT"
+      - name: Download and verify exact baseline weights and license
+        if: steps.scope.outputs.run == 'true'
+        env:
+          JOBMATCH_CPU_COMPARISON_ROOT: ${{ steps.comparison.outputs.directory }}
+        run: python3 scripts/fetch_cpu_model.py "$JOBMATCH_CPU_COMPARISON_ROOT/baseline"
+      - name: Download and verify exact candidate weights and license
+        if: steps.scope.outputs.run == 'true'
+        env:
+          JOBMATCH_CPU_COMPARISON_ROOT: ${{ steps.comparison.outputs.directory }}
+        run: python3 scripts/fetch_cpu_model.py --candidate "$JOBMATCH_CPU_COMPARISON_ROOT/candidate"
+      - name: Build one pinned CPU binary and image for both models
+        id: image
+        if: steps.scope.outputs.run == 'true'
+        shell: bash
+        run: |
+          docker build -f evaluation/cpu/Dockerfile -t jobmatch-cpu-diagnostic:local evaluation/cpu
           image_id="$(docker image inspect jobmatch-cpu-diagnostic:local --format '{{.Id}}')"
-          timeout --signal=TERM --kill-after=10s 900s docker run --rm --init --network none --read-only --cap-drop ALL --security-opt no-new-privileges --cpus 4 --memory 4g --pids-limit 128 --tmpfs /tmp:rw,noexec,nosuid,size=64m --user 1000:1000 -v "$GITHUB_WORKSPACE:/app:ro" -v "$RUNNER_TEMP/jobmatch-cpu-model:/model:ro" -e CI=true -e GITHUB_ACTIONS=true -e JOBMATCH_AI_CPU_DIAGNOSTIC=true -e JOBMATCH_AI_CPU_QUOTE_CONTRACT=source-lines-v1 -e JOBMATCH_AI_CPU_LINK_AUDIT=literal-quantities-v1 -e GITHUB_REPOSITORY=kredavto/JobMatch-AI -e JOBMATCH_REPOSITORY_VISIBILITY=public -e NODE_ENV=test -e JOBMATCH_AI_CPU_IMAGE_ID="$image_id" jobmatch-cpu-diagnostic:local
-      - name: Dispose only the job-owned model directory
-        if: always()
-        run: rm -rf -- "$RUNNER_TEMP/jobmatch-cpu-model"
+          [[ "$image_id" =~ ^sha256:[a-f0-9]{64}$ ]]
+          printf 'image=%s\n' "$image_id" >> "$GITHUB_OUTPUT"
+      - name: Actual baseline CPU inference on the fixed synthetic corpus
+        if: steps.scope.outputs.run == 'true'
+        shell: bash
+        env:
+          JOBMATCH_CPU_COMPARISON_ROOT: ${{ steps.comparison.outputs.directory }}
+          JOBMATCH_AI_CPU_IMAGE_ID: ${{ steps.image.outputs.image }}
+        run: |
+          set -euo pipefail
+          umask 077
+          test ! -e "$JOBMATCH_CPU_COMPARISON_ROOT/baseline.log"
+          timeout --signal=TERM --kill-after=10s 900s docker run --rm --init --network none --read-only --cap-drop ALL --security-opt no-new-privileges --cpus 4 --memory 4g --pids-limit 128 --tmpfs /tmp:rw,noexec,nosuid,size=64m --user 1000:1000 -v "$GITHUB_WORKSPACE:/app:ro" -v "$JOBMATCH_CPU_COMPARISON_ROOT/baseline:/model:ro" -e CI=true -e GITHUB_ACTIONS=true -e JOBMATCH_AI_CPU_DIAGNOSTIC=true -e JOBMATCH_AI_CPU_MODEL_SLOT=baseline -e JOBMATCH_AI_CPU_QUOTE_CONTRACT=source-lines-v1 -e JOBMATCH_AI_CPU_LINK_AUDIT=literal-quantities-v1 -e GITHUB_REPOSITORY=kredavto/JobMatch-AI -e JOBMATCH_REPOSITORY_VISIBILITY=public -e NODE_ENV=test -e JOBMATCH_AI_CPU_IMAGE_ID="$JOBMATCH_AI_CPU_IMAGE_ID" "$JOBMATCH_AI_CPU_IMAGE_ID" | tee "$JOBMATCH_CPU_COMPARISON_ROOT/baseline.log"
+      - name: Actual candidate CPU inference with the same binary and bounds
+        if: steps.scope.outputs.run == 'true'
+        shell: bash
+        env:
+          JOBMATCH_CPU_COMPARISON_ROOT: ${{ steps.comparison.outputs.directory }}
+          JOBMATCH_AI_CPU_IMAGE_ID: ${{ steps.image.outputs.image }}
+        run: |
+          set -euo pipefail
+          umask 077
+          test ! -e "$JOBMATCH_CPU_COMPARISON_ROOT/candidate.log"
+          timeout --signal=TERM --kill-after=10s 900s docker run --rm --init --network none --read-only --cap-drop ALL --security-opt no-new-privileges --cpus 4 --memory 4g --pids-limit 128 --tmpfs /tmp:rw,noexec,nosuid,size=64m --user 1000:1000 -v "$GITHUB_WORKSPACE:/app:ro" -v "$JOBMATCH_CPU_COMPARISON_ROOT/candidate:/model:ro" -e CI=true -e GITHUB_ACTIONS=true -e JOBMATCH_AI_CPU_DIAGNOSTIC=true -e JOBMATCH_AI_CPU_MODEL_SLOT=candidate -e JOBMATCH_AI_CPU_QUOTE_CONTRACT=source-lines-v1 -e JOBMATCH_AI_CPU_LINK_AUDIT=literal-quantities-v1 -e GITHUB_REPOSITORY=kredavto/JobMatch-AI -e JOBMATCH_REPOSITORY_VISIBILITY=public -e NODE_ENV=test -e JOBMATCH_AI_CPU_IMAGE_ID="$JOBMATCH_AI_CPU_IMAGE_ID" "$JOBMATCH_AI_CPU_IMAGE_ID" | tee "$JOBMATCH_CPU_COMPARISON_ROOT/candidate.log"
+      - name: Validate experiment and distinguish incomplete comparison without model acceptance
+        if: steps.scope.outputs.run == 'true'
+        env:
+          NODE_ENV: test
+          JOBMATCH_CPU_COMPARISON_ROOT: ${{ steps.comparison.outputs.directory }}
+        run: node evaluation/dist/evaluation/cpu-comparison.cjs
+      - name: Dispose only the exclusively created comparison directory
+        if: always() && steps.comparison.outputs.directory != ''
+        shell: bash
+        env:
+          JOBMATCH_CPU_COMPARISON_ROOT: ${{ steps.comparison.outputs.directory }}
+        run: |
+          case "$JOBMATCH_CPU_COMPARISON_ROOT" in
+            "$RUNNER_TEMP"/jobmatch-cpu-comparison.????????) test -d "$JOBMATCH_CPU_COMPARISON_ROOT" && test ! -L "$JOBMATCH_CPU_COMPARISON_ROOT" ;;
+            *) exit 2 ;;
+          esac
+          rm -rf -- "$JOBMATCH_CPU_COMPARISON_ROOT"
