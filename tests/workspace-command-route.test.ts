@@ -47,6 +47,16 @@ it('does not retry a failed application write or send a snapshot fallback',async
  expect((await call({action:'application',id:'a1',status:'Интервью'})).status).toBe(409);
  expect(db.applyWorkspaceCommand).toHaveBeenCalledTimes(1);expect(db.saveWorkspace).not.toHaveBeenCalled();
 });
+it.each(['Аналитик','', '😀'.repeat(120)])('passes an explicit specialty unchanged without a snapshot read: %j',async specialty=>{
+ const command={action:'application',id:'a1',status:'Планируется',note:'keep',specialty};
+ expect((await call(command)).status).toBe(200);
+ expect(db.applyWorkspaceCommand).toHaveBeenCalledWith({id:owner,token:'fixture'},2,command);
+ expect(db.readWorkspace).not.toHaveBeenCalled();expect(db.saveWorkspace).not.toHaveBeenCalled();
+});
+it.each([null,{legacy:true},' leading','line\nbreak','😀'.repeat(121),'\ud800'])('rejects a supplied invalid specialty instead of silently omitting it: %j',async specialty=>{
+ expect((await call({action:'application',id:'a1',status:'Планируется',note:'keep',specialty})).status).toBe(400);
+ expect(db.applyWorkspaceCommand).not.toHaveBeenCalled();expect(db.saveWorkspace).not.toHaveBeenCalled();
+});
 it('blocks stale owner and cross-origin before command',async()=>{
  expect((await call({action:'goal',text:'x',expectedOwnerId:'22222222-2222-4222-8222-222222222222'})).status).toBe(409);
  expect((await call({action:'goal',text:'x'},'https://evil.test')).status).toBe(403);

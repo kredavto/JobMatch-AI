@@ -109,3 +109,7 @@ Tracker notes now use an explicit Save button. Unsaved notes survive list filter
 ### Lint dependency compatibility — candidate #53
 
 Only the reviewed typescript-estree 8.72.0 consumer uses minimatch 11.0.3; legacy callable consumers stay separate. Real parser/project-service and effective ESLint rule/config regressions are included in `npm run test:dependency-security`. Fresh audit: runtime 0, full 15 moderate package records for one advisory; `npm run audit:dependencies:all` still fails. This does not close security acceptance. See [compatibility evidence and snapshots](security/LINT_COMPATIBILITY_20261031.md).
+
+### Application specialties — candidate #54
+
+Applications can have an optional user-entered specialty label with explicit save/clear, protected drafts and exact owner/revision acknowledgement. RU/EN analytics group recorded outcomes by the current literal label, combine date/version filters, retain unclassified observations and export a separate formula-safe summary CSV. Labels do not verify qualifications or affect Match Score; comparisons do not establish causality. Existing CSV formats stay unchanged. The candidate database function migration must precede rollout. [Contract, compatibility and actual CI evidence](docs/APPLICATION_SPECIALTIES.md).

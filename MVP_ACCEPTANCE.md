@@ -297,3 +297,7 @@ MVP/весь проект не объявлены полностью приня�
 ## Кандидат #53 — 31 октября 2026
 
 Точечный minimatch 11.0.3 для проверенного TypeScript parser consumer и семь реальных проверок совместимости подготовлены в [PR #53](https://github.com/kredavto/JobMatch-AI/pull/53). Локально: 996 unit, 20 security, lint/types/build PASS. Свежий audit: runtime 0 / full 15 moderate записей одного advisory (было 16); строгий полный gate остаётся exit 1. Это не независимая security или живая эксплуатационная приёмка. SMTP/password recovery, реальный restore Supabase, решение оператора о данных и финальный multi-account сценарий остаются открытыми. [Границы и реальные snapshots](security/LINT_COMPATIBILITY_20261031.md).
+
+## Кандидат #54 — специальности и исходы, 31 октября 2026
+
+[PR #54](https://github.com/kredavto/JobMatch-AI/pull/54) подготовил явные пользовательские метки откликов, их current-label аналитику и отдельный CSV с RU/EN; старые записи/неизвестные значения не переклассифицируются автоматически. Executable CI:все10 workflows SUCCESS,1070unit/88Python/255browser PASS (2live-account SKIP)/76worker; native no-rewrite/20writers/21-table synthetic restore PASS. Это техническая готовность кандидата, не новая живая приёмка. Actual CPU остаётся not-accepted; full audit15moderate/strict exit1. SMTP/recovery, provider backup restore, PD decision и финальный живой сценарий не закрыты. [Контракт и доказательства](docs/APPLICATION_SPECIALTIES.md).

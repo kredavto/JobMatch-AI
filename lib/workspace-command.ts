@@ -1,4 +1,5 @@
 import {z} from 'zod';
+import {SpecialtySchema} from './application-specialty';
 import {ORDINARY_ENGLISH_TEMPLATE} from './ordinary-template';
 import {APPLICATION_STATUSES} from './application-filter';
 import {MatchMetadataSchema,RULES_REVISION,weights,contributions} from './match-config';
@@ -10,7 +11,7 @@ const currentMetadata=MatchMetadataSchema.refine(m=>m.rules_revision===RULES_REV
 const application=z.object({
  action:z.literal('application'),id:entityId.optional(),title:z.string().min(1).max(300).optional(),
  status:z.enum(APPLICATION_STATUSES),note:z.string().max(3000).default(''),
- resumeVersionId:entityId.nullable().optional()
+ resumeVersionId:entityId.nullable().optional(),specialty:SpecialtySchema.optional()
 }).strict().superRefine((command,ctx)=>{
  if(command.id===undefined&&command.title===undefined)ctx.addIssue({code:'custom',path:['title'],message:'Title required for a new application'});
  if(command.id!==undefined&&command.title!==undefined)ctx.addIssue({code:'custom',path:['title'],message:'Saved title is immutable'});
