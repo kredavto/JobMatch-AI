@@ -1,12 +1,12 @@
 # Local manual-letter edit review
 
-Candidate stacked on unmerged PR #59. This is a bounded lexical review tool, not a generative model, semantic verifier, authenticated source or immutable server version. No inference, provider operation, workspace write, migration, production setting, mail sending or release is introduced.
+Candidate [PR #60](https://github.com/kredavto/JobMatch-AI/pull/60), stacked on unmerged PR #59. This is a bounded lexical review tool, not a generative model, semantic verifier, authenticated source or immutable server version. No inference, provider operation, workspace write, migration, production setting, mail sending or release is introduced.
 
 ## Behavior
 
 The existing literal-template draft and selected user-confirmed facts remain the baseline. A changed draft always creates a **manual-edit** finding requiring review of every claim. Additional findings show exact numeric expressions or selected RU/EN negation markers added/removed relative to that generated draft, including occurrence counts and code-point ranges in the corresponding text. Changes are not compared to unselected facts or inferred from the vacancy.
 
-Both TXT and JSON downloads require the existing whole-letter approval and an explicit acknowledgement of every finding. Every keystroke, restore, generation, fact/style/template-language change clears relevant acknowledgements. Interface-language changes preserve them; dirty/paused source guards and the existing current-evidence recheck still govern downloads. No acknowledgement is treated as independent proof of truth or a physical reviewer's identity. Restoring the template clears findings and approval.
+Both TXT and JSON downloads require the existing whole-letter approval and an explicit acknowledgement of every finding. Every text change, restore, generation, fact/style/template-language change clears relevant acknowledgements. Interface-language changes preserve them; dirty/paused source guards and the existing current-evidence recheck still govern downloads. No acknowledgement is treated as independent proof of truth or a physical reviewer's identity. Restoring the template clears findings and approval.
 
 ## Limits and blind spots
 
@@ -35,3 +35,6 @@ This is an editable local export. It has no server signature, trusted timestamp,
 The phase entry in VERIFICATION.md records actual unit/browser/CI counts and links. Fixtures test the lexical contract and real React controls with synthetic sources, not a model or live provider acceptance. Independent tests explicitly preserve undetected unit/role/negation-reordering examples as limitations, and check Unicode, repeated occurrences, tampering, cancellation by restore/typing, locale preservation and no network writes.
 
 Server-bound immutable accepted-letter versions with source/revision ownership, independent semantic/contradiction evaluation, accepted self-hosted deployment and real documents remain separate work. Existing SMTP/password recovery, actual Supabase-copy restore/RPO/RTO, operator PD placement/retention/withdrawal, HH permissions, security/monitoring and final live/manual acceptance gates remain open. Historical #1/#2 authorization is not permission to merge or release this candidate.
+
+
+Executable c4d683f35da1406a88c13ac353b77b57be63f772: [application311browser/1228unit](https://github.com/kredavto/JobMatch-AI/actions/runs/41235144263), [native regression](https://github.com/kredavto/JobMatch-AI/actions/runs/41235144362).58Node/103Python/76worker and lint/types/build passed. Local current full browser:311PASS/2liveSKIP;18targeted component cases passed. See VERIFICATION.md for initial failed legacy-test/setup attempts and recovery fix; no failed run is counted as a full pass. Future scanner/template dependency changes must version the contract and retain the prior decoder, rather than silently reinterpret historical reports.
