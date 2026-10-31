@@ -53,3 +53,9 @@
 ## Сверка 29 октября 2026
 - `main` на старте этой задачи: `38117e007909d13cc87a73e3efe488a6c134aba9` (PR #3 merged), Vercel deployment `dpl_G6XSXvaskLfuxKsN4WiyrCN8fUyg` READY. В production найден `public.apply_workspace_command(integer,jsonb)`. Поэтому более ранние записи этого плана о ветке/неприменённой миграции устарели; полный живой паритет команд этим не подтверждается.
 - В отдельной ветке подготовлен кандидат 0.35 почтового UX и application CI. Приёмка доставки, копии провайдера и решение о данных не закрываются тестами на mocks.
+
+### Main-only local letter snapshot
+- [x] Separate consented JSON download with selected-source/template provenance,
+  bounded strict offline consistency validation and exact lexical acknowledgements.
+  Unsigned editable local file only; no immutable/server version, semantic
+  verification or profile-completeness claim. See `docs/LETTER_SNAPSHOT_MAIN.md`.
