@@ -1923,7 +1923,7 @@ create table public.ai_profile_acceptances(
  signature text not null check(signature ~ '^[a-f0-9]{64}$'),
  selected_indices integer[] not null check(array_ndims(selected_indices)=1 and cardinality(selected_indices) between 1 and 10 and array_position(selected_indices,null) is null and 0<=all(selected_indices) and 9>=all(selected_indices)),
  entry_ids uuid[] not null check(array_ndims(entry_ids)=1 and cardinality(entry_ids)=cardinality(selected_indices) and array_position(entry_ids,null) is null),
- payload_sha256 text generated always as(encode(extensions.digest(convert_to(payload,'UTF8'),'sha256'),'hex')) stored,
+ payload_sha256 text not null check(payload_sha256 ~ '^[a-f0-9]{64}$' and payload_sha256=encode(extensions.digest(convert_to(payload,'UTF8'),'sha256'),'hex')),
  primary key(user_id,id)
 );
 alter table public.ai_profile_acceptances enable row level security;
@@ -2053,8 +2053,8 @@ begin
    or exists(select 1 from jsonb_array_elements(profile->'entries') e where (e->>'id')::uuid=added[1] and (e->>'confirmed')::boolean) then raise exception 'INVALID_WRITE';end if;
   entry_ids:=entry_ids||added[1];before_ids:=before_ids||added[1];head:=head+1;
  end loop;
- insert into public.ai_profile_acceptances(user_id,id,created,payload,signature,selected_indices,entry_ids)
- values(uid,(body->>'id')::uuid,accepted_at,p_payload,p_signature,p_selected_indices,entry_ids) returning * into receipt;
+ insert into public.ai_profile_acceptances(user_id,id,created,payload,signature,selected_indices,entry_ids,payload_sha256)
+ values(uid,(body->>'id')::uuid,accepted_at,p_payload,p_signature,p_selected_indices,entry_ids,encode(extensions.digest(convert_to(p_payload,'UTF8'),'sha256'),'hex')) returning * into receipt;
  insert into public.audit_log(user_id,action) values(uid,'ai_profile_accept');
  return jsonb_build_object('profile',profile,'record',private.ai_profile_acceptance_json(receipt));
 end;$$;
