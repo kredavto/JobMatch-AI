@@ -75,3 +75,12 @@ npx tsc -p evaluation/adaptation/tsconfig.json
 npx vitest run tests/adaptation-diagnostic.test.ts
 python3 -m unittest discover -s scripts -p 'test_*adaptation*.py'
 ```
+
+## Actual exact-main result — 31 October 2026
+
+[Original report and analysis](results/20261031-exact-main.md): executed
+`b835de8f549acf7f4afcdbf58ba7bf7abb54f9c4`, [run41247954513](https://github.com/kredavto/JobMatch-AI/actions/runs/41247954513).
+16/16 positive-token stop responses, 1,074 tokens, **0/16 gold passes**,
+14 provenance failures and 2 gold mismatches. Runtime completed, but the model is
+**NOT ACCEPTED**; no successful rewriting/selected-draft acceptance, no production
+activation. Markdown-only archival follow-ups do not rerun inference.
