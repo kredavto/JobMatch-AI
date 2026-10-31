@@ -8,7 +8,7 @@ import {spawnSync} from 'node:child_process';
 import {createServer} from 'node:http';
 import {once} from 'node:events';
 import {z} from 'zod';
-import {compareCpuReports,parseCpuTranscript} from '../dist/evaluation/cpu-comparison.cjs';
+import {compareCpuReports,assessCpuComparison,parseCpuTranscript} from '../dist/evaluation/cpu-comparison.cjs';
 import {validateCpuPin,cpuModelSlot,cpuModelIdentity,cpuServerArgs,createCpuBridge,CPU_ALIAS,CPU_LICENSE_SHA} from '../dist/evaluation/cpu-diagnostic.cjs';
 import {CORPUS_VERSION,evaluationCorpus} from '../dist/evaluation/corpus.js';
 import {AI_FAILURE_STAGES} from '../dist/lib/ai-diagnostics.js';
@@ -31,6 +31,7 @@ const approved={CI:'true',GITHUB_ACTIONS:'true',JOBMATCH_AI_CPU_DIAGNOSTIC:'true
 function files(run){const parent=mkdtempSync(join(tmpdir(),'jobmatch-comparison-unit-')),root=join(parent,'jobmatch-cpu-comparison.A1b2C3d4');mkdirSync(root,{mode:0o700});
  try{for(const slot of ['baseline','candidate'])writeFileSync(join(root,slot+'.log'),transcript(fixture(slot)),{mode:0o600});run({parent,root,env:{PATH:process.env.PATH,...approved,RUNNER_TEMP:parent,JOBMATCH_CPU_COMPARISON_ROOT:root}});}finally{rmSync(parent,{recursive:true,force:true});}}
 const cli=(env,args=[])=>spawnSync(process.execPath,['evaluation/dist/evaluation/cpu-comparison.cjs',...args],{env,encoding:'utf8',timeout:5000});
+function incompleteFixture(){const result=fixture('candidate',{errors:1});result.bridge.backendResponses=27;result.bridge.stopped=27;result.bridge.transportFailures=1;result.evaluation.rows[0].failureStage='http-status-or-type';result.evaluation.failureStageCounts.citation=0;result.evaluation.failureStageCounts['http-status-or-type']=1;return result;}
 
 test('two explicit pins preserve baseline defaults and refuse cross-slot or resource substitutions',()=>{
  assert.equal(cpuModelSlot(undefined),'baseline');assert.equal(cpuModelSlot('candidate'),'candidate');
@@ -100,4 +101,18 @@ test('CLI rejects symlink, world-readable, oversized and partial report files wi
 });
 test('CLI refuses FIFOs promptly instead of blocking while opening input',()=>{
  files(({env,root})=>{rmSync(join(root,'baseline.log'));const created=spawnSync('mkfifo',[join(root,'baseline.log')],{encoding:'utf8',timeout:2000});assert.equal(created.status,0);const result=cli(env);assert.equal(result.error,undefined);assert.equal(result.status,2);assert.equal(result.stdout,'');});
+});
+test('coherent real failure shape receives an explicit incomplete attempt, never a full comparison or delta',()=>{
+ const baseline=fixture('baseline'),candidate=incompleteFixture();assert.throws(()=>compareCpuReports(baseline,candidate));
+ const result=assessCpuComparison(baseline,candidate);assert.equal(result.format,'jobmatch-cpu-comparison-attempt-v1');assert.equal(result.comparisonStatus,'not-comparable');assert.equal(result.operationalComparisonComplete,false);assert.equal(result.reason,'incomplete-backend-responses');assert.equal(result.acceptance,'not-accepted');assert.equal('deltas' in result,false);assert.equal(result.candidate.bridge.backendResponses,27);assert.equal(result.candidate.counts.errors,1);assert.equal(result.candidate.evaluatorExitCode,2);
+});
+test('attempt assessment rejects inconsistent failures and preserves the strict complete comparison',()=>{
+ assert.deepEqual(assessCpuComparison(fixture('baseline'),fixture('candidate')),compareCpuReports(fixture('baseline'),fixture('candidate')));
+ for(const change of [r=>{r.bridge.transportFailures=0;},r=>{r.bridge.backendResponses=28;},r=>{r.bridge.stopped=26;},r=>{r.bridge.generatedTokens=26;},r=>{r.bridge.generatedTokens=27*2056+1;},r=>{r.evaluation.rows[0].failureStage='citation';r.evaluation.failureStageCounts.citation=1;r.evaluation.failureStageCounts['http-status-or-type']=0;},r=>{r.evaluation.errors=0;},r=>{r.runtime.cpu='PRIVATE';},r=>{r.evaluation.promptSha256='0'.repeat(64);}]){const value=incompleteFixture();change(value);assert.throws(()=>assessCpuComparison(fixture('baseline'),value),error=>error.message==='CPU comparison refused or inconsistent');}
+});
+test('CLI explicitly records incomplete attempts without the complete comparison prefix',()=>{
+ files(({env,root})=>{writeFileSync(join(root,'candidate.log'),transcript(incompleteFixture()));const result=cli(env);assert.equal(result.status,0,result.stderr);assert.match(result.stdout,/^JOBMATCH_CPU_COMPARISON_ATTEMPT_V1 /);const report=JSON.parse(result.stdout.slice('JOBMATCH_CPU_COMPARISON_ATTEMPT_V1 '.length));assert.equal(report.comparisonStatus,'not-comparable');assert.equal(report.operationalComparisonComplete,false);assert.equal('deltas' in report,false);assert.equal(report.acceptance,'not-accepted');});
+});
+test('CLI fails closed for missing response without a coherent operational failure',()=>{
+ files(({env,root})=>{const value=incompleteFixture();value.bridge.transportFailures=0;writeFileSync(join(root,'candidate.log'),transcript(value));const result=cli(env);assert.equal(result.status,2);assert.equal(result.stdout,'');});
 });

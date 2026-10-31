@@ -34,11 +34,17 @@ const outer=z.object({
  bridge:z.object({acceptedRequests:z.literal(28),backendResponses:z.literal(28),generatedTokens:z.number().int().min(1).max(28*2056),stopped:count,limited:count,transportFailures:z.literal(0),rejectedRequests:z.literal(0)}).strict(),
  diagnosticQuality:z.enum(['synthetic-exact-gold-passed','synthetic-provider-or-contract-errors','synthetic-quality-mismatch']),evaluatorExitCode:z.union([z.literal(0),z.literal(1),z.literal(2)]),evaluation,
 }).strict();
+// A completed evaluator can contain a real failed backend request. Validate that
+// outcome separately; it must never receive the complete comparison envelope.
+const attempt=outer.extend({bridge:z.object({acceptedRequests:z.literal(28),backendResponses:count.refine(n=>n>0),generatedTokens:z.number().int().min(1).max(28*2056),stopped:count,limited:count,transportFailures:count,rejectedRequests:z.literal(0)}).strict()});
 
-function normalize(value:unknown,slot:CpuModelSlot){
- const report=outer.parse(value),pin=validateCpuPin(report.pin,slot),result=report.evaluation;
+function normalize(value:unknown,slot:CpuModelSlot,complete=true){
+ const report=(complete?outer:attempt).parse(value),pin=validateCpuPin(report.pin,slot),result=report.evaluation;
  validateCpuEvaluationDiagnostics(result,'source-lines-v1',true);
- if(result.model!==pin.modelAlias||result.operatorDeclaredModelDigest!=='sha256:'+pin.sha256||report.bridge.stopped+report.bridge.limited!==28)throw Error();
+ if(result.model!==pin.modelAlias||result.operatorDeclaredModelDigest!=='sha256:'+pin.sha256
+  ||report.bridge.stopped+report.bridge.limited!==report.bridge.backendResponses
+  ||report.bridge.backendResponses+report.bridge.transportFailures!==28
+  ||report.bridge.generatedTokens<report.bridge.backendResponses||report.bridge.generatedTokens>report.bridge.backendResponses*2056)throw Error();
  if(new Set(result.rows.map(row=>row.id)).size!==28)throw Error();
  if(result.rows.some((row,index)=>row.id!==evaluationCorpus[index].id))throw Error();
  for(const row of result.rows){
@@ -46,7 +52,9 @@ function normalize(value:unknown,slot:CpuModelSlot){
   if(row.status==='graded'&&row.passed!==(row.missingRequirements+row.unexpectedRequirements+row.missingLinks+row.unsupportedLinks===0))throw Error();
  }
  const passed=result.rows.filter(row=>row.passed).length,errors=result.rows.filter(row=>row.status==='error').length,mismatches=28-passed-errors;
- if(errors!==result.errors||result.passed!==(passed===28)||report.evaluatorExitCode!==(errors?2:passed===28?0:1))throw Error();
+ const operationalErrors=result.rows.filter(row=>row.status==='error'&&['transport','http-status-or-type','body-read','cancelled','timeout'].includes(row.failureStage)).length;
+ if(operationalErrors<report.bridge.transportFailures)throw Error();
+ if(errors!==result.errors||errors<report.bridge.transportFailures||result.passed!==(passed===28)||report.evaluatorExitCode!==(errors?2:passed===28?0:1))throw Error();
  if(report.diagnosticQuality!==(passed===28?'synthetic-exact-gold-passed':errors?'synthetic-provider-or-contract-errors':'synthetic-quality-mismatch'))throw Error();
  const start=Date.parse(report.startedAt),finish=Date.parse(report.finishedAt),evalStart=Date.parse(result.startedAt),evalFinish=Date.parse(result.finishedAt);
  if(![start,finish,evalStart,evalFinish].every(Number.isFinite)||finish<start||finish-start>900000||evalStart<start||evalFinish>finish||evalFinish<evalStart)throw Error();
@@ -61,18 +69,38 @@ function normalize(value:unknown,slot:CpuModelSlot){
  return {report,safe,start,finish};
 }
 
+function sameControls(a:ReturnType<typeof normalize>,b:ReturnType<typeof normalize>){
+ if(a.report.containerImageId!==b.report.containerImageId||a.report.llamaBinarySha256!==b.report.llamaBinarySha256
+  ||a.report.runtime.node!==b.report.runtime.node||a.report.runtime.architecture!==b.report.runtime.architecture||a.report.runtime.cpu!==b.report.runtime.cpu||a.finish>b.start)throw Error();
+}
+
 /** Validate agreement of two reports, not remote attestation or independent model acceptance. */
 export function compareCpuReports(baseline:unknown,candidate:unknown){
  try{
   const a=normalize(baseline,'baseline'),b=normalize(candidate,'candidate');
-  if(a.report.containerImageId!==b.report.containerImageId||a.report.llamaBinarySha256!==b.report.llamaBinarySha256
-   ||a.report.runtime.node!==b.report.runtime.node||a.report.runtime.architecture!==b.report.runtime.architecture||a.report.runtime.cpu!==b.report.runtime.cpu||a.finish>b.start)throw Error();
+  sameControls(a,b);
   return {format:'jobmatch-cpu-comparison-v1',runKind:'two-actual-local-cpu-diagnostics/synthetic-only',acceptance:'not-accepted',independentHeldOut:'not-performed',deploymentIdentityVerified:false,
    executionBinding:'one-job-workflow-and-equal-reported-image-binary-runtime',remoteAttestation:'not-performed',
    control:{containerImageId:a.report.containerImageId,llamaBinarySha256:a.report.llamaBinarySha256,licenseFileSha256:CPU_LICENSE_SHA,node:a.report.runtime.node,architecture:a.report.runtime.architecture,cpuDescriptionSha256:hash(a.report.runtime.cpu),
     corpusVersion:CORPUS_VERSION,corpusSha256:hash(JSON.stringify(evaluationCorpus)),promptVersion:prompt.version,promptSha256:hash(prompt.text),quoteContractVersion:'source-lines-v1',linkAuditVersion:AI_LINK_AUDIT_VERSION,context:4096,threads:4,temperature:0,maxTokens:2048,seed:42},
    baseline:a.safe,candidate:b.safe,deltas:{passed:b.safe.counts.passed-a.safe.counts.passed,errors:b.safe.counts.errors-a.safe.counts.errors,mismatches:b.safe.counts.mismatches-a.safe.counts.mismatches,generatedTokens:b.safe.bridge.generatedTokens-a.safe.bridge.generatedTokens},
    limitations:['known-synthetic-gold','one-sequential-run-per-model','no-semantic-adjudication','no-representative-held-out','no-production-deployment-acceptance'],
+  };
+ }catch{throw Error('CPU comparison refused or inconsistent');}
+}
+
+/** A coherent unsuccessful experiment is evidence of a limitation, not a comparison. */
+export function assessCpuComparison(baseline:unknown,candidate:unknown){
+ try{
+  const a=normalize(baseline,'baseline',false),b=normalize(candidate,'candidate',false);sameControls(a,b);
+  if(a.report.bridge.backendResponses===28&&b.report.bridge.backendResponses===28)return compareCpuReports(baseline,candidate);
+  return {format:'jobmatch-cpu-comparison-attempt-v1',runKind:'two-actual-local-cpu-attempts/synthetic-only',comparisonStatus:'not-comparable',reason:'incomplete-backend-responses',operationalComparisonComplete:false,
+   acceptance:'not-accepted',independentHeldOut:'not-performed',deploymentIdentityVerified:false,remoteAttestation:'not-performed',
+   executionBinding:'one-job-workflow-and-equal-reported-image-binary-runtime',
+   control:{containerImageId:a.report.containerImageId,llamaBinarySha256:a.report.llamaBinarySha256,licenseFileSha256:CPU_LICENSE_SHA,node:a.report.runtime.node,architecture:a.report.runtime.architecture,cpuDescriptionSha256:hash(a.report.runtime.cpu),
+    corpusVersion:CORPUS_VERSION,corpusSha256:hash(JSON.stringify(evaluationCorpus)),promptVersion:prompt.version,promptSha256:hash(prompt.text),quoteContractVersion:'source-lines-v1',linkAuditVersion:AI_LINK_AUDIT_VERSION,context:4096,threads:4,temperature:0,maxTokens:2048,seed:42},
+   baseline:a.safe,candidate:b.safe,
+   limitations:['incomplete-backend-responses','no-quality-delta','known-synthetic-gold','one-sequential-run-per-model','no-semantic-adjudication','no-representative-held-out','no-production-deployment-acceptance'],
   };
  }catch{throw Error('CPU comparison refused or inconsistent');}
 }
@@ -110,8 +138,9 @@ export function main(){
    ||realpathSync(root)!==root||dirname(root)!==realpathSync(process.env.RUNNER_TEMP)||!/^jobmatch-cpu-comparison\.[A-Za-z0-9]{8}$/.test(basename(root)))throw Error();
   const baseline=readOwnedReport(join(root,'baseline.log'));
   const candidate=readOwnedReport(join(root,'candidate.log'));
-  const report=compareCpuReports(baseline,candidate);
-  process.stdout.write('JOBMATCH_CPU_COMPARISON_V1 '+JSON.stringify({...report,workflow:{repository:'kredavto/JobMatch-AI',runId:process.env.GITHUB_RUN_ID}})+'\n');
+  const report=assessCpuComparison(baseline,candidate);
+  const prefix=report.format==='jobmatch-cpu-comparison-v1'?'JOBMATCH_CPU_COMPARISON_V1 ':'JOBMATCH_CPU_COMPARISON_ATTEMPT_V1 ';
+  process.stdout.write(prefix+JSON.stringify({...report,workflow:{repository:'kredavto/JobMatch-AI',runId:process.env.GITHUB_RUN_ID}})+'\n');
   return 0;
  }catch{process.stderr.write('CPU comparison refused or incomplete; no input paths or diagnostics emitted.\n');return 2;}
 }
