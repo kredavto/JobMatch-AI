@@ -1,7 +1,8 @@
 import type {Application} from './db';
 import {z} from 'zod';
 import {explicitInstant} from './recorded-time';
-export type AnalyticsFilter={from:string;to:string;versionId:string};
+import {specialtyKey,specialtyLabel} from './application-specialty';
+export type AnalyticsFilter={from:string;to:string;versionId:string;specialty?:string};
 const sentStatuses=new Set(['Отклик отправлен','Просмотрено','Приглашение','Отказ','Интервью','Оффер']);
 const responseStatuses=new Set(['Приглашение','Отказ','Интервью','Оффер']);
 const interviewStatuses=new Set(['Интервью','Оффер']);
@@ -32,6 +33,7 @@ export function firstSentRecordedValue(application:Application){const first=firs
 export function selectApplications(applications:Application[],filter:AnalyticsFilter){
  if(filterError(filter))return [];
  return applications.filter(a=>{
+  if(filter.specialty&&specialtyKey(a)!==filter.specialty)return false;
   if(filter.versionId==='unlinked'&&a.resumeVersionId)return false;
   if(filter.versionId&&filter.versionId!=='unlinked'&&a.resumeVersionId!==filter.versionId)return false;
   if(!filter.from&&!filter.to)return true;
@@ -56,6 +58,21 @@ export function versionBreakdown(applications:Application[]){
  const groups=new Map<string,Application[]>();
  for(const a of applications){const key=a.resumeVersionId||'';groups.set(key,[...(groups.get(key)||[]),a]);}
  return [...groups].map(([versionId,rows])=>({versionId,...summarize(rows)}));
+}
+/** Current explicit user labels; an unclassified group preserves every old/unknown observation. */
+export function specialtyBreakdown(applications:Application[]){
+ const groups=new Map<string,{label:string|null;rows:Application[]}>();
+ for(const application of applications){const key=specialtyKey(application);let group=groups.get(key);if(!group){group={label:specialtyLabel(application),rows:[]};groups.set(key,group);}group.rows.push(application);}
+ return [...groups].sort(([,a],[,b])=>a.label===null?(b.label===null?0:1):b.label===null?-1:a.label<b.label?-1:a.label>b.label?1:0).map(([key,{label,rows}])=>({
+  key,label,...summarize(rows),
+  invited:rows.filter(a=>a.events.some(e=>e.status==='Приглашение'&&validRecordedEventDate(e.date))).length,
+  offers:rows.filter(a=>a.events.some(e=>e.status==='Оффер'&&validRecordedEventDate(e.date))).length,
+ }));
+}
+export function specialtiesCsv(rows:ReturnType<typeof specialtyBreakdown>,headers:string[],unclassified:string){
+ const cell=(text:string)=>'"'+(/^[\s]*[=+@-]/.test(text)||/^[\t\r\n]/.test(text)?"'":'')+text.replaceAll('"','""')+'"';
+ const percent=(value:number|null)=>value===null?'':String(Math.round(value*100)/100);
+ return '\ufeff'+[headers,...rows.map(r=>[r.label??unclassified,String(r.total),String(r.sent),String(r.invited),String(r.interviews),String(r.offers),String(r.responses),percent(r.responseRate),percent(r.interviewRate)])].map(row=>row.map(cell).join(',')).join('\r\n');
 }
 export function applicationsCsv(applications:Application[],headers:string[]){
  const cell=(text:string)=>'"'+(/^[\s]*[=+@-]/.test(text)||/^[\t\r\n]/.test(text)?"'":'')+text.replaceAll('"','""')+'"';
