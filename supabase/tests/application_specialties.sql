@@ -47,7 +47,7 @@ do $$declare s jsonb;r jsonb;bad jsonb;item jsonb;app_id text;audits bigint;begi
  r:=public.apply_workspace_command(5,jsonb_build_object('action','application','id',app_id,'status','Планируется','note','legacy metadata survives'));
  if r#>'{applications,0,specialty}' is distinct from '{"legacy":["opaque"]}'::jsonb then raise exception 'unknown metadata was rewritten';end if;
  s:=r;
- foreach bad in array array['null'::jsonb,'3'::jsonb,'{}'::jsonb,'[]'::jsonb,'true'::jsonb,to_jsonb(' leading'::text),to_jsonb('trailing '::text),to_jsonb(U&'\00a0QA'),to_jsonb(U&'QA\feff'),to_jsonb(E'QA\nengineer'),to_jsonb(E'QA\tengineer'),to_jsonb(U&'QA\007f'),to_jsonb(U&'QA\009f'),to_jsonb(repeat('x',121)),to_jsonb(repeat(chr(128512),121))] loop
+ foreach bad in array array['null'::jsonb,'3'::jsonb,'{}'::jsonb,'[]'::jsonb,'true'::jsonb,to_jsonb(' leading'::text),to_jsonb('trailing '::text),to_jsonb(U&'\00a0QA'::text),to_jsonb(U&'QA\feff'::text),to_jsonb(E'QA\nengineer'::text),to_jsonb(E'QA\tengineer'::text),to_jsonb(U&'QA\007f'::text),to_jsonb(U&'QA\009f'::text),to_jsonb(repeat('x',121)),to_jsonb(repeat(chr(128512),121))] loop
   select count(*) into audits from public.audit_log;
   begin
    perform public.apply_workspace_command(6,jsonb_build_object('action','application','id',app_id,'status','Планируется','note','legacy metadata survives','specialty',bad));
