@@ -59,3 +59,10 @@
   bounded strict offline consistency validation and exact lexical acknowledgements.
   Unsigned editable local file only; no immutable/server version, semantic
   verification or profile-completeness claim. See `docs/LETTER_SNAPSHOT_MAIN.md`.
+
+### Exact-main adaptation diagnostic — 31 October 2026
+- [x] One bounded actual pinned CPU run of current-main adaptation on frozen
+  synthetic RU/EN inputs; [complete original report](evaluation/adaptation/results/20261031-exact-main.md).
+- [ ] Model acceptance remains open: 0/16 gold passes, 14 provenance rejections,
+  2 gold mismatches despite 16 completed backend responses. No true rewriting,
+  human semantic/held-out acceptance or production activation established.

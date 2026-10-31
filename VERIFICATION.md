@@ -250,3 +250,17 @@
 - Первый application CI run 40837901259 прошёл lint/types/402 unit/build, но остановился до browser tests: ubuntu-latest разрешился в Ubuntu 26.04, не поддерживаемую установленным Playwright 1.58.2. Runner закреплён на ubuntu-24.04; результат повторного прогона смотреть в checks PR #15. Это ошибка окружения CI, не успешный браузерный прогон.
 
 - Дополнение к PR #15 после скриншота входа: известный код `invalid_credentials` при password grant получает фиксированную подсказку о пароле JobMatch AI и восстановлении, без SMTP-диагноза, наличия аккаунта или raw сообщения провайдера. Тестируются оба поля кода GoTrue (`error_code`/`code`). Предыдущий CI run 40838154826 успешен для d47613f; актуальные checks — в PR.
+
+## Exact-main adaptation diagnostic — 31 October 2026
+
+Actual executable head `b835de8f549acf7f4afcdbf58ba7bf7abb54f9c4`, tree
+`743afc0467112449525e3106e3d245b6f23c0d6e`;
+[run41247954513/job124675216380](https://github.com/kredavto/JobMatch-AI/actions/runs/41247954513/job/124675216380).
+16/16 actual positive-token stop responses, 1,074 tokens; 0/16 gold passes,
+14 provenance failures and 2 graded mismatches. Runtime success is not acceptance.
+[Complete unchanged original report](evaluation/adaptation/results/20261031-exact-main.md)
+contains source/corpus/payload/image/binary/model/license hashes and raw synthetic
+outputs. Local source hashes and frozen corpus were checked against the report.
+Model remains NOT ACCEPTED; no production gates or SQL/DB changed, no true rewriting
+or independent semantic/held-out acceptance established. This archival change is
+Markdown-only; executable tree content remains identical and inference is not rerun.
