@@ -50,3 +50,6 @@ Corrected executable `d60bce67c15c9fbedbab67254b4da13dc5526d52`, CPU41198109437/
 
 
 Candidate PR #57 separately measured official pinned7B Q3_K_M/8GiB on the same v1 profile corpus/prompt/gold. Both actual runs:11/12positive-token stop responses/537tokens,4passes/3mismatches/5errors (1HTTP-stage/2schema/2citation). Only EN employment/education are positive exact-gold passes; two further passes are neutral. Incomplete backend coverage, exit2/not-accepted, no causal cross-budget or independent acceptance claim. [Full original reports](../evaluation/results/20261031-qwen-7b-cpu.md). Durable accepted-change provenance stays open.
+
+
+Candidate PR #58 actual v2 runtime f734451:0.5B12stop responses/9citation/1mismatch/2neutral passes;1.5B12stop/3citation/7mismatches/2neutral passes;7B11/12stop/1HTTP-stage+2citation/5mismatches/4passes (2neutral+2positive EN). No schema errors observed, but2previous schema-error achievement rows7B are now graded mismatches, not new passes. All models not-accepted;7B backend incomplete. [Full original reports and36compiled-body proof](../evaluation/results/20261031-profile-grammar-v2-cpu.md).1156unit/57Node/102Python/277browser PASS/2liveSKIP/76worker and10runtime workflows SUCCESS; no independent/deployment/durable accepted-change acceptance.

@@ -57,3 +57,6 @@ The same pinned public CPU image now runs both existing models on this separate 
 
 
 Separate candidate PR #57 adds a third immutable official7B Q3_K_M with an8GiB public-standard-runner budget and target-filesystem preflight. Both actual runs remain backend-incomplete and not-accepted: linker27/28responses/13passes; profile11/12responses/4passes (only2positive EN). Existing two-model strict comparer remains unchanged/not-comparable. [Contract](LARGER_CPU_DIAGNOSTIC.md), [full original7B evidence](results/20261031-qwen-7b-cpu.md). No independent semantic/deployment acceptance, paid infrastructure or production activation.
+
+
+Candidate PR #58 versions the profile grammar as paragraph-quotes-v2: exact eligible physical IDs and existing mandatory fields/credential rules, unchanged prompt text/corpus/gold/pins/bounds, retained source post-validation. Actual3model profile attempts remain not-accepted:0.5B9citation/1mismatch/2neutral passes;1.5B3citation/7mismatches/2neutral passes;7B11/12responses/3errors/5mismatches/4passes (only2positive EN). No schema errors in this run, no added gold passes or causal/model-acceptance claim. [Original reports/body proof](results/20261031-profile-grammar-v2-cpu.md); historicalv1 evidence remains separate.
