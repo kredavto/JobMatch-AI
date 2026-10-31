@@ -18,7 +18,8 @@ def main():
     try:
         if not approved():
             raise ValueError()
-        disk = os.statvfs('.')
+        # The download directory is below RUNNER_TEMP, which need not share checkout's filesystem.
+        disk = os.statvfs(os.environ['RUNNER_TEMP'])
         memory = Path('/proc/meminfo').read_text()
         rows = [row for row in memory.splitlines() if row.startswith('MemTotal:')]
         if len(rows) != 1:
@@ -30,7 +31,7 @@ def main():
             raise ValueError()
         print('CPU_CAPACITY_PASS: >=12 GiB available disk and total RAM; fixed 8 GiB container, no cleanup or paid runner.')
         return 0
-    except (OSError, ValueError, TypeError):
+    except (OSError, ValueError, TypeError, KeyError):
         print('CPU capacity refused; no files removed or runner substitution attempted.', file=sys.stderr)
         return 2
 
