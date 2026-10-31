@@ -11,7 +11,30 @@ import urllib.parse
 import urllib.request
 
 PIN = Path(__file__).resolve().parent.parent / 'evaluation' / 'cpu-model.json'
+CANDIDATE_PIN = Path(__file__).resolve().parent.parent / 'evaluation' / 'cpu-model-candidate.json'
+LICENSE_SHA = '832dd9e00a68dd83b3c3fb9f5588dad7dcf337a0db50f7d9483f310cd292e92e'
 MAX_SECONDS = 300
+
+
+def validate_pin(value, slot='baseline'):
+    common = dict(format='jobmatch-cpu-model-pin-v1', license='Apache-2.0',
+                  llamaRepository='ggml-org/llama.cpp', llamaRevision='8642541b255bfb5dc39cd351a178be09013a55d6',
+                  context=4096, threads=4, maxTokens=2048, seed=42)
+    if slot == 'baseline':
+        identity = dict(repository='Qwen/Qwen2.5-0.5B-Instruct-GGUF', revision='df5bf01389a39c743ab467d734bf501681e041c5',
+                        file='qwen2.5-0.5b-instruct-q8_0.gguf', bytes=675710816,
+                        sha256='ca59ca7f13d0e15a8cfa77bd17e65d24f6844b554a7b6c12e07a5f89ff76844e',
+                        modelAlias='jobmatch-qwen2.5-0.5b-q8-diagnostic')
+    elif slot == 'candidate':
+        identity = dict(repository='Qwen/Qwen2.5-1.5B-Instruct-GGUF', revision='91cad51170dc346986eccefdc2dd33a9da36ead9',
+                        file='qwen2.5-1.5b-instruct-q8_0.gguf', bytes=1894532128,
+                        sha256='d7efb072e7724d25048a4fda0a3e10b04bdef5d06b1403a1c93bd9f1240a63c8',
+                        modelAlias='jobmatch-qwen2.5-1.5b-q8-diagnostic')
+    else:
+        raise ValueError('Unreviewed model slot')
+    if not isinstance(value, dict) or value != {**common, **identity}:
+        raise ValueError('Pin refused')
+    return value
 
 
 def approved():
@@ -74,18 +97,15 @@ def main(argv=None):
         if not approved():
             raise ValueError('CI approval required')
         args = sys.argv[1:] if argv is None else argv
-        if len(args) != 1:
+        if len(args) == 1 and not args[0].startswith('-'):
+            slot, manifest, target_directory = 'baseline', PIN, args[0]
+        elif len(args) == 2 and args[0] == '--candidate' and not args[1].startswith('-'):
+            slot, manifest, target_directory = 'candidate', CANDIDATE_PIN, args[1]
+        else:
             raise ValueError('Parameters refused')
-        pin = json.loads(PIN.read_text())
-        # This tool accepts only the reviewed fixed source; the manifest is not a URL override.
-        if (pin['repository'] != 'Qwen/Qwen2.5-0.5B-Instruct-GGUF'
-                or pin['revision'] != 'df5bf01389a39c743ab467d734bf501681e041c5'
-                or pin['file'] != 'qwen2.5-0.5b-instruct-q8_0.gguf'
-                or pin['bytes'] != 675710816
-                or pin['sha256'] != 'ca59ca7f13d0e15a8cfa77bd17e65d24f6844b554a7b6c12e07a5f89ff76844e'
-                or pin['license'] != 'Apache-2.0'):
-            raise ValueError('Pin refused')
-        directory = Path(args[0])
+        # Exactly two reviewed sources, never a caller URL, resource override or arbitrary manifest.
+        pin = validate_pin(json.loads(manifest.read_text()), slot)
+        directory = Path(target_directory)
         directory.mkdir(mode=0o755, parents=False, exist_ok=False)
         target = directory / 'model.gguf'
         base = 'https://huggingface.co/' + pin['repository']
@@ -97,7 +117,7 @@ def main(argv=None):
         if pointer != expected:
             raise ValueError('Revision pointer mismatch')
         license_text = small(opener, base + '/raw/' + pin['revision'] + '/LICENSE', 32768, deadline)
-        if b'Apache License' not in license_text or b'Version 2.0' not in license_text:
+        if hashlib.sha256(license_text).hexdigest() != LICENSE_SHA:
             raise ValueError('License missing')
         fd, temporary = tempfile.mkstemp(prefix='.weights-', dir=directory)
         with os.fdopen(fd, 'wb') as output:

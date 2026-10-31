@@ -1,0 +1,16 @@
+{
+  "format": "jobmatch-cpu-model-pin-v1",
+  "repository": "Qwen/Qwen2.5-1.5B-Instruct-GGUF",
+  "revision": "91cad51170dc346986eccefdc2dd33a9da36ead9",
+  "file": "qwen2.5-1.5b-instruct-q8_0.gguf",
+  "sha256": "d7efb072e7724d25048a4fda0a3e10b04bdef5d06b1403a1c93bd9f1240a63c8",
+  "bytes": 1894532128,
+  "license": "Apache-2.0",
+  "llamaRepository": "ggml-org/llama.cpp",
+  "llamaRevision": "8642541b255bfb5dc39cd351a178be09013a55d6",
+  "modelAlias": "jobmatch-qwen2.5-1.5b-q8-diagnostic",
+  "context": 4096,
+  "threads": 4,
+  "maxTokens": 2048,
+  "seed": 42
+}

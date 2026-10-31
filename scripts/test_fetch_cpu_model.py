@@ -1,6 +1,7 @@
 import contextlib
 import hashlib
 import io
+import json
 import os
 from pathlib import Path
 import tempfile
@@ -8,6 +9,9 @@ import time
 import unittest
 from unittest.mock import patch
 import fetch_cpu_model as model
+
+APPROVED = dict(CI='true', GITHUB_ACTIONS='true', JOBMATCH_AI_CPU_DIAGNOSTIC='true',
+                GITHUB_REPOSITORY='kredavto/JobMatch-AI', JOBMATCH_REPOSITORY_VISIBILITY='public')
 
 
 class ModelDownload(unittest.TestCase):
@@ -57,6 +61,71 @@ class ModelDownload(unittest.TestCase):
                 self.assertEqual(model.main([directory]), 2)
             self.assertEqual(file.read_text(), 'existing')
             opener.assert_not_called()
+
+    def test_two_reviewed_pins_and_default_are_exact(self):
+        baseline = json.loads(model.PIN.read_text())
+        candidate = json.loads(model.CANDIDATE_PIN.read_text())
+        self.assertEqual(model.validate_pin(baseline), baseline)
+        self.assertEqual(model.validate_pin(candidate, 'candidate'), candidate)
+        for value, slot in ((candidate, 'baseline'), (baseline, 'candidate'), (candidate, 'PRIVATE')):
+            with self.subTest(slot=slot), self.assertRaises(ValueError):
+                model.validate_pin(value, slot)
+        for slot, pin in (('baseline', baseline), ('candidate', candidate)):
+            for change in ({'revision': 'main'}, {'repository': 'PRIVATE'}, {'file': 'PRIVATE'},
+                           {'sha256': 'a' * 64}, {'bytes': 1}, {'threads': 8}, {'seed': 1},
+                           {'context': 8192}, {'maxTokens': 4096}, {'endpoint': 'https://PRIVATE'}):
+                with self.subTest(slot=slot, change=change), self.assertRaises(ValueError):
+                    model.validate_pin({**pin, **change}, slot)
+
+    def test_unknown_parameters_refuse_before_network_or_files(self):
+        for args in ([], ['--candidate'], ['--PRIVATE'], ['--candidate', '--PRIVATE'],
+                     ['--PRIVATE', 'target'], ['--candidate', 'target', 'PRIVATE']):
+            with self.subTest(args=args), patch.dict(os.environ, APPROVED, clear=True), \
+                    patch.object(model.urllib.request, 'build_opener') as opener, \
+                    patch.object(model.Path, 'mkdir') as mkdir, contextlib.redirect_stderr(io.StringIO()) as err:
+                self.assertEqual(model.main(args), 2)
+                opener.assert_not_called()
+                mkdir.assert_not_called()
+                self.assertNotIn('PRIVATE', err.getvalue())
+
+    def test_candidate_existing_directory_preserved_before_network(self):
+        with tempfile.TemporaryDirectory() as directory, patch.dict(os.environ, APPROVED, clear=True), \
+                patch.object(model.urllib.request, 'build_opener') as opener:
+            keep = Path(directory) / 'keep'
+            keep.write_text('existing')
+            with contextlib.redirect_stderr(io.StringIO()):
+                self.assertEqual(model.main(['--candidate', directory]), 2)
+            self.assertEqual(keep.read_text(), 'existing')
+            opener.assert_not_called()
+
+    def test_changed_candidate_manifest_refuses_before_creating_directory(self):
+        with tempfile.TemporaryDirectory() as directory, patch.dict(os.environ, APPROVED, clear=True), \
+                patch.object(model.urllib.request, 'build_opener') as opener:
+            manifest = Path(directory) / 'fixture.json'
+            changed = json.loads(model.CANDIDATE_PIN.read_text())
+            changed['revision'] = 'main'
+            manifest.write_text(json.dumps(changed))
+            target = Path(directory) / 'new'
+            with patch.object(model, 'CANDIDATE_PIN', manifest), contextlib.redirect_stderr(io.StringIO()):
+                self.assertEqual(model.main(['--candidate', str(target)]), 2)
+            self.assertFalse(target.exists())
+            opener.assert_not_called()
+
+    def test_mock_metadata_wrong_license_refuses_before_weight_download(self):
+        # Scripted metadata is a loader guard fixture, never evidence of downloaded/executed weights.
+        pin = json.loads(model.CANDIDATE_PIN.read_text())
+        pointer = ('version https://git-lfs.github.com/spec/v1\noid sha256:' + pin['sha256']
+                   + '\nsize ' + str(pin['bytes']) + '\n').encode()
+        with tempfile.TemporaryDirectory() as directory, patch.dict(os.environ, APPROVED, clear=True), \
+                patch.object(model, 'small', side_effect=[pointer, b'Apache License PRIVATE forged fixture']) as metadata, \
+                patch.object(model, 'copy_verified') as weights, contextlib.redirect_stderr(io.StringIO()) as err:
+            target = Path(directory) / 'new'
+            self.assertEqual(model.main(['--candidate', str(target)]), 2)
+            self.assertEqual(metadata.call_count, 2)
+            weights.assert_not_called()
+            self.assertEqual(list(target.iterdir()), [])
+            self.assertNotIn('PRIVATE', err.getvalue())
+            self.assertNotIn(str(target), err.getvalue())
 
 
 if __name__ == '__main__':

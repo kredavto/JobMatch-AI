@@ -16,20 +16,33 @@ const MODEL='/model/model.gguf',BINARY='/opt/llama/build/bin/llama-server';
 export const CPU_ALIAS='jobmatch-qwen2.5-0.5b-q8-diagnostic';
 export const CPU_WEIGHT_SHA='ca59ca7f13d0e15a8cfa77bd17e65d24f6844b554a7b6c12e07a5f89ff76844e';
 export const CPU_LLAMA_SHA='8642541b255bfb5dc39cd351a178be09013a55d6';
+export const CPU_LICENSE_SHA='832dd9e00a68dd83b3c3fb9f5588dad7dcf337a0db50f7d9483f310cd292e92e';
+export type CpuModelSlot='baseline'|'candidate';
+export function cpuModelSlot(value:unknown):CpuModelSlot {
+ if(value===undefined||value===''||value==='baseline')return 'baseline';
+ if(value==='candidate')return 'candidate';throw Error('Unreviewed CPU model slot');
+}
+export function cpuModelIdentity(slot:CpuModelSlot='baseline') {
+ if(slot==='baseline')return {repository:'Qwen/Qwen2.5-0.5B-Instruct-GGUF',revision:'df5bf01389a39c743ab467d734bf501681e041c5',file:'qwen2.5-0.5b-instruct-q8_0.gguf',sha256:CPU_WEIGHT_SHA,bytes:675710816,modelAlias:CPU_ALIAS} as const;
+ if(slot==='candidate')return {repository:'Qwen/Qwen2.5-1.5B-Instruct-GGUF',revision:'91cad51170dc346986eccefdc2dd33a9da36ead9',file:'qwen2.5-1.5b-instruct-q8_0.gguf',sha256:'d7efb072e7724d25048a4fda0a3e10b04bdef5d06b1403a1c93bd9f1240a63c8',bytes:1894532128,modelAlias:'jobmatch-qwen2.5-1.5b-q8-diagnostic'} as const;
+ throw Error('Unreviewed CPU model slot');
+}
 const format=z.toJSONSchema(AiReviewSchema);
 const inputFor=(test:typeof evaluationCorpus[number])=>JSON.stringify({vacancy:test.vacancy,facts:eligibleAiFacts(test.facts).map(({id,text})=>({id,text}))});
 export function approvedCpuEnvironment(env:NodeJS.ProcessEnv){
  return env.CI==='true'&&env.GITHUB_ACTIONS==='true'&&env.JOBMATCH_AI_CPU_DIAGNOSTIC==='true'&&env.GITHUB_REPOSITORY==='kredavto/JobMatch-AI'&&env.JOBMATCH_REPOSITORY_VISIBILITY==='public'&&env.NODE_ENV==='test';
 }
-export function validateCpuPin(value:unknown){
- const pin=z.object({format:z.literal('jobmatch-cpu-model-pin-v1'),repository:z.literal('Qwen/Qwen2.5-0.5B-Instruct-GGUF'),revision:z.literal('df5bf01389a39c743ab467d734bf501681e041c5'),file:z.literal('qwen2.5-0.5b-instruct-q8_0.gguf'),sha256:z.literal(CPU_WEIGHT_SHA),bytes:z.literal(675710816),license:z.literal('Apache-2.0'),llamaRepository:z.literal('ggml-org/llama.cpp'),llamaRevision:z.literal(CPU_LLAMA_SHA),modelAlias:z.literal(CPU_ALIAS),context:z.literal(4096),threads:z.literal(4),maxTokens:z.literal(2048),seed:z.literal(42)}).strict();
+export function validateCpuPin(value:unknown,slot:CpuModelSlot='baseline'){
+ const model=cpuModelIdentity(slot);
+ const pin=z.object({format:z.literal('jobmatch-cpu-model-pin-v1'),repository:z.literal(model.repository),revision:z.literal(model.revision),file:z.literal(model.file),sha256:z.literal(model.sha256),bytes:z.literal(model.bytes),license:z.literal('Apache-2.0'),llamaRepository:z.literal('ggml-org/llama.cpp'),llamaRevision:z.literal(CPU_LLAMA_SHA),modelAlias:z.literal(model.modelAlias),context:z.literal(4096),threads:z.literal(4),maxTokens:z.literal(2048),seed:z.literal(42)}).strict();
  return pin.parse(value);
 }
 async function sha256(path:string){const hash=createHash('sha256');for await(const chunk of createReadStream(path))hash.update(chunk);return hash.digest('hex');}
 async function body(request:IncomingMessage){let size=0;const chunks:Buffer[]=[];for await(const chunk of request){size+=chunk.length;if(size>64000)throw Error();chunks.push(Buffer.from(chunk));}return JSON.parse(Buffer.concat(chunks).toString('utf8'));}
 function send(response:ServerResponse,status:number,value:unknown){if(!response.destroyed){response.writeHead(status,{'Content-Type':'application/json','Cache-Control':'no-store'});response.end(JSON.stringify(value));}}
 /** CI-only transport adapter. It never reads expected gold, fabricates content or accepts caller endpoints. */
-export async function createCpuBridge(backend:string,quoteContract:AiQuoteContract='legacy'){
+export async function createCpuBridge(backend:string,quoteContract:AiQuoteContract='legacy',slot:CpuModelSlot='baseline'){
+ const modelAlias=cpuModelIdentity(slot).modelAlias;
  if(quoteContract!=='legacy'&&quoteContract!=='source-lines-v1')throw Error('Unknown quote contract');
  const prompt=aiPromptForQuoteContract(quoteContract);
  const url=new URL(backend);
@@ -45,11 +58,11 @@ export async function createCpuBridge(backend:string,quoteContract:AiQuoteContra
   try{
    if(request.method!=='POST'||request.url!=='/api/chat'||busy)throw Error();
    const payload=await body(request);
-   const schema=z.object({model:z.literal(CPU_ALIAS),stream:z.literal(false),format:z.unknown(),options:z.object({temperature:z.literal(0),num_predict:z.literal(2048)}).strict(),messages:z.tuple([z.object({role:z.literal('system'),content:z.literal(prompt.text)}).strict(),z.object({role:z.literal('user'),content:z.string().max(48000)}).strict()])}).strict();
+   const schema=z.object({model:z.literal(modelAlias),stream:z.literal(false),format:z.unknown(),options:z.object({temperature:z.literal(0),num_predict:z.literal(2048)}).strict(),messages:z.tuple([z.object({role:z.literal('system'),content:z.literal(prompt.text)}).strict(),z.object({role:z.literal('user'),content:z.string().max(48000)}).strict()])}).strict();
    const parsed=schema.parse(payload),input=parsed.messages[1].content;
    if(JSON.stringify(parsed.format)!==JSON.stringify(formats.get(input))||(remaining.get(input)??0)<1||busy)throw Error();
    remaining.set(input,remaining.get(input)!-1);busy=true;locked=true;stats.acceptedRequests++;
-   const result=await fetch(new URL('/v1/chat/completions',url),{method:'POST',redirect:'error',signal:controller.signal,headers:{'Content-Type':'application/json'},body:JSON.stringify({model:CPU_ALIAS,stream:false,messages:parsed.messages,response_format:{type:'json_object',schema:parsed.format},temperature:0,seed:42,max_tokens:2048})});
+   const result=await fetch(new URL('/v1/chat/completions',url),{method:'POST',redirect:'error',signal:controller.signal,headers:{'Content-Type':'application/json'},body:JSON.stringify({model:modelAlias,stream:false,messages:parsed.messages,response_format:{type:'json_object',schema:parsed.format},temperature:0,seed:42,max_tokens:2048})});
    if(!result.ok||!result.headers.get('content-type')?.startsWith('application/json'))throw Error();
    const reader=result.body?.getReader();if(!reader)throw Error();
    let size=0;const chunks:Uint8Array[]=[];
@@ -82,9 +95,9 @@ async function stop(child:ChildProcess|undefined){
  child.kill('SIGTERM');await Promise.race([once(child,'close'),new Promise(resolve=>setTimeout(resolve,1500))]);
  if(child.exitCode===null)child.kill('SIGKILL');
 }
-async function runCli(endpoint:string,signal:AbortSignal,quoteContract:AiQuoteContract,linkAuditEnabled:boolean){
+async function runCli(endpoint:string,signal:AbortSignal,quoteContract:AiQuoteContract,linkAuditEnabled:boolean,pin:{modelAlias:string;sha256:string}){
  if(signal.aborted)throw Error('Diagnostic interrupted');
- const env={PATH:process.env.PATH,NODE_ENV:'test',JOBMATCH_AI_ENABLED:'true',JOBMATCH_AI_SELF_HOSTED:'true',JOBMATCH_AI_ENDPOINT:endpoint,JOBMATCH_AI_MODEL:CPU_ALIAS,JOBMATCH_AI_EVAL_APPROVED:'true',JOBMATCH_AI_EVAL_DIAGNOSTICS:'stages-v1',JOBMATCH_AI_QUOTE_CONTRACT:quoteContract,JOBMATCH_AI_EVAL_LINK_AUDIT:linkAuditEnabled?AI_LINK_AUDIT_VERSION:'off',JOBMATCH_AI_EVAL_MODEL_REVISION:'sha256:'+CPU_WEIGHT_SHA};
+ const env={PATH:process.env.PATH,NODE_ENV:'test',JOBMATCH_AI_ENABLED:'true',JOBMATCH_AI_SELF_HOSTED:'true',JOBMATCH_AI_ENDPOINT:endpoint,JOBMATCH_AI_MODEL:pin.modelAlias,JOBMATCH_AI_EVAL_APPROVED:'true',JOBMATCH_AI_EVAL_DIAGNOSTICS:'stages-v1',JOBMATCH_AI_QUOTE_CONTRACT:quoteContract,JOBMATCH_AI_EVAL_LINK_AUDIT:linkAuditEnabled?AI_LINK_AUDIT_VERSION:'off',JOBMATCH_AI_EVAL_MODEL_REVISION:'sha256:'+pin.sha256};
  const child=spawn(process.execPath,[join(__dirname,'run.cjs')],{env,stdio:['ignore','pipe','pipe']});
  const cancel=()=>child.kill('SIGTERM');signal.addEventListener('abort',cancel,{once:true});
  let stdout='',stderr='',overflow=false;const timer=setTimeout(()=>{overflow=true;child.kill('SIGKILL');},610000);
@@ -93,8 +106,8 @@ async function runCli(endpoint:string,signal:AbortSignal,quoteContract:AiQuoteCo
  try{const [code]=await once(child,'close');if(overflow||stderr||![0,1,2].includes(code as number))throw Error();return {exitCode:code,report:JSON.parse(stdout)};}
  finally{clearTimeout(timer);signal.removeEventListener('abort',cancel);await stop(child);}
 }
-export function cpuServerArgs(){
- return ['--model',MODEL,'--alias',CPU_ALIAS,'--host','127.0.0.1','--port','18765','--offline','--no-webui','--ctx-size','4096','--parallel','1','--threads','4','--threads-batch','4','--n-gpu-layers','0','--load-mode','none','--no-warmup'];
+export function cpuServerArgs(slot:CpuModelSlot='baseline'){
+ return ['--model',MODEL,'--alias',cpuModelIdentity(slot).modelAlias,'--host','127.0.0.1','--port','18765','--offline','--no-webui','--ctx-size','4096','--parallel','1','--threads','4','--threads-batch','4','--n-gpu-layers','0','--load-mode','none','--no-warmup'];
 }
 type CpuPhase='pin'|'weights'|'binary'|'server-start'|'server-ready'|'evaluate'|'evaluation-returned'|'report';
 function phase(value:CpuPhase){process.stdout.write('CPU_DIAGNOSTIC_PHASE '+value+'\n');}
@@ -127,30 +140,32 @@ export function validateCpuLinkAudit(value:unknown){
 export async function main(){
  if(!approvedCpuEnvironment(process.env))throw Error('CI-only approval required');
  phase('pin');
+ const slot=cpuModelSlot(process.env.JOBMATCH_AI_CPU_MODEL_SLOT);
  const requestedAudit=process.env.JOBMATCH_AI_CPU_LINK_AUDIT;
  if(requestedAudit!==undefined&&requestedAudit!==''&&requestedAudit!=='off'&&requestedAudit!==AI_LINK_AUDIT_VERSION)throw Error('Unknown CPU audit contract');
  const linkAuditEnabled=requestedAudit===AI_LINK_AUDIT_VERSION;
  const requested=process.env.JOBMATCH_AI_CPU_QUOTE_CONTRACT;
  if(requested!==undefined&&requested!==''&&requested!=='legacy'&&requested!=='source-lines-v1')throw Error('Unknown CPU quote contract');
  const quoteContract:AiQuoteContract=requested==='source-lines-v1'?'source-lines-v1':'legacy';
- const pin=validateCpuPin(JSON.parse(readFileSync('evaluation/cpu-model.json','utf8')));
+ const pin=validateCpuPin(JSON.parse(readFileSync(slot==='baseline'?'evaluation/cpu-model.json':'evaluation/cpu-model-candidate.json','utf8')),slot);
  const image=process.env.JOBMATCH_AI_CPU_IMAGE_ID;
  if(!image||!/^sha256:[a-f0-9]{64}$/.test(image))throw Error('Container identity required');
  phase('weights');
  const stat=statSync(MODEL);if(!stat.isFile()||stat.size!==pin.bytes||(stat.mode&0o222)!==0||await sha256(MODEL)!==pin.sha256)throw Error('Weights mismatch');
  phase('binary');
  const binarySha=await sha256(BINARY),licenseSha=await sha256('/model/LICENSE');
+ if(licenseSha!==CPU_LICENSE_SHA)throw Error('Unreviewed model license');
  const controller=new AbortController();const cancel=()=>controller.abort();process.once('SIGINT',cancel);process.once('SIGTERM',cancel);
  const timer=setTimeout(cancel,750000);let server:ChildProcess|undefined,bridge:Awaited<ReturnType<typeof createCpuBridge>>|undefined;
  try{
   // Fixed private network namespace in workflow, loopback only. No remote endpoint option.
   const port=18765;
   phase('server-start');
-  server=spawn(BINARY,cpuServerArgs(),{env:{PATH:process.env.PATH,HOME:'/tmp',LLAMA_CACHE:'/tmp'},stdio:'ignore'});
+  server=spawn(BINARY,cpuServerArgs(slot),{env:{PATH:process.env.PATH,HOME:'/tmp',LLAMA_CACHE:'/tmp'},stdio:'ignore'});
   server.on('error',cancel);controller.signal.addEventListener('abort',()=>server?.kill('SIGTERM'),{once:true});
-  await waitReady(server,port,controller.signal);phase('server-ready');bridge=await createCpuBridge('http://127.0.0.1:'+port+'/',quoteContract);
+  await waitReady(server,port,controller.signal);phase('server-ready');bridge=await createCpuBridge('http://127.0.0.1:'+port+'/',quoteContract,slot);
   phase('evaluate');
-  const startedAt=new Date().toISOString(),result=await runCli(bridge.endpoint,controller.signal,quoteContract,linkAuditEnabled);
+  const startedAt=new Date().toISOString(),result=await runCli(bridge.endpoint,controller.signal,quoteContract,linkAuditEnabled,pin);
   phase('evaluation-returned');
   validateCpuEvaluationDiagnostics(result.report,quoteContract,linkAuditEnabled);
   if(!result.report.complete||result.report.completed!==28||bridge.stats.acceptedRequests!==28||bridge.stats.backendResponses<1||bridge.stats.generatedTokens<1||await sha256(MODEL)!==pin.sha256)throw Error('No complete model diagnostic');
