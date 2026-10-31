@@ -72,7 +72,7 @@ jobs:
       - name: Concurrent explicit specialty writers
         env: {JOBMATCH_LOCAL_SPECIALTY_TEST: '1', PGDATABASE: structured_upgrade}
         run: python3 scripts/application_specialty_concurrency.py
-      - name: Verify twenty-one populated table fingerprints and restored profile
+      - name: Verify twenty-three populated table fingerprints and restored profile
         run: |
           psql -v ON_ERROR_STOP=1 -d structured_full -f scripts/structured_profile_seed.sql
           psql -v ON_ERROR_STOP=1 -d structured_full -f scripts/structured_english_seed.sql
@@ -80,8 +80,9 @@ jobs:
           psql -v ON_ERROR_STOP=1 -d structured_full -f scripts/consent_receipts_seed.sql
           psql -v ON_ERROR_STOP=1 -d structured_full -f scripts/ordinary_english_seed.sql
           psql -v ON_ERROR_STOP=1 -d structured_full -f scripts/application_specialty_seed.sql
+          psql -v ON_ERROR_STOP=1 -d structured_full -f scripts/ai_profile_acceptance_seed.sql
           PGDATABASE=structured_full python3 scripts/backup_manifest.py snapshot /tmp/structured-before.json --include-structured
-          python3 -c "import json; d=json.load(open('/tmp/structured-before.json')); assert len(d['tables'])==21 and all(v['rows']>0 for v in d['tables'].values())"
+          python3 -c "import json; d=json.load(open('/tmp/structured-before.json')); assert len(d['tables'])==23 and all(v['rows']>0 for v in d['tables'].values())"
           pg_dump -Fc -d structured_full -f /tmp/structured.dump
           pg_restore --exit-on-error -d structured_restore /tmp/structured.dump
           PGDATABASE=structured_restore python3 scripts/backup_manifest.py snapshot /tmp/structured-after.json --include-structured

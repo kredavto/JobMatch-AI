@@ -5,7 +5,7 @@ import {consumeQuota} from '../../../lib/db';
 import {readStructuredProfile} from '../../../lib/structured-profile-db';
 import {boundedBody} from '../../../lib/body';
 import {aiProfileConfig,aiProfilePreview} from '../../../lib/ai-profile-provider';
-import {ProfileReceiptSchema,SelectedProfileIndicesSchema} from '../../../lib/ai-profile-acceptance';
+import {ProfileReceiptSchema,PROFILE_RECEIPT_BYTES,SelectedProfileIndicesSchema} from '../../../lib/ai-profile-acceptance';
 import {optionalProfileSigningConfig,requiredProfileSigningConfig,issueProfileReceipt,verifyProfileReceipt} from '../../../lib/ai-profile-signing';
 import {acceptProfileCandidates,listProfileAcceptances,readProfileAcceptance,requireProfileSigningReady} from '../../../lib/ai-profile-acceptance-db';
 import {UserError} from '../../../lib/errors';
@@ -14,13 +14,14 @@ export const runtime='nodejs';
 export const dynamic='force-dynamic';
 async function post(req:NextRequest){try{
  sameOrigin(req);const user=await userOf(req);requireExpectedOwner(req,user.id);
- const bytes=await boundedBody(req,260096);let input:unknown;
+ const bytes=await boundedBody(req,PROFILE_RECEIPT_BYTES*2+4096);let input:unknown;
  try{input=JSON.parse(new TextDecoder('utf8',{fatal:true}).decode(bytes));}catch{throw new UserError('',bytes.byteLength>1024?413:400,bytes.byteLength>1024?'REQUEST_TOO_LARGE':'INVALID_INPUT');}
  if(typeof input==='object'&&input!==null&&'action' in input&&input.action==='save'){
   const body=z.object({action:z.literal('save'),expectedOwnerId:z.uuid(),workspaceRevision:z.number().int().min(0).max(2147483647),profileRevision:z.number().int().min(0).max(2147483647),receipt:ProfileReceiptSchema,selectedIndices:SelectedProfileIndicesSchema,accept:z.literal('SAVE_REVIEWED_AI_FIELDS')}).strict().parse(input);
   if(body.expectedOwnerId!==user.id)throw new UserError('',409,'OWNER_CHANGED');
   aiProfileConfig();const signing=requiredProfileSigningConfig();await consumeQuota(user,'service');
   const verified=verifyProfileReceipt(body.receipt,user.id,signing);
+  if(verified.payload.source.workspaceRevision!==body.workspaceRevision||verified.payload.source.profileRevision!==body.profileRevision)throw Error('CONFLICT');
   return NextResponse.json(await acceptProfileCandidates(user,body.workspaceRevision,body.profileRevision,verified.receipt,body.selectedIndices),{headers:{'Cache-Control':'no-store'}});
  }
  if(bytes.byteLength>1024)throw new UserError('',413,'REQUEST_TOO_LARGE');

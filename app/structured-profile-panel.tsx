@@ -1,6 +1,7 @@
 'use client';
 import {useEffect,useRef,useState} from 'react';
 import StructuredProposalsPanel from './structured-proposals-panel';
+import AiProfileHistoryPanel from './ai-profile-history-panel';
 import AiProfilePanel from './ai-profile-panel';
 import {structuredProposalCopy} from '../lib/i18n/structured-proposals';
 import type {StructuredProposal} from '../lib/structured-proposals';
@@ -13,7 +14,7 @@ type Props={ownerId:string;workspaceRevision:number;disabled:boolean;onConflict:
 export default function StructuredProfilePanel({ownerId,workspaceRevision,disabled,onConflict,locale:requestedLocale='ru'}:Props){
  const locale=normalizeLocale(requestedLocale),t=structuredProfileCopy(locale),proposalText=structuredProposalCopy(locale);
  const [readGeneration,setReadGeneration]=useState(0);
- const [profile,setProfile]=useState<StructuredProfile|null>(null),[busy,setBusy]=useState(false),[blocked,setBlocked]=useState(false),[error,setError]=useState<''|'invalidReply'|'selectionError'|RequestError>(''),[notice,setNotice]=useState(false);
+ const [profile,setProfile]=useState<StructuredProfile|null>(null),[busy,setBusy]=useState(false),[blocked,setBlocked]=useState(false),[error,setError]=useState<''|'invalidReply'|'selectionError'|'aiWriteUnknown'|RequestError>(''),[notice,setNotice]=useState(false);
  const [kind,setKind]=useState<typeof PROFILE_KINDS[number]>('employment'),[field,setField]=useState<typeof PROFILE_FIELDS[number]>('title'),[fields,setFields]=useState<ProfileFields>({}),[resetAccepted,setResetAccepted]=useState(false);
  const [draftContext,setDraftContext]=useState<string|null>(null);
  const sourceContext=profile?JSON.stringify([ownerId,profile.source_workspace_revision,profile.source_original,profile.source_fact_ids]):null;
@@ -57,7 +58,7 @@ export default function StructuredProfilePanel({ownerId,workspaceRevision,disabl
  {!profile.source_matches&&<p role="alert" className="notice">{t.stale}</p>}
  <label>{t.source}<textarea ref={source} lang="" readOnly rows={8} value={profile.source_original}/></label>
  {profile.source_matches&&<StructuredProposalsPanel key={JSON.stringify([sourceContext,profile.revision,profile.workspace_revision,profile.source_matches,readGeneration])} source={profile.source_original} locale={locale} disabled={!canWrite||draftStale||profile.entries.length>=50} hasDraft={Object.keys(fields).length>0} onAdopt={adopt}/>}
- {profile.source_matches&&<AiProfilePanel key={readGeneration} profile={profile} disabled={!canWrite} locale={locale} onConflict={onConflict}/>}
+ {profile.source_matches&&<AiProfilePanel key={readGeneration} profile={profile} disabled={!canWrite} locale={locale} onConflict={onConflict} onSaved={next=>{if(!active.current)return;try{const checked=validateStructuredProfile(next,ownerId,workspaceRevision);if(checked.revision<=profile.revision)throw Error();setProfile(checked);setNotice(true);setResetAccepted(false);}catch{setBlocked(true);setError('aiWriteUnknown');}}} onWriteFailed={cause=>{if(!active.current)return;setBlocked(true);setNotice(false);setError(cause??'aiWriteUnknown');if(cause&&[401,409].includes(cause.status))onConflict();}}/>}
  {draftStale&&<p role="alert">{proposalText.stale}</p>}
  {Object.keys(fields).length>0&&<button type="button" disabled={busy} onClick={()=>{setFields({});setDraftContext(null);}}>{proposalText.clear}</button>}
  {profile.source_matches&&<fieldset disabled={!canWrite||draftStale}><legend>{t.addLegend}</legend>
@@ -68,6 +69,7 @@ export default function StructuredProfilePanel({ownerId,workspaceRevision,disabl
  <p>{t.fieldHint}</p>
  <button disabled={draftStale||!StructuredCommandSchema.safeParse({action:'add',kind,fields}).success} onClick={()=>void execute({action:'add',kind,fields})}>{t.add}</button></fieldset>}
  {profile.entries.map(entry=><article key={entry.id} className="structured-entry"><h3>{t.kinds[entry.kind]}</h3><dl>{PROFILE_FIELDS.map(name=>entry.fields[name]&&<div key={name}><dt>{t.fields[name]}</dt><dd><span lang="">{entry.fields[name]!.quote}</span> <small>{t.range(entry.fields[name]!.start,entry.fields[name]!.end)}</small></dd></div>)}</dl><label className="check"><input type="checkbox" checked={entry.confirmed} disabled={!canWrite||(!profile.source_matches&&!entry.confirmed)} onChange={event=>void execute({action:'confirm',id:entry.id,confirmed:event.target.checked})}/>{t.confirm}</label><button disabled={!canWrite} onClick={()=>void execute({action:'delete',id:entry.id})}>{t.delete}</button></article>)}
+ <AiProfileHistoryPanel ownerId={ownerId} locale={locale} disabled={busy||disabled} onConflict={onConflict}/>
  <StructuredVersionPanel key={`${ownerId}:${profile.revision}:${profile.workspace_revision}:${readGeneration}`} locale={locale} profile={profile} disabled={busy||disabled||blocked||mismatch} onConflict={onConflict}/>
  <details><summary>{t.resetTitle}</summary><p>{t.resetHint}</p><label className="check"><input type="checkbox" checked={resetAccepted} disabled={!canWrite} onChange={event=>setResetAccepted(event.target.checked)}/>{t.resetAccept}</label><button disabled={!canWrite||!resetAccepted} onClick={()=>void execute({action:'reset',confirm:'RESET_STRUCTURED_PROFILE'})}>{t.reset}</button></details></>}
  </section>;

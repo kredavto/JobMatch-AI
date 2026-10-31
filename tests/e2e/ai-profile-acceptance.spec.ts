@@ -1,0 +1,62 @@
+import {test,expect,type Page} from '@playwright/test';
+import AxeBuilder from '@axe-core/playwright';
+import {readFile} from 'node:fs/promises';
+import {ru,en} from '../../lib/i18n';
+import {languageCopy} from '../../lib/i18n/preference';
+import {aiProfileCopy} from '../../lib/i18n/ai-profile';
+import {aiProfileAcceptanceCopy} from '../../lib/i18n/ai-profile-acceptance';
+import {structuredProfileCopy} from '../../lib/i18n/structured-profile';
+import {aiAcceptanceFixture,AI_ACCEPTANCE_FIXTURE_KEY} from '../fixtures/ai-profile-acceptance';
+type Fixture=Awaited<ReturnType<typeof aiAcceptanceFixture>>;
+function workspace(f:Fixture,revision=1){return {ownerId:f.profile.ownerId,revision,original:revision===1?f.profile.source_original:'Changed source',vacancy:'',goal:'',facts:[{id:revision===1?'f1':'changed',text:'Engineer',verified:false,source:'synthetic-fixture'},...(revision===1?[{id:'f2',text:'Analyst',verified:false,source:'synthetic-fixture'}]:[])],versions:[],applications:[]};}
+async function open(page:Page,locale:'ru'|'en',f:Fixture,revision=1){
+ await page.setViewportSize({width:390,height:844});let writes=0;await page.route('**/api/service',async route=>{if(route.request().method()!=='GET')writes++;await route.fulfill({json:workspace(f,revision)});});
+ await page.goto('/');if(locale==='en')await page.getByLabel(languageCopy.ru.label,{exact:true}).selectOption('en');
+ await page.getByRole('navigation').getByRole('button',{name:(locale==='en'?en:ru).navigation.profile,exact:true}).click();await page.getByRole('button',{name:structuredProfileCopy(locale).open,exact:true}).click();
+ return {panel:page.getByRole('region',{name:structuredProfileCopy(locale).title,exact:true}),workspaceWrites:()=>writes};
+}
+async function infer(panel:ReturnType<Page['getByRole']>,locale:'ru'|'en'){
+ const t=aiProfileCopy(locale),ai=panel.getByRole('region',{name:t.title,exact:true});await ai.getByRole('checkbox',{name:t.consent,exact:true}).check();await ai.getByRole('button',{name:t.run,exact:true}).click();await expect(ai.getByRole('article')).toHaveCount(2);return ai;
+}
+for(const locale of ['ru','en'] as const){
+ test(locale+' explicitly reviewed batch saves once, remains unconfirmed and preserves a manual draft',async({page})=>{
+  const f=await aiAcceptanceFixture();let current=f.profile,profileWrites=0,modelCalls=0,saves=0;let release!:()=>void;const ready=new Promise<void>(resolve=>{release=resolve;});
+  await page.route('**/api/structured-profile',async route=>{if(route.request().method()==='POST')profileWrites++;await route.fulfill({json:current});});
+  await page.route('**/api/ai-profile',async route=>{const body=route.request().postDataJSON();if(body.action==='save'){saves++;expect(body).toEqual({action:'save',expectedOwnerId:f.profile.ownerId,workspaceRevision:1,profileRevision:0,receipt:f.receipt,selectedIndices:[0,1],accept:'SAVE_REVIEWED_AI_FIELDS'});await ready;current=f.saved;await route.fulfill({json:f.result});}else{modelCalls++;await route.fulfill({json:f.envelope});}});
+  const {panel,workspaceWrites}=await open(page,locale,f),p=structuredProfileCopy(locale),a=aiProfileAcceptanceCopy(locale);
+  await panel.getByRole('textbox',{name:p.source,exact:true}).evaluate((node:HTMLTextAreaElement)=>node.setSelectionRange(3,11));await panel.getByRole('button',{name:p.capture,exact:true}).click();
+  const ai=await infer(panel,locale);await expect(ai.getByRole('button',{name:a.save(0),exact:true})).toBeDisabled();
+  for(const detail of await ai.getByText(aiProfileCopy(locale).context,{exact:true}).all())await detail.click();
+  await ai.getByRole('checkbox',{name:a.review(2),exact:true}).check();await ai.getByRole('checkbox',{name:a.review(1),exact:true}).check();
+  expect((await new AxeBuilder({page}).include('[aria-labelledby="structured-profile-title"]').withTags(['wcag2a','wcag2aa','wcag21aa']).analyze()).violations).toEqual([]);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  if(locale==='en')await panel.screenshot({path:'/tmp/jobmatch-ai-profile-acceptance-en-20261031.png'});
+  await ai.getByRole('button',{name:a.save(2),exact:true}).evaluate((node:HTMLButtonElement)=>{node.click();node.click();});await expect.poll(()=>saves).toBe(1);release();
+  await expect(panel.getByRole('checkbox',{name:p.confirm,exact:true})).toHaveCount(2);for(const box of await panel.getByRole('checkbox',{name:p.confirm,exact:true}).all())await expect(box).not.toBeChecked();
+  await expect(panel.getByRole('group',{name:p.addLegend,exact:true})).toContainText('Engineer');await expect(panel.getByRole('button',{name:p.add,exact:true})).toBeEnabled();expect(modelCalls).toBe(1);expect(saves).toBe(1);expect(profileWrites).toBe(0);expect(workspaceWrites()).toBe(0);
+ });
+ test(locale+' cancelling a save reports unknown status and explicit refresh discovers a committed batch without replay',async({page})=>{
+  const f=await aiAcceptanceFixture();let current=f.profile,saves=0;let release!:()=>void;const ready=new Promise<void>(resolve=>{release=resolve;});
+  await page.route('**/api/structured-profile',route=>route.fulfill({json:current}));await page.route('**/api/ai-profile',async route=>{if(route.request().postDataJSON().action==='save'){saves++;await ready;current=f.saved;await route.fulfill({json:f.result}).catch(()=>{});}else await route.fulfill({json:f.envelope});});
+  const {panel}=await open(page,locale,f),a=aiProfileAcceptanceCopy(locale),p=structuredProfileCopy(locale),ai=await infer(panel,locale);await ai.getByRole('checkbox',{name:a.review(1),exact:true}).check();await ai.getByRole('checkbox',{name:a.review(2),exact:true}).check();await ai.getByRole('button',{name:a.save(2),exact:true}).click();await expect.poll(()=>saves).toBe(1);await ai.getByRole('button',{name:a.cancelSave,exact:true}).click();release();
+  await expect(panel.getByRole('alert')).toContainText(p.aiWriteUnknown);await expect.poll(()=>current.revision).toBe(2);await panel.getByRole('button',{name:p.refresh,exact:true}).click();await expect(panel.getByRole('checkbox',{name:p.confirm,exact:true})).toHaveCount(2);expect(saves).toBe(1);
+ });
+ test(locale+' historical snapshot is readable after source change and downloads exact provenance without inference or writes',async({page})=>{
+  const f=await aiAcceptanceFixture();let writes=0,models=0,reads=0;await page.route('**/api/structured-profile',route=>route.fulfill({json:{...f.saved,workspace_revision:2,source_matches:false}}));
+  await page.route('**/api/ai-profile*',async route=>{if(route.request().method()!=='GET'){writes++;models++;throw Error('Unexpected model/write');}reads++;const id=new URL(route.request().url()).searchParams.get('id');await route.fulfill({json:id?f.record:f.list});});
+  const {panel,workspaceWrites}=await open(page,locale,f,2),a=aiProfileAcceptanceCopy(locale),history=panel.getByRole('region',{name:a.history,exact:true});await history.getByRole('button',{name:a.openHistory,exact:true}).click();await history.getByRole('button',{name:a.view,exact:true}).click();await expect(history).toContainText('Engineer');await history.getByText(a.source,{exact:true}).click();await expect(history.getByRole('blockquote').first()).toHaveText(f.profile.source_original);
+  expect((await new AxeBuilder({page}).include('[aria-labelledby="structured-profile-title"]').withTags(['wcag2a','wcag2aa','wcag21aa']).analyze()).violations).toEqual([]);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  const [download]=await Promise.all([page.waitForEvent('download'),history.getByRole('button',{name:a.download,exact:true}).click()]);expect(download.suggestedFilename()).toBe('jobmatch-ai-profile-acceptance.json');const path=await download.path();const raw=await readFile(path!,'utf8');expect(JSON.parse(raw)).toEqual(f.record);expect(raw).not.toContain(AI_ACCEPTANCE_FIXTURE_KEY);expect(raw).not.toContain('jm_access');expect(reads).toBe(2);expect(writes).toBe(0);expect(models).toBe(0);expect(workspaceWrites()).toBe(0);
+ });
+ for(const variant of ['http','owner','confirmed','fields','hash','signature'] as const)test(locale+' uncertain '+variant+' save response blocks writes and never replays or adopts invalid data',async({page})=>{
+  const f=await aiAcceptanceFixture();let saves=0,models=0;await page.route('**/api/structured-profile',route=>route.fulfill({json:f.profile}));await page.route('**/api/ai-profile',async route=>{if(route.request().postDataJSON().action!=='save'){models++;await route.fulfill({json:f.envelope});return;}saves++;const result=structuredClone(f.result);if(variant==='http'){await route.fulfill({status:502,json:{error:'PRIVATE backend diagnostic'}});return;}if(variant==='owner')result.profile.ownerId='22222222-2222-4222-8222-222222222222';if(variant==='confirmed')result.profile.entries[0].confirmed=true;if(variant==='fields')result.profile.entries[0].fields.title!.quote='PRIVATE';if(variant==='hash')result.record.payloadSha256='0'.repeat(64);if(variant==='signature')result.record.receipt.signature='0'.repeat(64);await route.fulfill({json:result});});
+  const {panel}=await open(page,locale,f),a=aiProfileAcceptanceCopy(locale),p=structuredProfileCopy(locale),ai=await infer(panel,locale);await ai.getByRole('checkbox',{name:a.review(1),exact:true}).check();await ai.getByRole('checkbox',{name:a.review(2),exact:true}).check();await ai.getByRole('button',{name:a.save(2),exact:true}).click();await expect(panel.getByRole('alert')).toContainText(p.aiWriteUnknown);await expect(panel).not.toContainText('PRIVATE');await expect(panel.getByRole('checkbox',{name:p.confirm,exact:true})).toHaveCount(0);await expect(panel.getByRole('button',{name:p.refresh,exact:true})).toBeEnabled();expect(saves).toBe(1);expect(models).toBe(1);
+ });
+ test(locale+' locale switch preserves an in-flight save without replay and applies its unconfirmed result',async({page})=>{
+  const f=await aiAcceptanceFixture();let saves=0;let release!:()=>void;const ready=new Promise<void>(resolve=>{release=resolve;});await page.route('**/api/structured-profile',route=>route.fulfill({json:f.profile}));await page.route('**/api/ai-profile',async route=>{if(route.request().postDataJSON().action==='save'){saves++;await ready;await route.fulfill({json:f.result});}else await route.fulfill({json:f.envelope});});
+  const {panel}=await open(page,locale,f),a=aiProfileAcceptanceCopy(locale),ai=await infer(panel,locale);await ai.getByRole('checkbox',{name:a.review(1),exact:true}).check();await ai.getByRole('checkbox',{name:a.review(2),exact:true}).check();await ai.getByRole('button',{name:a.save(2),exact:true}).click();await expect(ai.getByRole('button',{name:a.saving,exact:true})).toBeDisabled();const next=locale==='ru'?'en':'ru';await page.getByLabel(languageCopy[locale].label,{exact:true}).selectOption(next);await expect(page.getByRole('button',{name:aiProfileAcceptanceCopy(next).saving,exact:true})).toBeDisabled();release();await expect(page.getByRole('checkbox',{name:structuredProfileCopy(next).confirm,exact:true})).toHaveCount(2);expect(saves).toBe(1);
+ });
+ test(locale+' mismatched signed source association refuses preview and offers no acceptance controls',async({page})=>{
+  const f=await aiAcceptanceFixture(),reply=structuredClone(f.envelope);const payload=JSON.parse(reply.receipt.payload);payload.source.sourceFactIds=['PRIVATE'];reply.receipt.payload=JSON.stringify(payload);let saves=0;await page.route('**/api/structured-profile',route=>route.fulfill({json:f.profile}));await page.route('**/api/ai-profile',async route=>{if(route.request().postDataJSON().action==='save')saves++;await route.fulfill({json:reply});});
+  const {panel}=await open(page,locale,f),t=aiProfileCopy(locale),ai=panel.getByRole('region',{name:t.title,exact:true});await ai.getByRole('checkbox',{name:t.consent,exact:true}).check();await ai.getByRole('button',{name:t.run,exact:true}).click();await expect(ai.getByRole('alert')).toHaveText(t.errors.invalid);await expect(ai.getByRole('article')).toHaveCount(0);await expect(ai).not.toContainText('PRIVATE');expect(saves).toBe(0);
+ });
+}

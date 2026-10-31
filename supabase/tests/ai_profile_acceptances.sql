@@ -6,7 +6,8 @@ insert into ap_users values(gen_random_uuid(),gen_random_uuid(),gen_random_uuid(
 grant all on ap_users to authenticated;
 insert into auth.users select a from ap_users union all select b from ap_users;
 insert into auth.sessions(id,user_id) select sa,a from ap_users union all select sb,b from ap_users;
-insert into private.ai_profile_signing_config values(true,decode(repeat('ab',32),'hex'));
+insert into private.ai_profile_signing_config values(true,decode(repeat('ab',32),'hex')) on conflict(singleton) do nothing;
+do $$begin if (select signing_key from private.ai_profile_signing_config where singleton) is distinct from decode(repeat('ab',32),'hex') then raise exception 'SYNTHETIC_KEY_REQUIRED';end if;end$$;
 create function pg_temp.ap_sign(body jsonb) returns jsonb language sql security definer set search_path='' as $$
  select jsonb_build_object('payload',body::text,'signature',encode(extensions.hmac(convert_to('jobmatch-ai-profile-receipt-v1'||chr(10)||body::text,'UTF8'),decode(repeat('ab',32),'hex'),'sha256'),'hex'));
 $$;

@@ -1,5 +1,5 @@
 import {createHash,createHmac,randomUUID,timingSafeEqual} from 'node:crypto';
-import {ProfileReceiptSchema,PROFILE_RECEIPT_TTL,decodeProfileReceipt,profileReceiptSource,type ProfileReceipt} from './ai-profile-acceptance';
+import {ProfileReceiptSchema,PROFILE_RECEIPT_TTL,PROFILE_RECEIPT_BYTES,decodeProfileReceipt,profileReceiptSource,type ProfileReceipt} from './ai-profile-acceptance';
 import {validateAiProfilePreview,type AiProfilePreview} from './ai-profile-v2';
 import type {StructuredProfile} from './structured-profile';
 import {UserError} from './errors';
@@ -18,7 +18,7 @@ function mac(payload:string,config:ProfileSigningConfig){return createHmac('sha2
 export function issueProfileReceipt(profile:StructuredProfile,preview:AiProfilePreview,config:ProfileSigningConfig):ProfileReceipt{
  const source=profileReceiptSource(profile),validated=validateAiProfilePreview(preview,source.sourceOriginal),issuedAt=Math.floor(Date.now()/1000);
  const payload=JSON.stringify({format:'jobmatch-ai-profile-receipt-v1',id:randomUUID(),issuerKeyId:config.keyId,issuedAt,expiresAt:issuedAt+PROFILE_RECEIPT_TTL,source,preview:validated});
- if(new TextEncoder().encode(payload).length>128000)throw new UserError('',413,'REQUEST_TOO_LARGE');
+ if(new TextEncoder().encode(payload).length>PROFILE_RECEIPT_BYTES)throw new UserError('',413,'REQUEST_TOO_LARGE');
  return ProfileReceiptSchema.parse({payload,signature:mac(payload,config).toString('hex')});
 }
 export function verifyProfileReceipt(value:unknown,ownerId:string,config:ProfileSigningConfig){
