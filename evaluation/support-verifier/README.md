@@ -85,3 +85,6 @@ Full rewriting additionally needs claim-level provenance and durable reviewed
 versions: current SQL accepts literal rules-v1 only, and an additive migration
 requires approved backup/restore and data handling. Live acceptance still requires
 explicit disposable-account/mail permissions and a working trusted browser path.
+
+## Actual outcome: hypothesis rejected
+[Complete unchanged evidence](results/20261031-rejected.md):24/24responses,10/18false-supported,2/6supported-success. PreliminarySignal=false. Do not integrate/activate; no prompt/gold tuning or retry.
