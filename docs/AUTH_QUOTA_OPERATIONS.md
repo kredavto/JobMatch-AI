@@ -45,3 +45,6 @@ Current receipt-stage scope (PR #42): the structured application manifest is v6/
 
 ## Coarse route observations (PR #45)
 Optional default-off operational events are separate from the signed PostgreSQL quota counters/outcomes above. They contain only fixed registered-handler response metadata, no identity/subject/key/config and no auth action/body. Realm caps explicitly mark incomplete observation; they are not global request limits, direct-Auth/WAF controls or a reliable quota denominator. The read-only file checker never attests collector completeness or production readiness. It sends no alerts. See OPERATIONS_MONITORING.md; operator retention/access/budget and actual deployment acceptance remain open.
+
+
+PR #59 updates the app manifest to v7/23 with an independent AI-profile signing configuration and source journal. This does not add the three private Auth-quota tables to the manifest or establish complete provider/key backup coverage. The new AI key is distinct, starts empty and requires protected backup/provisioning/rotation; no production key was created. Historical v6/21 remains valid as v6. See [AI protocol](AI_PROFILE_ACCEPTANCE.md) and BACKUP_RESTORE.md.

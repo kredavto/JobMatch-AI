@@ -18,7 +18,7 @@ from ops_report import PREFIX, ROUTES, parse_event
 
 ROOT = Path(__file__).resolve().parent.parent
 PRIVATE = ('OPS_PRIVATE_QUERY', 'OPS_PRIVATE_COOKIE', 'OPS_PRIVATE_BODY', 'OPS_PRIVATE_PASSWORD')
-POST_ONLY = {'ai-review', 'ai-profile', 'auth-email', 'import', 'recovery'}
+POST_ONLY = {'ai-review', 'auth-email', 'import', 'recovery'}
 CURRENT_PHASE = 'guard'
 
 

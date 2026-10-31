@@ -19,7 +19,9 @@ TABLES = (
 STRUCTURED_V3_TABLES = TABLES + ('public.structured_profiles', 'public.structured_profile_entries')
 STRUCTURED_V4_TABLES = STRUCTURED_V3_TABLES + ('public.structured_resume_versions',)
 STRUCTURED_V5_TABLES = STRUCTURED_V4_TABLES + ('public.reminder_boards', 'public.reminders', 'public.reminder_events')
-STRUCTURED_TABLES = STRUCTURED_V5_TABLES + ('private.processing_notices', 'public.processing_consent_receipts')
+STRUCTURED_V6_TABLES = STRUCTURED_V5_TABLES + ('private.processing_notices', 'public.processing_consent_receipts')
+
+STRUCTURED_TABLES = STRUCTURED_V6_TABLES + ('public.ai_profile_acceptances', 'private.ai_profile_signing_config')
 
 def fingerprint(lines):
     digest = hashlib.sha256()
@@ -88,7 +90,7 @@ def snapshot(output, logical_workspaces=False, include_structured=False):
             tables[current] = {'rows': count, 'sha256': digest.hexdigest()}
         if process.wait() != 0 or not complete or set(tables) != set(selected_tables):
             raise ValueError('Database snapshot failed; check connection, privileges and schema locally')
-        report = {'format': 'jobmatch-backup-structured-v6' if include_structured else 'jobmatch-backup-logical-v2' if logical_workspaces else 'jobmatch-backup-manifest-v1',
+        report = {'format': 'jobmatch-backup-structured-v7' if include_structured else 'jobmatch-backup-logical-v2' if logical_workspaces else 'jobmatch-backup-manifest-v1',
                   'created_at': datetime.now(timezone.utc).isoformat(), 'tables': tables}
         # Publish a complete file atomically, without overwriting a baseline.
         destination = os.path.abspath(output)
@@ -118,7 +120,7 @@ def compare(baseline, restored):
     for manifest in (baseline, restored):
         if not isinstance(manifest, dict) or not isinstance(manifest.get('tables'), dict):
             raise ValueError('Invalid manifest')
-        if manifest.get('format') not in ('jobmatch-backup-manifest-v1', 'jobmatch-backup-logical-v2', 'jobmatch-backup-structured-v3', 'jobmatch-backup-structured-v4', 'jobmatch-backup-structured-v5', 'jobmatch-backup-structured-v6') or set(manifest.get('tables', {})) != set(STRUCTURED_TABLES if manifest.get('format') == 'jobmatch-backup-structured-v6' else STRUCTURED_V5_TABLES if manifest.get('format') == 'jobmatch-backup-structured-v5' else STRUCTURED_V4_TABLES if manifest.get('format') == 'jobmatch-backup-structured-v4' else STRUCTURED_V3_TABLES if manifest.get('format') == 'jobmatch-backup-structured-v3' else TABLES):
+        if manifest.get('format') not in ('jobmatch-backup-manifest-v1', 'jobmatch-backup-logical-v2', 'jobmatch-backup-structured-v3', 'jobmatch-backup-structured-v4', 'jobmatch-backup-structured-v5', 'jobmatch-backup-structured-v6', 'jobmatch-backup-structured-v7') or set(manifest.get('tables', {})) != set(STRUCTURED_TABLES if manifest.get('format') == 'jobmatch-backup-structured-v7' else STRUCTURED_V6_TABLES if manifest.get('format') == 'jobmatch-backup-structured-v6' else STRUCTURED_V5_TABLES if manifest.get('format') == 'jobmatch-backup-structured-v5' else STRUCTURED_V4_TABLES if manifest.get('format') == 'jobmatch-backup-structured-v4' else STRUCTURED_V3_TABLES if manifest.get('format') == 'jobmatch-backup-structured-v3' else TABLES):
             raise ValueError('Invalid or incomplete manifest')
         for item in manifest['tables'].values():
             if not isinstance(item, dict):

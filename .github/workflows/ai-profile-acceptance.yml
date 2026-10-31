@@ -1,0 +1,110 @@
+name: Signed AI profile acceptance (synthetic PostgreSQL)
+on:
+  pull_request:
+    paths: ['app/**','lib/**','tests/**','supabase/**','scripts/**','evaluation/**','package*.json','.github/workflows/ai-profile-acceptance.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  postgres:
+    if: github.repository == 'kredavto/JobMatch-AI' && github.event.repository.private == false && (github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    services:
+      postgres:
+        image: postgres:17
+        env: {POSTGRES_PASSWORD: synthetic-ai-profile-only}
+        ports: ['5432:5432']
+        options: --health-cmd pg_isready --health-interval 5s --health-retries 10
+    env:
+      PGHOST: 127.0.0.1
+      PGUSER: postgres
+      PGPASSWORD: synthetic-ai-profile-only
+      PGDATABASE: jobmatch_ai_profile_full
+      NEXT_TELEMETRY_DISABLED: '1'
+      CI: 'true'
+      JOBMATCH_LOCAL_AI_PROFILE_TEST: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with: {node-version: '24'}
+      - run: npm ci --ignore-scripts
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run test:ai-evaluation
+      - run: python3 -m unittest discover -s scripts -p 'test_*.py'
+      - name: Create only disposable native fixture databases
+        run: |
+          psql -v ON_ERROR_STOP=1 -d postgres -c 'create role anon; create role authenticated;'
+          createdb jobmatch_ai_profile_full
+          createdb jobmatch_ai_profile_upgrade
+      - name: Test full schema with actual SQL and synthetic Auth sessions
+        run: |
+          psql -v ON_ERROR_STOP=1 -f scripts/restore_fixture.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/schema.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/tests/ai_profile_acceptances.sql
+      - name: Test populated upgrade without rewriting prior migrations
+        env: {PGDATABASE: jobmatch_ai_profile_upgrade}
+        run: |
+          psql -v ON_ERROR_STOP=1 -f scripts/restore_fixture.sql
+          sed '/^-- Independent derived profile/,$d' supabase/schema.sql > /tmp/ai-profile-baseline.sql
+          psql -v ON_ERROR_STOP=1 -f /tmp/ai-profile-baseline.sql
+          psql -v ON_ERROR_STOP=1 -f scripts/restore_seed.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261029084434_structured_profile.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261029092404_structured_versions.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261029095404_saved_reminders.sql
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261031084309_application_specialties.sql
+          python3 scripts/backup_manifest.py snapshot /tmp/ai-profile-upgrade-before.json
+          psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261031133712_ai_profile_acceptances.sql
+          python3 scripts/backup_manifest.py snapshot /tmp/ai-profile-upgrade-after.json
+          python3 scripts/backup_manifest.py compare /tmp/ai-profile-upgrade-before.json /tmp/ai-profile-upgrade-after.json
+          psql -v ON_ERROR_STOP=1 -f supabase/tests/ai_profile_acceptances.sql
+      - name: Node-issued receipts, native Unicode/MAC proof and twenty actual writers on both schemas
+        run: |
+          node evaluation/dist/evaluation/profile-acceptance-probe.cjs
+          PGDATABASE=jobmatch_ai_profile_upgrade node evaluation/dist/evaluation/profile-acceptance-probe.cjs
+      - name: Populate all23 tables with exclusively synthetic restore fixtures
+        run: |
+          psql -v ON_ERROR_STOP=1 -f scripts/restore_seed.sql
+          psql -v ON_ERROR_STOP=1 -f scripts/structured_profile_seed.sql
+          psql -v ON_ERROR_STOP=1 -f scripts/structured_english_seed.sql
+          psql -v ON_ERROR_STOP=1 -f scripts/reminder_seed.sql
+          psql -v ON_ERROR_STOP=1 -f scripts/consent_receipts_seed.sql
+          psql -v ON_ERROR_STOP=1 -f scripts/ordinary_english_seed.sql
+          psql -v ON_ERROR_STOP=1 -f scripts/application_specialty_seed.sql
+          psql -v ON_ERROR_STOP=1 -f scripts/ai_profile_acceptance_seed.sql
+      - name: Native23-table dump/restore and read-only historical source/MAC/key verification
+        shell: bash
+        run: |
+          set -euo pipefail
+          proof_root="$(mktemp -d "$RUNNER_TEMP/jobmatch-ai-profile-proof.XXXXXXXX")"
+          python3 scripts/backup_manifest.py snapshot "$proof_root/before.json" --include-structured
+          python3 -c "import json,sys; m=json.load(open(sys.argv[1])); assert m['format']=='jobmatch-backup-structured-v7' and len(m['tables'])==23 and all(v['rows']>0 for v in m['tables'].values())" "$proof_root/before.json"
+          docker exec -e PGPASSWORD=synthetic-ai-profile-only "${{ job.services.postgres.id }}" pg_dump -U postgres -h 127.0.0.1 -Fc -d jobmatch_ai_profile_full > "$proof_root/fixture.dump"
+          createdb jobmatch_ai_profile_restore
+          docker exec -i -e PGPASSWORD=synthetic-ai-profile-only "${{ job.services.postgres.id }}" pg_restore -U postgres -h 127.0.0.1 --exit-on-error -d jobmatch_ai_profile_restore < "$proof_root/fixture.dump"
+          PGDATABASE=jobmatch_ai_profile_restore python3 scripts/backup_manifest.py snapshot "$proof_root/after.json" --include-structured
+          python3 scripts/backup_manifest.py compare "$proof_root/before.json" "$proof_root/after.json"
+          PGDATABASE=jobmatch_ai_profile_restore JOBMATCH_AI_PROFILE_NATIVE_MODE=restore-check node evaluation/dist/evaluation/profile-acceptance-probe.cjs
+          PGDATABASE=jobmatch_ai_profile_restore psql -v ON_ERROR_STOP=1 -c "alter table public.ai_profile_acceptances disable trigger ai_profile_acceptance_frozen; update public.ai_profile_acceptances set signature=repeat('0',64); alter table public.ai_profile_acceptances enable trigger ai_profile_acceptance_frozen;"
+          PGDATABASE=jobmatch_ai_profile_restore python3 scripts/backup_manifest.py snapshot "$proof_root/signature-changed.json" --include-structured
+          set +e
+          python3 scripts/backup_manifest.py compare "$proof_root/before.json" "$proof_root/signature-changed.json"
+          changed_status=$?
+          PGDATABASE=jobmatch_ai_profile_restore JOBMATCH_AI_PROFILE_NATIVE_MODE=restore-check node evaluation/dist/evaluation/profile-acceptance-probe.cjs
+          probe_status=$?
+          set -e
+          test "$changed_status" = 1
+          test "$probe_status" = 2
+          PGDATABASE=jobmatch_ai_profile_restore psql -v ON_ERROR_STOP=1 -c "update private.ai_profile_signing_config set signing_key=decode(repeat('cd',32),'hex');"
+          PGDATABASE=jobmatch_ai_profile_restore python3 scripts/backup_manifest.py snapshot "$proof_root/key-changed.json" --include-structured
+          set +e
+          python3 scripts/backup_manifest.py compare "$proof_root/signature-changed.json" "$proof_root/key-changed.json"
+          key_status=$?
+          set -e
+          test "$key_status" = 1
+          case "$proof_root" in "$RUNNER_TEMP"/jobmatch-ai-profile-proof.????????) test -d "$proof_root" && test ! -L "$proof_root" ;; *) exit 2 ;; esac
+          rm -rf -- "$proof_root"
