@@ -1,0 +1,28 @@
+name: Runtime dependency audit and full inventory
+on:
+  pull_request:
+    paths:
+      - package.json
+      - package-lock.json
+      - scripts/dependency_audit.mjs
+      - security/tests/**
+      - .github/workflows/dependency-audit.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npm run test:dependency-security
+      - name: Fail on runtime findings or unavailable reports; retain full findings explicitly
+        run: npm run audit:dependencies
