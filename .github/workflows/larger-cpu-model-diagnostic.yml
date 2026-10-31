@@ -1,0 +1,104 @@
+name: Larger pinned CPU model diagnostic (synthetic only)
+on:
+  pull_request:
+    paths:
+      - 'evaluation/**'
+      - 'lib/**'
+      - 'scripts/fetch_cpu_model.py'
+      - 'scripts/test_fetch_cpu_model.py'
+      - 'scripts/cpu_model_scope.py'
+      - 'scripts/test_cpu_model_scope.py'
+      - 'package*.json'
+      - '.github/workflows/larger-cpu-model-diagnostic.yml'
+      - 'scripts/cpu_capacity.py'
+      - 'scripts/test_cpu_capacity.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  diagnostic:
+    if: github.repository == 'kredavto/JobMatch-AI' && github.event.repository.private == false && (github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      CI: 'true'
+      GITHUB_ACTIONS: 'true'
+      JOBMATCH_AI_CPU_DIAGNOSTIC: 'true'
+      JOBMATCH_AI_CPU_QUOTE_CONTRACT: 'source-lines-v1'
+      JOBMATCH_AI_CPU_LINK_AUDIT: 'literal-quantities-v1'
+      JOBMATCH_REPOSITORY_VISIBILITY: ${{ github.event.repository.visibility }}
+      NEXT_TELEMETRY_DISABLED: '1'
+      JOBMATCH_CPU_EVENT_NAME: ${{ github.event_name }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 2
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with: {node-version: '24'}
+      - run: npm ci --ignore-scripts
+      - run: npm run test:ai-evaluation
+      - run: python3 -m unittest discover -s scripts -p 'test_fetch_cpu_model.py'
+      - run: python3 -m unittest discover -s scripts -p 'test_cpu_model_scope.py'
+      - run: python3 -m unittest discover -s scripts -p 'test_cpu_capacity.py'
+      - name: Determine whether this commit changes executable inputs
+        id: scope
+        run: python3 scripts/cpu_model_scope.py
+      - name: Refuse insufficient standard-runner capacity without deleting data
+        if: steps.scope.outputs.run == 'true'
+        run: python3 scripts/cpu_capacity.py
+      - name: Prepare an exclusive job-owned model and report directory
+        id: comparison
+        if: steps.scope.outputs.run == 'true'
+        shell: bash
+        run: |
+          comparison_root="$(mktemp -d "$RUNNER_TEMP/jobmatch-cpu-larger.XXXXXXXX")"
+          printf 'directory=%s\n' "$comparison_root" >> "$GITHUB_OUTPUT"
+      - name: Download and verify exact larger weights and license
+        if: steps.scope.outputs.run == 'true'
+        env:
+          JOBMATCH_CPU_COMPARISON_ROOT: ${{ steps.comparison.outputs.directory }}
+        run: python3 scripts/fetch_cpu_model.py --larger "$JOBMATCH_CPU_COMPARISON_ROOT/larger"
+      - name: Build one pinned CPU binary and image for the two independent tasks
+        id: image
+        if: steps.scope.outputs.run == 'true'
+        shell: bash
+        run: |
+          docker build -f evaluation/cpu/Dockerfile -t jobmatch-cpu-diagnostic:local evaluation/cpu
+          image_id="$(docker image inspect jobmatch-cpu-diagnostic:local --format '{{.Id}}')"
+          [[ "$image_id" =~ ^sha256:[a-f0-9]{64}$ ]]
+          printf 'image=%s\n' "$image_id" >> "$GITHUB_OUTPUT"
+      - name: Actual larger-model CPU inference on the fixed synthetic corpus
+        if: steps.scope.outputs.run == 'true'
+        shell: bash
+        env:
+          JOBMATCH_CPU_COMPARISON_ROOT: ${{ steps.comparison.outputs.directory }}
+          JOBMATCH_AI_CPU_IMAGE_ID: ${{ steps.image.outputs.image }}
+        run: |
+          set -euo pipefail
+          umask 077
+          test ! -e "$JOBMATCH_CPU_COMPARISON_ROOT/larger.log"
+          timeout --signal=TERM --kill-after=10s 900s docker run --rm --init --network none --read-only --cap-drop ALL --security-opt no-new-privileges --cpus 4 --memory 8g --pids-limit 128 --tmpfs /tmp:rw,noexec,nosuid,size=64m --user 1000:1000 -v "$GITHUB_WORKSPACE:/app:ro" -v "$JOBMATCH_CPU_COMPARISON_ROOT/larger:/model:ro" -e CI=true -e GITHUB_ACTIONS=true -e JOBMATCH_AI_CPU_DIAGNOSTIC=true -e JOBMATCH_AI_CPU_MODEL_SLOT=larger -e JOBMATCH_AI_CPU_QUOTE_CONTRACT=source-lines-v1 -e JOBMATCH_AI_CPU_LINK_AUDIT=literal-quantities-v1 -e GITHUB_REPOSITORY=kredavto/JobMatch-AI -e JOBMATCH_REPOSITORY_VISIBILITY=public -e NODE_ENV=test -e JOBMATCH_AI_CPU_IMAGE_ID="$JOBMATCH_AI_CPU_IMAGE_ID" "$JOBMATCH_AI_CPU_IMAGE_ID" | tee "$JOBMATCH_CPU_COMPARISON_ROOT/larger.log"
+      - name: Actual larger-model profile extraction on a separate fixed synthetic corpus
+        if: steps.scope.outputs.run == 'true'
+        shell: bash
+        env:
+          JOBMATCH_CPU_COMPARISON_ROOT: ${{ steps.comparison.outputs.directory }}
+          JOBMATCH_AI_CPU_IMAGE_ID: ${{ steps.image.outputs.image }}
+        run: |
+          set -euo pipefail
+          umask 077
+          test ! -e "$JOBMATCH_CPU_COMPARISON_ROOT/profile-larger.log"
+          timeout --signal=TERM --kill-after=10s 900s docker run --rm --init --network none --read-only --cap-drop ALL --security-opt no-new-privileges --cpus 4 --memory 8g --pids-limit 128 --tmpfs /tmp:rw,noexec,nosuid,size=64m --user 1000:1000 --entrypoint node -v "$GITHUB_WORKSPACE:/app:ro" -v "$JOBMATCH_CPU_COMPARISON_ROOT/larger:/model:ro" -e CI=true -e GITHUB_ACTIONS=true -e JOBMATCH_AI_CPU_DIAGNOSTIC=true -e JOBMATCH_AI_PROFILE_CPU_DIAGNOSTIC=true -e JOBMATCH_AI_CPU_MODEL_SLOT=larger -e GITHUB_REPOSITORY=kredavto/JobMatch-AI -e JOBMATCH_REPOSITORY_VISIBILITY=public -e NODE_ENV=test -e JOBMATCH_AI_CPU_IMAGE_ID="$JOBMATCH_AI_CPU_IMAGE_ID" "$JOBMATCH_AI_CPU_IMAGE_ID" evaluation/dist/evaluation/profile-cpu-diagnostic.cjs | tee "$JOBMATCH_CPU_COMPARISON_ROOT/profile-larger.log"
+      - name: Dispose only the exclusively created comparison directory
+        if: always() && steps.comparison.outputs.directory != ''
+        shell: bash
+        env:
+          JOBMATCH_CPU_COMPARISON_ROOT: ${{ steps.comparison.outputs.directory }}
+        run: |
+          case "$JOBMATCH_CPU_COMPARISON_ROOT" in
+            "$RUNNER_TEMP"/jobmatch-cpu-larger.????????) test -d "$JOBMATCH_CPU_COMPARISON_ROOT" && test ! -L "$JOBMATCH_CPU_COMPARISON_ROOT" ;;
+            *) exit 2 ;;
+          esac
+          rm -rf -- "$JOBMATCH_CPU_COMPARISON_ROOT"

@@ -12,6 +12,7 @@ import urllib.request
 
 PIN = Path(__file__).resolve().parent.parent / 'evaluation' / 'cpu-model.json'
 CANDIDATE_PIN = Path(__file__).resolve().parent.parent / 'evaluation' / 'cpu-model-candidate.json'
+LARGER_PIN = Path(__file__).resolve().parent.parent / 'evaluation' / 'cpu-model-larger.json'
 LICENSE_SHA = '832dd9e00a68dd83b3c3fb9f5588dad7dcf337a0db50f7d9483f310cd292e92e'
 MAX_SECONDS = 300
 
@@ -30,6 +31,8 @@ def validate_pin(value, slot='baseline'):
                         file='qwen2.5-1.5b-instruct-q8_0.gguf', bytes=1894532128,
                         sha256='d7efb072e7724d25048a4fda0a3e10b04bdef5d06b1403a1c93bd9f1240a63c8',
                         modelAlias='jobmatch-qwen2.5-1.5b-q8-diagnostic')
+    elif slot == 'larger':
+        identity = {'repository': 'Qwen/Qwen2.5-7B-Instruct-GGUF', 'revision': 'bb5d59e06d9551d752d08b292a50eb208b07ab1f', 'file': 'qwen2.5-7b-instruct-q3_k_m.gguf', 'bytes': 3808391072, 'sha256': 'a96b16179dc6cc9afdf0cf7a96a80c199cbd00b9be207c3465be21cb721cca5e', 'modelAlias': 'jobmatch-qwen2.5-7b-q3-k-m-diagnostic'}
     else:
         raise ValueError('Unreviewed model slot')
     if not isinstance(value, dict) or value != {**common, **identity}:
@@ -101,9 +104,11 @@ def main(argv=None):
             slot, manifest, target_directory = 'baseline', PIN, args[0]
         elif len(args) == 2 and args[0] == '--candidate' and not args[1].startswith('-'):
             slot, manifest, target_directory = 'candidate', CANDIDATE_PIN, args[1]
+        elif len(args) == 2 and args[0] == '--larger' and not args[1].startswith('-'):
+            slot, manifest, target_directory = 'larger', LARGER_PIN, args[1]
         else:
             raise ValueError('Parameters refused')
-        # Exactly two reviewed sources, never a caller URL, resource override or arbitrary manifest.
+        # Exactly three reviewed sources, never a caller URL, resource override or arbitrary manifest.
         pin = validate_pin(json.loads(manifest.read_text()), slot)
         directory = Path(target_directory)
         directory.mkdir(mode=0o755, parents=False, exist_ok=False)
