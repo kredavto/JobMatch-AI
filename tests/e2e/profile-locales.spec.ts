@@ -19,7 +19,7 @@ for(const locale of ['ru','en'] as const)test.describe(locale,()=>{test.use({tim
   const commands:unknown[]=[];await page.route('**/fixture-command',route=>{commands.push(route.request().postDataJSON());return route.fulfill({json:{ok:true}});});
   const historyCalls:string[]=[];await page.route('**/fixture-history*',route=>{historyCalls.push(route.request().url());return route.fulfill({json:route.request().url().includes('before=2')?{rows:[{...snapshot,id:1,kind:'baseline',facts:[]}],next:null}:{rows:[snapshot],next:2}});});
   await page.setViewportSize({width:390,height:844});await page.goto(origin+'/'+locale);const t=copy[locale],panel=page.getByRole('region',{name:t.region,exact:true});
-  await expect(panel.getByRole('textbox',{name:t.goal,exact:true})).toHaveValue('Москва · 150 000 ₽');await panel.getByRole('button',{name:t.saveGoal,exact:true}).click();await panel.getByRole('button',{name:t.saveResume,exact:true}).click();await panel.getByRole('checkbox').click();await expect(panel.getByRole('checkbox')).toBeChecked();await panel.getByRole('textbox',{name:t.fact,exact:true}).fill('B2B — рост 12%, 2023');await panel.getByRole('button',{name:t.add,exact:true}).click();await expect(panel.getByRole('textbox',{name:t.fact,exact:true})).toHaveValue('');
+  await expect(panel.getByRole('textbox',{name:t.goal,exact:true})).toHaveValue('Москва · 150 000 ₽');await panel.getByRole('button',{name:t.saveGoal,exact:true}).click();await panel.getByRole('button',{name:t.saveResume,exact:true}).click();await panel.getByRole('checkbox',{name:/Python/}).click();await expect(panel.getByRole('checkbox',{name:/Python/})).toBeChecked();await panel.getByRole('textbox',{name:t.fact,exact:true}).fill('B2B — рост 12%, 2023');await panel.getByRole('button',{name:t.add,exact:true}).click();await expect(panel.getByRole('textbox',{name:t.fact,exact:true})).toHaveValue('');
   expect(commands).toEqual([{action:'goal',text:'Москва · 150 000 ₽'},{action:'import',text:'😀 Python — 2020–2024'},{action:'verify',ids:['f-исходный'],verified:true},{action:'fact',text:'B2B — рост 12%, 2023'}]);
   await panel.getByRole('button',{name:t.refresh,exact:true}).click();await panel.locator('summary').first().click();await expect(panel.locator('time').first()).toContainText(t.month);await expect(panel.locator('time').first()).toContainText('00:15:00 UTC');await expect(panel.locator('time').first()).toHaveAttribute('datetime',snapshot.captured_at);await expect(panel.getByText(snapshot.facts[0].text,{exact:true})).toBeVisible();
   const pending=page.waitForEvent('download');await panel.getByRole('button',{name:t.download,exact:true}).click();const download=await pending;expect(download.suggestedFilename()).toBe('jobmatch-facts-2.json');expect(JSON.parse(await readFile((await download.path())!,'utf8'))).toEqual(snapshot);
@@ -38,4 +38,32 @@ test('a rejected add retains the draft and requires a manual retry',async({page}
 });
 test('file callback only changes the review draft and permits selecting the same file again',async({page})=>{
  let writes=0;await page.route('**/fixture-command',route=>{writes++;return route.fulfill({json:{ok:true}});});await page.goto(origin+'/en');const input=page.locator('input[type=file]'),file={name:'resume.txt',mimeType:'text/plain',buffer:Buffer.from('Данные 😀\n2024 — 42%')};await input.setInputFiles(file);const draft=page.getByRole('textbox',{name:copy.en.resume,exact:true});await expect(draft).toHaveValue('Данные 😀\n2024 — 42%');await draft.fill('Проверенный вручную черновик');await input.setInputFiles(file);await expect(draft).toHaveValue('Данные 😀\n2024 — 42%');expect(writes).toBe(0);
+});
+
+for(const locale of ['ru','en'] as const)test(locale+' bulk skill selection requires explicit save and supports partial selection',async({page})=>{
+ const commands:unknown[]=[];
+ await page.route('**/fixture-command',route=>{commands.push(route.request().postDataJSON());return route.fulfill({json:{ok:true}});});
+ await page.goto(origin+'/'+locale);await page.getByRole('button',{name:'Load bulk fixture',exact:true}).click();
+ const panel=page.getByRole('region',{name:copy[locale].region,exact:true}),all=panel.getByRole('checkbox',{name:locale==='ru'?'Выделить все':'Select all',exact:true});
+ const save=panel.getByRole('button',{name:locale==='ru'?'Подтвердить и сохранить выбранные навыки':'Confirm and save selected skills',exact:true});
+ await all.check();expect(commands).toEqual([]);await expect(panel.getByRole('checkbox',{name:/Existing skill/})).toBeDisabled();
+ await panel.getByRole('checkbox',{name:/SQL/}).uncheck();await expect(all).toHaveAttribute('aria-checked','mixed');expect(commands).toEqual([]);if(locale==='ru'){await page.setViewportSize({width:390,height:844});await panel.screenshot({path:'test-results/select-all-skills-mobile.png'});}
+ await all.check();await expect(panel.getByRole('checkbox',{name:/SQL/})).toBeChecked();await all.uncheck();await expect(save).toBeDisabled();expect(commands).toEqual([]);
+ await panel.getByRole('checkbox',{name:/Python/}).check();await save.click();await expect.poll(()=>commands.length).toBe(1);expect(commands).toEqual([{action:'verify',ids:['one'],verified:true}]);
+ await expect(panel.getByRole('checkbox',{name:/SQL/})).not.toBeChecked();await all.check();await panel.getByRole('button',{name:locale==='ru'?'Отменить выбор':'Cancel selection',exact:true}).click();await expect(panel.getByRole('checkbox',{name:/SQL/})).not.toBeChecked();expect(commands).toHaveLength(1);
+ await page.getByRole('button',{name:'Empty facts',exact:true}).click();await expect(all).toBeDisabled();
+});
+test('bulk save failure retains selection across locale changes and does not retry automatically',async({page})=>{
+ let writes=0;await page.route('**/fixture-command',route=>{writes++;return route.fulfill({status:409,json:{}});});
+ await page.goto(origin+'/en');await page.getByRole('button',{name:'Load bulk fixture',exact:true}).click();await page.getByRole('checkbox',{name:'Select all',exact:true}).check();
+ await page.getByRole('button',{name:'Confirm and save selected skills',exact:true}).click();await expect.poll(()=>writes).toBe(1);await expect(page.getByRole('button',{name:'Confirm and save selected skills',exact:true})).toBeEnabled();
+ await page.getByRole('button',{name:'Switch test locale',exact:true}).click();await expect(page.getByRole('checkbox',{name:'Выделить все',exact:true})).toBeChecked();expect(writes).toBe(1);
+});
+
+test('bulk save is single-flight and stale source selection is not applied to replacement facts',async({page})=>{
+ let release!:()=>void;const held=new Promise<void>(resolve=>{release=resolve;});let writes=0;
+ await page.route('**/fixture-command',async route=>{writes++;await held;return route.fulfill({json:{ok:true}});});
+ await page.goto(origin+'/en');await page.getByRole('button',{name:'Load bulk fixture',exact:true}).click();await page.getByRole('checkbox',{name:'Select all',exact:true}).check();
+ const save=page.getByRole('button',{name:'Confirm and save selected skills',exact:true});await save.evaluate((button:HTMLButtonElement)=>{button.click();button.click();});await expect.poll(()=>writes).toBe(1);await expect(save).toBeDisabled();await expect(page.getByRole('checkbox',{name:'Select all',exact:true})).toBeDisabled();release();await expect(save).toHaveCount(0);expect(writes).toBe(1);
+ await page.getByRole('button',{name:'Load bulk fixture',exact:true}).click();await page.getByRole('checkbox',{name:'Select all',exact:true}).check();await page.getByRole('button',{name:'Empty facts',exact:true}).click();await expect(save).toBeDisabled();expect(writes).toBe(1);
 });

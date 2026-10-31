@@ -1,5 +1,11 @@
 /** Public v1 codes. Copy may change; code/status meaning must remain stable. No PII or provider diagnostics. */
 export const apiErrors={
+ HH_IMPORT_DISABLED:{status:503,ru:'Импорт hh.ru ещё не подключён администратором. Вставьте текст вакансии вручную.',en:'hh.ru import has not been enabled by the administrator. Paste the vacancy text manually.'},
+ HH_IMPORT_LINK:{status:400,ru:'Введите HTTPS-ссылку на вакансию hh.ru или её числовой ID.',en:'Enter an HTTPS hh.ru vacancy link or its numeric ID.'},
+ HH_IMPORT_UNAVAILABLE:{status:503,ru:'hh.ru не предоставил вакансию. Вставьте текст вручную или повторите позже.',en:'hh.ru could not provide the vacancy. Paste its text manually or try later.'},
+ HH_IMPORT_NOT_FOUND:{status:404,ru:'Вакансия не найдена или недоступна. Вставьте её текст вручную.',en:'The vacancy was not found or is inaccessible. Paste its text manually.'},
+ HH_IMPORT_RATE:{status:429,ru:'hh.ru ограничил запросы. Подождите или вставьте текст вручную.',en:'hh.ru limited requests. Wait or paste the text manually.'},
+ HH_IMPORT_INVALID:{status:502,ru:'Не удалось безопасно прочитать полный текст вакансии. Вставьте его вручную.',en:'The complete vacancy text could not be read safely. Paste it manually.'},
  AUTH_REQUIRED:{status:401,ru:'Войдите в приложение',en:'Sign in to the application.'},
  ORIGIN_REJECTED:{status:403,ru:'Недопустимый источник запроса',en:'The request origin is not allowed.'},
  REVISION_CONFLICT:{status:409,ru:'Данные изменены в другой вкладке. Обновите страницу.',en:'Data changed in another tab. Reload current data before saving again.'},

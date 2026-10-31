@@ -1,7 +1,7 @@
 import {z} from 'zod';
 export const OPS_PREFIX='JOBMATCH_OPS_V1 ';
 export const OPS_LIMIT=60;
-export const OPS_ROUTES=['ai-review','ai-profile','auth-email','consent-receipts','fact-history','import','recovery','reminders','resume-export','service','structured-profile','structured-versions'] as const;
+export const OPS_ROUTES=['ai-review','ai-profile','auth-email','consent-receipts','fact-history','hh-vacancy','import','recovery','reminders','resume-export','service','structured-profile','structured-versions'] as const;
 export type OpsRoute=typeof OPS_ROUTES[number];
 export const OPS_BUCKETS=['lt100ms','lt500ms','lt2s','lt10s','ge10s','unknown'] as const;
 const minute=z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:00Z$/).refine(value=>Number.isFinite(Date.parse(value))&&Date.parse(value)>=0&&new Date(value).toISOString().replace('.000Z','Z')===value);
