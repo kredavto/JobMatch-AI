@@ -1,0 +1,12 @@
+import {it,expect,vi,beforeEach,afterEach} from 'vitest';
+const provider=vi.hoisted(()=>({aiConfig:vi.fn(),aiReview:vi.fn()}));
+vi.mock('../lib/ai-provider',()=>provider);
+import {adaptResume} from '../lib/ai-resume-adaptation-provider';
+const facts=[{id:'f1',text:'SQL',verified:true,source:'input'},{id:'f2',text:'React',verified:true,source:'manual'}];
+beforeEach(()=>{vi.resetAllMocks();vi.stubEnv('JOBMATCH_AI_ADAPTATION_ENABLED','true');provider.aiReview.mockResolvedValue({requirements:[{quote:'SQL',evidence_ids:['f1']}]});});
+afterEach(()=>vi.unstubAllEnvs());
+it('is independently off by default and never calls the model',async()=>{vi.stubEnv('JOBMATCH_AI_ADAPTATION_ENABLED','');await expect(adaptResume(facts,'SQL','SQL',new AbortController().signal)).rejects.toMatchObject({status:503});expect(provider.aiReview).not.toHaveBeenCalled();});
+it('sends only confirmed original lines and marks actual output unaccepted',async()=>{const signal=new AbortController().signal;const result=await adaptResume(facts,'SQL','SQL',signal);expect(provider.aiReview).toHaveBeenCalledExactlyOnceWith([facts[0]],'SQL',signal);expect(result.modelAcceptance).toBe('not-accepted');});
+it('does not replace failed inference with a fake draft',async()=>{provider.aiReview.mockRejectedValue(new Error('failure'));await expect(adaptResume(facts,'SQL','SQL',new AbortController().signal)).rejects.toThrow('failure');expect(provider.aiReview).toHaveBeenCalledTimes(1);});
+it('refuses no-source input before inference',async()=>{await expect(adaptResume(facts,'Other','SQL',new AbortController().signal)).rejects.toMatchObject({status:400});expect(provider.aiReview).not.toHaveBeenCalled();});
+it('revalidates even a provider result against source eligibility',async()=>{provider.aiReview.mockResolvedValue({requirements:[{quote:'SQL',evidence_ids:['f2']}]});await expect(adaptResume(facts,'SQL','SQL',new AbortController().signal)).rejects.toThrow();});

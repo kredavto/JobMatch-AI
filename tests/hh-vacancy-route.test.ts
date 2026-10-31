@@ -1,0 +1,17 @@
+import {beforeEach,it,expect,vi} from 'vitest';
+import {NextRequest} from 'next/server';
+const db=vi.hoisted(()=>({identity:vi.fn(),consumeQuota:vi.fn()}));
+const hh=vi.hoisted(()=>({hhVacancyConfig:vi.fn(),importHHVacancy:vi.fn()}));
+vi.mock('../lib/db',()=>db);vi.mock('../lib/hh-vacancy',()=>hh);
+import {POST} from '../app/api/hh-vacancy/route';
+const owner='11111111-1111-4111-8111-111111111111',other='22222222-2222-4222-8222-222222222222';
+const body={url:'https://hh.ru/vacancy/123',expectedOwnerId:owner};
+const request=(data:unknown=body,origin='https://app.test')=>new NextRequest('https://app.test/api/hh-vacancy',{method:'POST',headers:{origin},body:JSON.stringify(data)});
+beforeEach(()=>{vi.clearAllMocks();db.identity.mockResolvedValue({id:owner,token:'fixture'});db.consumeQuota.mockResolvedValue(undefined);hh.hhVacancyConfig.mockReturnValue({});hh.importHHVacancy.mockResolvedValue({id:'123',url:body.url,text:'SQL',archived:false});});
+it('returns owner-bound draft only, no-store, distributed import quota',async()=>{const response=await POST(request());expect(await response.json()).toEqual({ownerId:owner,id:'123',url:body.url,text:'SQL',archived:false});expect(response.headers.get('cache-control')).toBe('no-store');expect(db.consumeQuota).toHaveBeenCalledWith({id:owner,token:'fixture'},'import');});
+it('rejects foreign owner before fetch',async()=>{db.identity.mockResolvedValue({id:other,token:'fixture'});expect((await POST(request())).status).toBe(409);expect(hh.importHHVacancy).not.toHaveBeenCalled();});
+it('requires auth',async()=>{db.identity.mockRejectedValue(new Error('AUTH'));expect((await POST(request())).status).toBe(401);expect(hh.importHHVacancy).not.toHaveBeenCalled();});
+it('checks origin first',async()=>{expect((await POST(request(body,'https://evil.test'))).status).toBe(403);expect(db.identity).not.toHaveBeenCalled();});
+it('does not accept endpoint or tokens from browser',async()=>{expect((await POST(request({...body,endpoint:'https://evil.test',token:'secret'}))).status).toBe(400);expect(hh.importHHVacancy).not.toHaveBeenCalled();});
+it('does not fetch when quota refuses',async()=>{db.consumeQuota.mockRejectedValue(new Error('RATE'));expect((await POST(request())).status).toBe(429);expect(hh.importHHVacancy).not.toHaveBeenCalled();});
+it('bounds request size',async()=>{expect((await POST(request({...body,url:'x'.repeat(5000)}))).status).toBe(413);expect(hh.importHHVacancy).not.toHaveBeenCalled();});

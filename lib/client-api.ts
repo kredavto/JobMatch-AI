@@ -7,7 +7,7 @@ export class RequestError extends Error {
 }
 export async function requestJson<T>(url:string,init?:RequestInit):Promise<T>{
  let response:Response;
- try{response=await fetch(url,{...init,cache:'no-store',signal:AbortSignal.timeout(30000)});}catch{throw new RequestError(ui.request.lost);}
+ try{response=await fetch(url,{...init,cache:'no-store',signal:init?.signal?AbortSignal.any([init.signal,AbortSignal.timeout(30000)]):AbortSignal.timeout(30000)});}catch{throw new RequestError(ui.request.lost);}
  let data;
  try{data=await response.json();}catch{throw new RequestError(ui.request.invalid,response.ok?0:response.status);}
  if(!response.ok)throw new RequestError(typeof data?.error==='string'?data.error:ui.request.failed,response.status);
