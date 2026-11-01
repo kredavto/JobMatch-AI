@@ -3,7 +3,7 @@ import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
 import {randomBytes} from 'node:crypto';
 import {setTimeout as pause} from 'node:timers/promises';
-import {docx,pdf} from './documents.mjs';
+import {docx,pdf,rasterPdf} from './documents.mjs';
 if(process.env.JOBMATCH_PARSER_CONTAINER_TEST!=='1'){process.stderr.write('Enable the synthetic parser container test explicitly.\n');process.exit(2);}
 const exec=promisify(execFile),image=process.env.PARSER_TEST_IMAGE||'jobmatch-parser:test';
 const prefix='jobmatch_parser_'+randomBytes(6).toString('hex'),network=prefix+'_private',ingress=prefix+'_ingress',token=randomBytes(32).toString('hex');
@@ -12,7 +12,7 @@ async function docker(args,timeout=30000){try{const result=await exec('docker',a
 const emptyEnvironment=['HTTP_PROXY','HTTPS_PROXY','ALL_PROXY','NO_PROXY','http_proxy','https_proxy','all_proxy','no_proxy','NODE_OPTIONS'].flatMap(k=>['-e',k+'=']);
 function limits(memory=512,cpus='1',pids='64'){return [...emptyEnvironment,'--memory',memory+'m','--memory-swap',memory+'m','--cpus',cpus,'--pids-limit',pids,'--read-only','--tmpfs','/tmp:rw,noexec,nosuid,size=32m,mode=1777','--cap-drop','ALL','--security-opt','no-new-privileges:true','--user','10001:10001','--ulimit','core=0'];}
 async function inspect(name){return JSON.parse(await docker(['inspect',name]))[0];}
-async function create(suffix,command=[],privateWorker=false,restart=false){const name=prefix+'_'+suffix;containers.push(name);await docker(['run','-d','--name',name,'--network',privateWorker?network:'none',...(privateWorker?['--network-alias','parser']:[]),...limits(),...(restart?['--restart','always']:[]),image,...command]);return name;}
+async function create(suffix,command=[],privateWorker=false,restart=false,ocr=false){const name=prefix+'_'+suffix;containers.push(name);await docker(['run','-d','--name',name,'--network',privateWorker?network:'none',...(privateWorker?['--network-alias','parser']:[]),...limits(),...(restart?['--restart','always']:[]),...(ocr?['-e','PARSER_WORKER_OCR=true']:[]),image,...command]);return name;}
 async function createGateway(){const name=prefix+'_gateway';containers.push(name);await docker(['run','-d','--name',name,'--network',ingress,...limits(128,'0.25','32'),'-e','PARSER_WORKER_TOKEN='+token,'-p','127.0.0.1::8080',image,'node','--disable-sigusr1','--max-old-space-size=64','compiled/worker/gateway.cjs']);await docker(['network','connect',network,name]);const port=await docker(['port',name,'8080/tcp']);assert.match(port,/^127\.0\.0\.1:\d+$/);root='http://'+port;return name;}
 async function ready(){const deadline=Date.now()+15000;while(Date.now()<deadline){try{const response=await fetch(root+'/health',{signal:AbortSignal.timeout(1000)});if(response.ok&&JSON.parse(await response.text()).ok===true)return;}catch{}await pause(100);}throw new Error('Synthetic parser did not become ready');}
 async function wait(name){return Number(await docker(['wait',name],30000));}
@@ -48,12 +48,20 @@ try{
  await rejectStartup('gateway_memory',{},'gateway',129);
  await rejectStartup('gateway_cpu',{},'gateway',128,'0.5');
  await rejectStartup('gateway_pids',{},'gateway',128,'0.25','33');
+ await rejectStartup('ocr_bad_flag',{PARSER_WORKER_OCR:'yes'});
+ await rejectStartup('gateway_ocr_flag',{PARSER_WORKER_OCR:'true'},'gateway');
  stage='TXT job and retirement';assert.deepEqual(await extract(text,'txt',Buffer.from('Synthetic resume SQL')),{status:200,result:{ok:true,text:'Synthetic resume SQL'}});
  stage='DOCX job and retirement';const word=await extract(await create('word',[],true),'docx',await docx());assert.equal(word.status,200);assert.equal(word.result.ok,true);assert.match(word.result.text,/Synthetic resume SQL/);
  stage='PDF job and retirement';const document=await extract(await create('pdf',[],true),'pdf',pdf());assert.equal(document.status,200);assert.equal(document.result.ok,true);assert.match(document.result.text,/Synthetic resume SQL/);
  stage='private parser refuses credential headers and retires';const credentialProbe=await create('credential_probe',[],true);await ready();
  await docker(['exec',gateway,'node','-e',"fetch('http://parser:8080/extract',{method:'POST',headers:{Authorization:'Bearer PUBLIC_CLIENT_CANARY','Content-Type':'application/octet-stream','X-File-Extension':'txt'},body:'Synthetic resume SQL'}).then(async r=>{if(r.status!==503||JSON.stringify(await r.json())!==JSON.stringify({ok:false,code:'UNAVAILABLE'}))process.exit(1)},()=>process.exit(1))"]);assert.equal(await wait(credentialProbe),0);
  stage='unsupported DOCX rejection and retirement';assert.deepEqual(await extract(await create('badword',[],true),'docx',await docx('word/embeddings/oleObject1.bin')),{status:400,result:{ok:false,code:'INVALID'}});
+ stage='OCR default OFF in actual private container';assert.deepEqual(await extract(await create('ocr_off',[],true),'pdf',await rasterPdf()),{status:400,result:{ok:false,code:'INVALID'}});
+ stage='actual bilingual and mixed OCR inside private container';
+ for(const [label,options] of [['bilingual',{}],['mixed',{pages:2,mixed:true}]]){const r=await extract(await create('ocr_'+label,[],true,false,true),'pdf',await rasterPdf(options));assert.equal(r.status,200);assert.equal(r.result.ocrPages,1);assert.match(r.result.text,/Alex Example SQL/);assert.match(r.result.text,/Иван Тестов/);if(options.mixed)assert.ok(r.result.text.indexOf('Embedded engineering experience')<r.result.text.indexOf('Alex Example SQL'));}
+ stage='OCR blank and whole-document page budget refusals';
+ assert.deepEqual(await extract(await create('ocr_blank',[],true,false,true),'pdf',await rasterPdf({blank:true})),{status:400,result:{ok:false,code:'INVALID'}});
+ assert.deepEqual(await extract(await create('ocr_pages',[],true,false,true),'pdf',await rasterPdf({pages:4})),{status:400,result:{ok:false,code:'OCR_LIMIT'}});
  stage='restart policy and fresh tmpfs';const recycled=await create('recycle',[],true,true);await ready();const firstPid=(await inspect(recycled)).State.Pid;
  await docker(['exec',recycled,'node','-e',"require('node:fs').writeFileSync('/tmp/previous-job','synthetic')"]);
  assert.deepEqual(await send('txt',Buffer.from('First independent resume')),{status:200,result:{ok:true,text:'First independent resume'}});await ready();const restarted=await inspect(recycled);assert.ok(restarted.RestartCount>=1);assert.notEqual(restarted.State.Pid,firstPid);
@@ -67,5 +75,5 @@ finally{
  for(const name of containers){try{await docker(['rm','-f',name]);}catch{process.stderr.write('FAIL: synthetic parser container cleanup.\n');failed=true;}}
  for(const name of [network,ingress])try{await docker(['network','rm',name]);}catch{process.stderr.write('FAIL: synthetic parser network cleanup.\n');failed=true;}
 }
-if(!failed)process.stdout.write('PASS: allowlisted runtime environment and strict role budgets; credential gateway, real TXT/DOCX/PDF HTTP jobs, one-job retirement/restart with fresh tmpfs, private network/readonly/caps/PIDs, kernel CPU/RAM ceilings; all containers/networks removed.\n');
+if(!failed)process.stdout.write('PASS: real bilingual/mixed/default-OFF/blank/page-budget OCR; allowlisted runtime environment and strict role budgets; credential gateway, real TXT/DOCX/PDF HTTP jobs, one-job retirement/restart with fresh tmpfs, private network/readonly/caps/PIDs, kernel CPU/RAM ceilings; all containers/networks removed.\n');
 process.exitCode=failed?1:0;

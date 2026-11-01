@@ -7,11 +7,11 @@ beforeEach(()=>{vi.stubEnv('IMPORT_PARSER_MODE','worker');vi.stubEnv('IMPORT_PAR
 afterEach(()=>{vi.useRealTimers();vi.unstubAllEnvs();vi.unstubAllGlobals();});
 it('keeps inline compatibility explicit and does not contact a worker',async()=>{
  vi.stubEnv('IMPORT_PARSER_MODE','inline');local.mockResolvedValue('Local confirmed text');const fetch=vi.fn();vi.stubGlobal('fetch',fetch);
- expect(await parseImport('personal.docx',Buffer.from('document'))).toBe('Local confirmed text');expect(local).toHaveBeenCalledWith('personal.docx',Buffer.from('document'));expect(fetch).not.toHaveBeenCalled();
+ expect(await parseImport('personal.docx',Buffer.from('document'))).toEqual({text:'Local confirmed text'});expect(local).toHaveBeenCalledWith('personal.docx',Buffer.from('document'));expect(fetch).not.toHaveBeenCalled();
 });
 it('sends bytes and extension only, without owner, filename, cookies or app credentials',async()=>{
  const fetch=vi.fn().mockResolvedValue(Response.json({ok:true,text:'Draft resume SQL'}));vi.stubGlobal('fetch',fetch);
- expect(await parseImport('Personal Full Name.DOCX',Buffer.from('document'))).toBe('Draft resume SQL');
+ expect(await parseImport('Personal Full Name.DOCX',Buffer.from('document'))).toEqual({text:'Draft resume SQL'});
  expect(fetch).toHaveBeenCalledTimes(1);const [url,options]=fetch.mock.calls[0];expect(String(url)).toBe('https://owned-parser.example/extract');
  expect(options.headers).toEqual({Authorization:'Bearer '+token,'Content-Type':'application/octet-stream','X-File-Extension':'docx'});
  expect(Buffer.from(options.body).toString()).toBe('document');expect(options.redirect).toBe('error');expect(options.cache).toBe('no-store');expect(local).not.toHaveBeenCalled();
@@ -42,3 +42,8 @@ it('cancels the transport when a response is rejected before reading its body',a
  const fetch=vi.fn().mockResolvedValue(new Response('untrusted diagnostics',{headers:{'Content-Type':'text/html'}}));vi.stubGlobal('fetch',fetch);
  await expect(parseImport('a.pdf',Buffer.from('document'))).rejects.toMatchObject({status:503});expect(fetch.mock.calls[0][1].signal.aborted).toBe(true);
 });
+
+it('preserves strictly bounded OCR page metadata for PDF without another transmission',async()=>{const fetch=vi.fn().mockResolvedValue(Response.json({ok:true,text:'Recognised resume SQL',ocrPages:2}));vi.stubGlobal('fetch',fetch);expect(await parseImport('private.pdf',Buffer.from('document'))).toEqual({text:'Recognised resume SQL',ocrPages:2});expect(fetch).toHaveBeenCalledTimes(1);});
+it.each([0,4,1.5,'1',null])('rejects malformed OCR metadata %j',async value=>{vi.stubGlobal('fetch',vi.fn().mockResolvedValue(Response.json({ok:true,text:'Recognised resume SQL',ocrPages:value})));await expect(parseImport('a.pdf',Buffer.from('document'))).rejects.toMatchObject({status:503});});
+it.each(['txt','docx'])('refuses OCR provenance or OCR_LIMIT on non-PDF %s',async ext=>{vi.stubGlobal('fetch',vi.fn().mockImplementation(async()=>Response.json({ok:true,text:'Recognised text SQL',ocrPages:1})));await expect(parseImport('a.'+ext,Buffer.from('document'))).rejects.toMatchObject({status:503});vi.stubGlobal('fetch',vi.fn().mockImplementation(async()=>Response.json({ok:false,code:'OCR_LIMIT'},{status:400})));await expect(parseImport('a.'+ext,Buffer.from('document'))).rejects.toMatchObject({status:503});});
+it('maps an entire-document OCR page refusal without a partial result',async()=>{vi.stubGlobal('fetch',vi.fn().mockResolvedValue(Response.json({ok:false,code:'OCR_LIMIT'},{status:400})));await expect(parseImport('a.pdf',Buffer.from('document'))).rejects.toMatchObject(PARSER_ERRORS.OCR_LIMIT);});

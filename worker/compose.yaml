@@ -17,6 +17,7 @@ services:
       nofile: 128
     tmpfs: ['/tmp:rw,noexec,nosuid,size=32m,mode=1777']
     environment:
+      PARSER_WORKER_OCR: ${PARSER_WORKER_OCR:-false}
       HTTP_PROXY: ''
       HTTPS_PROXY: ''
       ALL_PROXY: ''
