@@ -110,17 +110,22 @@ def main():
             for target in (source, full):
                 if sql(target, 'select to_jsonb(public.source_profile_storage_ready());', user=OWNER) is not False:
                     raise ValueError('Storage enabled by default')
+                stage = 'default-off-read-codec'
                 codec(folder, {'profile': read(target), 'context': context(target)})
                 if sql(target, 'select to_jsonb(count(*)) from public.source_profiles;') != 0:
                     raise ValueError('GET created source copy')
+                stage = 'default-off-native-add-refusal'
                 sql(target, command_statement(add(), 0), user=OWNER, failure='SOURCE_PROFILE_UNAVAILABLE')
+                stage = 'owner-cannot-grant-capability'
                 sql(target, 'grant execute on function private.source_profile_storage_permission() to authenticated;', user=OWNER)
                 if sql(target, 'select to_jsonb(public.source_profile_storage_ready());', user=OWNER):
                     raise ValueError('Owner escalated storage capability')
                 sql(target, 'insert into public.source_profiles(user_id,revision) values(' + literal(OWNER) + ',1);', user=OWNER, failure='permission denied')
                 sql(target, 'delete from public.source_profile_entries;', user=OWNER, failure='permission denied')
+                stage = 'direct-dml-and-owned-activation'
                 # Activation ONLY inside the owned disposable fixture database.
                 sql(target, 'grant execute on function private.source_profile_storage_permission() to authenticated;')
+                stage = 'native-first-add-and-codec'
                 command(target, folder, add())
             stage = 'literal-codepoints-and-strict-schema'
             p = read(source)
@@ -212,7 +217,9 @@ def main():
             except ValueError:
                 pass
             print('PASS: PG17 full and populated 15→17 migration; default OFF; read creates no copy; native grants/RLS/session/schema/range guards; clear removes cached source with monotonic revision; same-text reimport; rollback; 20 writers/1 commit/19 conflicts; 50-entry cap; cascade; 17 populated native dump/restore fingerprints and source corruption detection. Synthetic Auth only, no hosted-provider restore or semantic/model acceptance.')
-    except (OSError, ValueError, RuntimeError, KeyError, subprocess.SubprocessError):
+    except (OSError, ValueError, RuntimeError, KeyError, subprocess.SubprocessError) as error:
+        safe = str(error) if str(error) in ('Native SQL failed', 'Synthetic subprocess failed', 'Expected guarded native refusal', 'Owner escalated storage capability') else 'assertion or codec failure'
+        print('Diagnostic class: ' + safe, file=sys.stderr)
         print('FAIL: synthetic source-profile drill at ' + stage + '; no credentials or row data printed.', file=sys.stderr)
         failed = True
     finally:
