@@ -17,7 +17,10 @@ TABLES = (
 )
 
 LETTER_TABLES = TABLES + ('public.saved_letter_versions', 'private.letter_signing_config')
-FORMATS = {'jobmatch-backup-manifest-v1': TABLES, 'jobmatch-backup-manifest-letters-v1': LETTER_TABLES}
+SOURCE_TABLES = TABLES + ('public.source_profiles', 'public.source_profile_entries')
+COMBINED_TABLES = LETTER_TABLES + ('public.source_profiles', 'public.source_profile_entries')
+FORMATS = {'jobmatch-backup-manifest-v1': TABLES, 'jobmatch-backup-manifest-letters-v1': LETTER_TABLES,
+           'jobmatch-backup-manifest-source-v1': SOURCE_TABLES, 'jobmatch-backup-manifest-letters-source-v1': COMBINED_TABLES}
 
 
 def fingerprint(lines):
@@ -30,8 +33,9 @@ def fingerprint(lines):
     return {'rows': count, 'sha256': digest.hexdigest()}
 
 
-def snapshot(output, include_letters=False):
-    selected = LETTER_TABLES if include_letters else TABLES
+def snapshot(output, include_letters=False, include_source_profile=False):
+    format_name = ('jobmatch-backup-manifest-letters-source-v1' if include_letters else 'jobmatch-backup-manifest-source-v1') if include_source_profile else ('jobmatch-backup-manifest-letters-v1' if include_letters else 'jobmatch-backup-manifest-v1')
+    selected = FORMATS[format_name]
     # Use standard PG* environment / PGSERVICE and .pgpass. Never place passwords
     # in command-line arguments or echo database errors (which can contain PII).
     statements = ['BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY;',
@@ -81,7 +85,7 @@ def snapshot(output, include_letters=False):
             tables[current] = {'rows': count, 'sha256': digest.hexdigest()}
         if process.wait() != 0 or not complete or set(tables) != set(selected):
             raise ValueError('Database snapshot failed; check connection, privileges and schema locally')
-        report = {'format': 'jobmatch-backup-manifest-letters-v1' if include_letters else 'jobmatch-backup-manifest-v1',
+        report = {'format': format_name,
                   'created_at': datetime.now(timezone.utc).isoformat(), 'tables': tables}
         # Publish a complete file atomically, without overwriting a baseline.
         destination = os.path.abspath(output)
@@ -131,13 +135,14 @@ def main():
     capture = commands.add_parser('snapshot')
     capture.add_argument('output')
     capture.add_argument('--include-letters', action='store_true', help='Include saved versions and private signing config; fingerprints only')
+    capture.add_argument('--include-source-profile', action='store_true', help='Include source profile tables; combine with --include-letters for the 17-table scope')
     check = commands.add_parser('compare')
     check.add_argument('baseline')
     check.add_argument('restored')
     args = parser.parse_args()
     try:
         if args.command == 'snapshot':
-            snapshot(args.output, args.include_letters)
+            snapshot(args.output, args.include_letters, args.include_source_profile)
             print('Manifest created; no database rows saved.')
         else:
             with open(args.baseline) as handle:

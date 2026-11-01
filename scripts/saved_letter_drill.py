@@ -114,9 +114,9 @@ def main():
             folder = Path(temporary)
             consolidated = (ROOT / 'supabase/schema.sql').read_bytes()
             migration = (ROOT / MIGRATION).read_bytes()
-            if not consolidated.endswith(migration):
+            if consolidated.count(migration) != 1:
                 raise ValueError('Consolidated migration suffix differs')
-            prefix = consolidated[:-len(migration)]
+            prefix = consolidated.split(migration, 1)[0]
             if not prefix.endswith(b'\n'):
                 raise ValueError('Missing migration separator')
             legacy = prefix[:-1]

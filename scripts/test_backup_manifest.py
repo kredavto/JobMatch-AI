@@ -1,6 +1,6 @@
 import copy
 import unittest
-from backup_manifest import TABLES, LETTER_TABLES, compare, fingerprint
+from backup_manifest import TABLES, LETTER_TABLES, SOURCE_TABLES, COMBINED_TABLES, FORMATS, compare, fingerprint
 
 
 class ManifestTests(unittest.TestCase):
@@ -41,6 +41,25 @@ class ManifestTests(unittest.TestCase):
         del letters['tables']['private.letter_signing_config']
         with self.assertRaises(ValueError):
             compare(letters, letters)
+
+    def test_source_scopes_are_explicit_complete_and_not_interchangeable(self):
+        self.assertEqual(len(SOURCE_TABLES), 15)
+        self.assertEqual(len(COMBINED_TABLES), 17)
+        for name, tables in FORMATS.items():
+            manifest = {'format': name, 'tables': {t: fingerprint([b'{}\n']) for t in tables}}
+            self.assertEqual(compare(manifest, copy.deepcopy(manifest)), [])
+            if 'source' in name:
+                for table in ('public.source_profiles', 'public.source_profile_entries'):
+                    changed = copy.deepcopy(manifest)
+                    changed['tables'][table] = fingerprint([b'{"changed":true}\n'])
+                    self.assertEqual(compare(manifest, changed), [table])
+                    del changed['tables'][table]
+                    with self.assertRaises(ValueError):
+                        compare(manifest, changed)
+            for other in FORMATS:
+                if other != name:
+                    with self.assertRaises(ValueError):
+                        compare(manifest, {'format': other, 'tables': {t: fingerprint([]) for t in FORMATS[other]}})
 
     def test_empty_table_is_fingerprinted(self):
         self.assertEqual(fingerprint([])['rows'], 0)
