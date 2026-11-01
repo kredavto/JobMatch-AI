@@ -1,0 +1,6 @@
+import {expect,it} from 'vitest';
+import {mailFailure} from '../lib/mail-feedback';
+it.each(['ru','en'] as const)('rate limits retain priority over uncertain password writes (%s)',locale=>{for(const stage of ['request','exchange','update'] as const)expect(mailFailure(429,stage,locale)).toBe(locale==='ru'?'Слишком много запросов. Подождите минуту перед новой попыткой.':'Too many requests. Wait a minute before trying again.');});
+it('uncertain password updates never turn into advice to resend immediately',()=>{for(const status of [0,400,403,502,503]){expect(mailFailure(status,'update','en')).toContain('Try signing in with the new password first');expect(mailFailure(status,'update')).toContain('Сначала попробуйте войти с новым паролем');}});
+it('preserves stage-specific link and request advice in English',()=>{expect(mailFailure(400,'exchange','en')).toContain('already used');expect(mailFailure(400,'request','en')).toContain('primary application address');expect(mailFailure(503,'request','en')).toContain('administrator');});
+it('unknown request failures require a manual retry without an existence claim',()=>{expect(mailFailure(0,'request','en')).toContain('retry manually');expect(mailFailure(401,'request','en')).not.toContain('registered');});
