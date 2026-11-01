@@ -16,6 +16,18 @@ require.extensions['.ts']=(module,file)=>module._compile(ts.transpileModule(fs.r
 const {NextRequest}=require('next/server'),{POST,GET}=require('../../app/api/service/route.ts');
 const {POST:IMPORT_POST}=require('../../app/api/import/route.ts'),{ImportDraftSchema}=require('../../lib/parser-contract.ts');
 let gatewayProxy,gatewayRequests=0,proxyLeak=false,fixtureStage='startup',fixtureStatus=0;
+const nativeOps=process.env.JOBMATCH_NATIVE_OPS==='1',ops=[],originalInfo=console.info;
+if(nativeOps){
+ if(!ownedParserCore||process.env.JOBMATCH_OPS_TELEMETRY!=='stdout')throw Error('OWNED_OPS_FIXTURE_REQUIRED');
+ const {OpsObservationSchema,OPS_PREFIX}=require('../../lib/ops-telemetry.ts');
+ console.info=line=>{assert.equal(typeof line,'string');assert.ok(line.startsWith(OPS_PREFIX));ops.push(OpsObservationSchema.parse(JSON.parse(line.slice(OPS_PREFIX.length))));};
+}
+function assertOps(start,route,handler,status){
+ if(!nativeOps)return;
+ const rows=ops.slice(start);assert.equal(rows.length,1);assert.deepEqual(rows.map(({kind,route,handler,status})=>({kind,route,handler,status})),[{kind:'returned',route,handler,status}]);
+ assert.ok(!JSON.stringify(rows).includes(owner));assert.ok(!JSON.stringify(rows).includes('synthetic-session'));assert.ok(!JSON.stringify(rows).includes('private-owner-resume'));
+}
+
 const literal=v=>"'"+String(v).replaceAll("'","''")+"'",traces=[];let concurrentGoal=false;
 function pg(statement){return new Promise((resolve,reject)=>{
  const child=execFile('psql',['-X','-qAt','-w','-v','ON_ERROR_STOP=1'],{timeout:8000,maxBuffer:2000000},(error,out,stderr)=>{
@@ -82,7 +94,7 @@ async function waitOwnedGateway(){
  await new Promise(r=>server.listen(0,'127.0.0.1',r));process.env.SUPABASE_URL='http://127.0.0.1:'+server.address().port;process.env.SUPABASE_PUBLISHABLE_KEY='synthetic-publishable';process.env.JOBMATCH_AUTH_QUOTA_MODE='local';
  await startGatewayProxy();
  const request=(method,body)=>new NextRequest('https://application-fixture.test/api/service',{method,headers:{origin:'https://application-fixture.test',cookie:'jm_access=synthetic-session'},...(body?{body:JSON.stringify(body)}:{})});
- fixtureStage='initial-read';const first=await GET(request('GET'));fixtureStatus=first.status;assert.equal(first.status,200);let state=await first.json(),analysis,lastExtracted;const results=[];
+ fixtureStage='initial-read';const first=await GET(request('GET'));fixtureStatus=first.status;assert.equal(first.status,200);assertOps(0,'service','GET',200);let state=await first.json(),analysis,lastExtracted;const results=[];
  for(const operation of operations){
   const {expectedStatus=200,selectAllEdits,selectFactContaining,restoreLatest,injectConcurrentGoal,uploadFixture,uploadOwner,useExtractedText,...intent}=operation;
   if(uploadFixture){
@@ -91,8 +103,8 @@ async function waitOwnedGateway(){
    const generators=await import('../../worker/tests/documents.mjs'),extension=uploadFixture==='bad-txt'?'txt':uploadFixture;
    const bytes=uploadFixture==='docx'?await generators.docx():uploadFixture==='pdf'?generators.pdf():uploadFixture==='bad-txt'?Buffer.from([0xff,0xfe,0xfd]):Buffer.from('SQL\nSynthetic parser profile\nRust');
    const form=new FormData();form.set('file',new File([bytes],'private-owner-resume.'+extension));
-   const start=traces.length,count=gatewayRequests,response=await IMPORT_POST(new NextRequest('https://application-fixture.test/api/import',{method:'POST',headers:{origin:'https://application-fixture.test',cookie:'jm_access=synthetic-session','x-jobmatch-owner':uploadOwner??owner},body:form}));
-   fixtureStage='extract-'+uploadFixture+'-status';fixtureStatus=response.status;assert.equal(response.status,expectedStatus);fixtureStage='extract-'+uploadFixture+'-headers';assert.equal(response.headers.get('cache-control'),'no-store');const body=await response.json(),trace=traces.slice(start);
+   const start=traces.length,opsStart=ops.length,count=gatewayRequests,response=await IMPORT_POST(new NextRequest('https://application-fixture.test/api/import',{method:'POST',headers:{origin:'https://application-fixture.test',cookie:'jm_access=synthetic-session','x-jobmatch-owner':uploadOwner??owner},body:form}));
+   fixtureStage='extract-'+uploadFixture+'-status';fixtureStatus=response.status;assert.equal(response.status,expectedStatus);assertOps(opsStart,'import','POST',expectedStatus);fixtureStage='extract-'+uploadFixture+'-headers';assert.equal(response.headers.get('cache-control'),'no-store');const body=await response.json(),trace=traces.slice(start);
    fixtureStage='extract-'+uploadFixture+'-draft';if(expectedStatus===200){const draft=ImportDraftSchema.parse(body);assert.ok(draft.text.includes('SQL'));lastExtracted=draft.text;}
    else assert.ok(!Object.hasOwn(body,'text'));
    fixtureStage='extract-'+uploadFixture+'-trace';assert.ok(!trace.some(t=>['/rest/v1/rpc/apply_workspace_command','/rest/v1/rpc/save_workspace','/rest/v1/rpc/read_workspace'].includes(t.path)));
@@ -104,7 +116,7 @@ async function waitOwnedGateway(){
   if(selectFactContaining){const found=state.facts.find(f=>f.text.includes(selectFactContaining));assert.ok(found);intent.ids=[found.id];}
   if(restoreLatest){assert.ok(state.versions.length);intent.id=state.versions.at(-1).id;}
   if(injectConcurrentGoal){assert.equal(intent.action,'version');concurrentGoal=true;}
-  fixtureStage='service-'+intent.action;const start=traces.length,response=await POST(request('POST',{revision:state.revision,expectedOwnerId:owner,...intent}));assert.equal(response.status,expectedStatus);
+  fixtureStage='service-'+intent.action;const start=traces.length,opsStart=ops.length,response=await POST(request('POST',{revision:state.revision,expectedOwnerId:owner,...intent}));assert.equal(response.status,expectedStatus);assertOps(opsStart,'service','POST',expectedStatus);
   const body=await response.json(),trace=traces.slice(start);
   if(expectedStatus===200&&intent.action==='analyze')analysis=body;
   else if(expectedStatus===200){if(intent.action==='demo'){const {DEMO_RESUME,DEMO_VACANCIES}=require('../../lib/engine.ts');assert.equal(body.original,DEMO_RESUME);assert.equal(body.vacancy,DEMO_VACANCIES[0].text);}assert.equal(body.ownerId,owner);assert.equal(body.revision,state.revision+1);state=body;}
@@ -115,6 +127,6 @@ async function waitOwnedGateway(){
   if(intent.action==='version'){assert.equal(trace.filter(t=>t.path==='/rest/v1/rpc/read_workspace').length,1);assert.ok(!trace.some(t=>t.path==='/rest/v1/rpc/save_workspace'));}
   results.push({action:intent.action,status:response.status,state,trace});
  }
- assert.equal(proxyLeak,false);fs.writeFileSync(output,JSON.stringify({state,results,...(ownedParserCore?{gatewayRequests}:{} )}));
+ assert.equal(proxyLeak,false);fs.writeFileSync(output,JSON.stringify({state,results,...(ownedParserCore?{gatewayRequests}:{} ),...(nativeOps?{ops}:{})}));
 }catch{failed=true;if(ownedParserCore){const output=process.argv[3];if(output)fs.writeFileSync(output,JSON.stringify({fixtureFailure:{stage:fixtureStage,status:fixtureStatus,gatewayRequests,proxyLeak}}));}process.stderr.write('FAIL: actual service/native SQL fixture; no request/DB diagnostics/rows/keys printed.\n');}
-finally{if(gatewayProxy){gatewayProxy.closeAllConnections();if(gatewayProxy.listening)await new Promise(r=>gatewayProxy.close(r));}server.closeAllConnections();if(server.listening)await new Promise(r=>server.close(r));process.exitCode=failed?1:0;}})();
+finally{console.info=originalInfo;if(gatewayProxy){gatewayProxy.closeAllConnections();if(gatewayProxy.listening)await new Promise(r=>gatewayProxy.close(r));}server.closeAllConnections();if(server.listening)await new Promise(r=>server.close(r));process.exitCode=failed?1:0;}})();

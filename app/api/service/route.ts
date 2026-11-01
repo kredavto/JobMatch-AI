@@ -1,3 +1,4 @@
+import {observeRoute} from '../../../lib/ops-telemetry';
 import {consumeAuthQuota,localAuthKey} from '../../../lib/auth-quota';
 import {WorkspaceCommandSchema} from '../../../lib/workspace-command';
 import {prepareVersionCommand} from '../../../lib/version-command';
@@ -9,8 +10,8 @@ import {supabase,readWorkspace,consumeQuota,identity,applyWorkspaceCommand} from
 import {parseVacancy,match,propose,DEMO_RESUME,DEMO_VACANCIES} from '../../../lib/engine';import {sameOrigin,userOf,rateLimit,failure} from '../../../lib/http';
 export const runtime='nodejs';export const dynamic='force-dynamic';
 const ok=(data:unknown)=>NextResponse.json(data,{headers:{'Cache-Control':'no-store'}});
-export async function GET(req:NextRequest){try{const user=await userOf(req);await consumeQuota(user,'service');return ok({...await readWorkspace(user),ownerId:user.id});}catch(e){return failure(e);}}
-export async function POST(req:NextRequest){try{sameOrigin(req);rateLimit('global',2000);const bytes=await boundedBody(req,300000);let raw:string;try{raw=new TextDecoder('utf-8',{fatal:true}).decode(bytes);}catch{throw new UserError('Проверьте введенные данные',400);}const b=JSON.parse(raw);const action=z.string().parse(b.action);
+async function GETHandler(req:NextRequest){try{const user=await userOf(req);await consumeQuota(user,'service');return ok({...await readWorkspace(user),ownerId:user.id});}catch(e){return failure(e);}}
+async function POSTHandler(req:NextRequest){try{sameOrigin(req);rateLimit('global',2000);const bytes=await boundedBody(req,300000);let raw:string;try{raw=new TextDecoder('utf-8',{fatal:true}).decode(bytes);}catch{throw new UserError('Проверьте введенные данные',400);}const b=JSON.parse(raw);const action=z.string().parse(b.action);
  if(['login','register','refresh'].includes(action)){rateLimit('auth',60);let data;
  if(action==='refresh'){const refresh=req.cookies.get('jm_refresh')?.value;if(!refresh)throw new Error('AUTH');await consumeAuthQuota('refresh',refresh);data=await supabase('/auth/v1/token?grant_type=refresh_token','POST',{refresh_token:refresh});}
  else {const {email,password}=z.object({email:z.email().max(200).transform(v=>v.toLowerCase()),password:z.string().min(12).max(128)}).parse(b);rateLimit('email:'+localAuthKey(email),10);if(action==='register'&&b.consent!==true)throw new UserError('Необходимо согласие на обработку данных');await consumeAuthQuota('credentials',email);if(action==='register')await consumeAuthQuota('mail',email);data=await supabase(action==='register'?'/auth/v1/signup':'/auth/v1/token?grant_type=password','POST',{email,password,...(action==='register'?{data:{consent_version:'privacy-v1',consent_at:new Date().toISOString()}}:{})});}
@@ -31,3 +32,6 @@ export async function POST(req:NextRequest){try{sameOrigin(req);rateLimit('globa
  if(action==='version')return ok({...await applyWorkspaceCommand(user,rev,prepareVersionCommand(state,b.ids)),ownerId:user.id});
  throw new UserError('Неизвестная операция');
  }catch(e){return failure(e);}}
+
+export const GET=observeRoute('service','GET',GETHandler);
+export const POST=observeRoute('service','POST',POSTHandler);

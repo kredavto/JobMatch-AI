@@ -34,6 +34,8 @@ jobs:
       PGUSER: postgres
       PGPASSWORD: public-local-letter-fixture
       JOBMATCH_LOCAL_PARSER_CORE: '1'
+      JOBMATCH_NATIVE_OPS: '1'
+      JOBMATCH_OPS_TELEMETRY: 'stdout'
       NEXT_TELEMETRY_DISABLED: '1'
     steps:
       - uses: actions/checkout@v4
