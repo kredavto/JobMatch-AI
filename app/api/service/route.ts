@@ -19,6 +19,8 @@ export async function POST(req:NextRequest){try{sameOrigin(req);rateLimit('globa
  if(action==='delete'){if(b.confirm!=='УДАЛИТЬ')throw new UserError('Введите УДАЛИТЬ');await supabase('/rest/v1/rpc/delete_my_account','POST',{},user.token);const res=ok({ok:true});res.cookies.delete('jm_access');res.cookies.delete('jm_refresh');return res;}
  if(action==='export'){await consumeQuota(user,'service');return ok(await personalExport(user));}
  await consumeQuota(user,action==='analyze'?'analysis':'service');const rev=z.number().int().nonnegative().parse(b.revision);
+ // Never silently discard declared HH origin through the legacy text-only command.
+ if(action==='vacancy'&&['provenance','hhProvenance','hhVacancyId','source','sourceId'].some(key=>Object.hasOwn(b,key)))throw new UserError('Сохранение вакансии с источником HH требует отдельного контракта хранения. Данные не записаны.',409);
  if(action==='goal'||action==='vacancy'||action==='verify'){const command=action==='verify'?{action,ids:b.ids,verified:b.verified}:{action,text:b.text};return ok({...await applyWorkspaceCommand(user,rev,WorkspaceCommandSchema.parse(command)),ownerId:user.id});}
  const state=await readWorkspace(user);if(rev!==state.revision)throw new Error('CONFLICT');
  if(action==='import'||action==='demo'){state.original=action==='demo'?DEMO_RESUME:z.string().min(1).max(100000).parse(b.text);state.facts=parseFacts(state.original).map(f=>({...f,id:randomUUID()}));if(state.facts.length>500||state.facts.some(f=>f.text.length>2000))throw new UserError('Не более 500 строк, до 2000 знаков каждая');state.vacancy=action==='demo'?DEMO_VACANCIES[0].text:'';}
