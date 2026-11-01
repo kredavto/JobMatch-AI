@@ -52,8 +52,8 @@ def main():
             if full_sql.count(migration) != 1:
                 raise ValueError('Consolidated command migration differs')
             prefix, suffix = full_sql.split(migration)
-            extra = ROOT / 'supabase/migrations/20261028110002_profile_import_commands.sql'
-            if suffix != b'\n' + extra.read_bytes():
+            extras = [ROOT / 'supabase/migrations' / name for name in ('20261028110002_profile_import_commands.sql', '20261028110003_version_commands.sql')]
+            if suffix != b''.join(b'\n' + p.read_bytes() for p in extras):
                 raise ValueError('Unexpected post-application definitions')
             predecessor = prefix[:-1]
             if hashlib.sha256(predecessor).hexdigest() != BASE_SHA256:
@@ -69,7 +69,8 @@ def main():
                     run(['psql', '-X', '-w', '-v', 'ON_ERROR_STOP=1', '-f', str(path)], target)
             old = manifest(source, folder / 'before.json')
             run(['psql', '-X', '-w', '-v', 'ON_ERROR_STOP=1', '-f', str(ROOT / MIGRATION)], source)
-            run(['psql', '-X', '-w', '-v', 'ON_ERROR_STOP=1', '-f', str(extra)], source)
+            for extra in extras:
+                run(['psql', '-X', '-w', '-v', 'ON_ERROR_STOP=1', '-f', str(extra)], source)
             if compare(old, manifest(source, folder / 'after.json')):
                 raise ValueError('Additive migration changed predecessor rows')
             for target in (source, full):

@@ -1,0 +1,64 @@
+name: Current version commands PostgreSQL protocol
+on:
+  pull_request:
+    paths:
+      - 'lib/**'
+      - 'app/api/service/**'
+      - 'supabase/**'
+      - 'scripts/**'
+      - 'tests/version-command*'
+      - 'tests/fixtures/native-service.cjs'
+      - 'tests/fixtures/version-parity-native.cjs'
+      - '.github/workflows/version-command-protocol.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  protocol:
+    if: github.repository == 'kredavto/JobMatch-AI' && github.event.repository.private == false && (github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: public-local-letter-fixture
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: public-local-letter-fixture
+      JOBMATCH_LOCAL_VERSION_COMMANDS: '1'
+      NEXT_TELEMETRY_DISABLED: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: PostgreSQL 17 client
+        run: |
+          sudo apt-get update
+          set -euo pipefail
+          sudo apt-get install -y --no-install-recommends curl ca-certificates gnupg
+          curl --fail --silent --show-error --output "$RUNNER_TEMP/jobmatch-pgdg.asc" https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          postgres_key_fingerprint="$(gpg --show-keys --with-colons "$RUNNER_TEMP/jobmatch-pgdg.asc" | awk -F: '$1=="fpr"{print $10; exit}')"
+          test "$postgres_key_fingerprint" = B97B0AFCAA1A47F044F244A07FCC7D46ACCC4CF8
+          sudo install -m 0644 "$RUNNER_TEMP/jobmatch-pgdg.asc" /usr/share/keyrings/jobmatch-pgdg.asc
+          echo 'deb [signed-by=/usr/share/keyrings/jobmatch-pgdg.asc] https://apt.postgresql.org/pub/repos/apt noble-pgdg main' | sudo tee /etc/apt/sources.list.d/jobmatch-pgdg.list
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends postgresql-client-17
+          echo '/usr/lib/postgresql/17/bin' >> "$GITHUB_PATH"
+      - name: Disposable cluster roles and version
+        run: |
+          pg_dump --version
+          psql -X -w -v ON_ERROR_STOP=1 -d postgres -c 'CREATE ROLE anon NOLOGIN; CREATE ROLE authenticated NOLOGIN; CREATE ROLE service_role NOLOGIN BYPASSRLS;'
+      - run: python3 -m unittest discover -s scripts -p 'test_*.py'
+      - name: Actual service, current renderer parity, evaluation race and native restore
+        run: python3 scripts/version_command_drill.py

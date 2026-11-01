@@ -109,3 +109,5 @@ Opt-in current pre-auth quota: [contract and operator gates](docs/CURRENT_AUTH_Q
 Current compact application commands: [contract, provenance and rollback](docs/CURRENT_APPLICATION_COMMANDS.md); snapshot compatibility and external acceptance remain open.
 
 Current compact import/fact commands: [semantics and provenance](docs/CURRENT_PROFILE_COMMANDS.md); native and hosted acceptance are tracked separately.
+
+Current compact resume versions and restoration: [contract and score trust](docs/CURRENT_VERSION_COMMANDS.md); normalized cutover and hosted acceptance remain open.
