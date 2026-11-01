@@ -1,4 +1,4 @@
-name: Current logical backup PostgreSQL protocol
+name: Mirror rollback compatibility — Current logical backup PostgreSQL protocol
 on:
   pull_request:
     paths:

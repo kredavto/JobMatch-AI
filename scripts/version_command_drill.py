@@ -8,6 +8,7 @@ from pathlib import Path
 import sys
 import tempfile
 import uuid
+from storage_fixture import workspace_scalars, preserved_migration
 from backup_manifest import compare
 from saved_letter_drill import ROOT, OWNER, KEY, literal, run, sql, bridge, accept_statement, verify_history
 from source_profile_drill import context, read, codec, manifest
@@ -52,7 +53,9 @@ def parity(target, folder):
         sql(target, 'insert into auth.users values(' + literal(user) + ');insert into auth.sessions values(' + literal(session) + ',' + literal(user) + ');')
         # Administrative historical fixture initialization, not a production fallback.
         payload = {k: v for k, v in state.items() if k != 'revision'}
-        sql(target, 'set request.jwt.claims=' + literal(json.dumps({'sub': user, 'session_id': session})) + ';insert into public.workspaces(user_id,revision,payload) values(' + literal(user) + ',1,' + literal(json.dumps(payload, ensure_ascii=False)) + '::jsonb);do $$begin perform private.project_workspace(' + literal(user) + ',(select payload from public.workspaces where user_id=' + literal(user) + '));end;$$;')
+        encoded = literal(json.dumps(payload, ensure_ascii=False)) + '::jsonb'
+        stored = "case when exists(select 1 from pg_constraint where conrelid='public.workspaces'::regclass and conname='workspace_compact_payload') then " + encoded + "-array['facts','versions','applications'] else " + encoded + " end"
+        sql(target, 'set request.jwt.claims=' + literal(json.dumps({'sub': user, 'session_id': session})) + ';insert into public.workspaces(user_id,revision,payload) values(' + literal(user) + ',1,' + stored + ');do $$begin perform private.project_workspace(' + literal(user) + ',' + encoded + ');end;$$;')
         after = sql(target, statement(1, want['command']), user=user, session=session)
         version = after['versions'][-1]
         if {k: v for k, v in version.items() if k not in ('id', 'created')} != want['expected'] or after['revision'] != 2:
@@ -76,7 +79,7 @@ def main():
             if full_sql.count(migration) != 1:
                 raise ValueError('Consolidated version migration differs')
             prefix, suffix = full_sql.split(migration)
-            extras = [ROOT / 'supabase/migrations' / name for name in ('20261028110004_projection_parity.sql','20261028110005_canonical_workspace_reads.sql', '20261028110006_explicit_workspace_writes.sql', '20261028120140_workspace_entity_snapshot.sql')]
+            extras = [ROOT / 'supabase/migrations' / name for name in ('20261028110004_projection_parity.sql','20261028110005_canonical_workspace_reads.sql', '20261028110006_explicit_workspace_writes.sql', '20261028120140_workspace_entity_snapshot.sql', '20261028120214_compact_workspace_storage.sql')]
             if suffix != b''.join(b'\n' + p.read_bytes() for p in extras):
                 raise ValueError('Unexpected post-version-command definitions')
             predecessor = prefix[:-1]
@@ -91,18 +94,18 @@ def main():
             for target, schema in ((source, folder / 'base.sql'), (full, ROOT / 'supabase/schema.sql')):
                 for path in (ROOT / 'scripts/restore_fixture.sql', schema, ROOT / 'scripts/restore_seed.sql'):
                     run(['psql', '-X', '-w', '-v', 'ON_ERROR_STOP=1', '-f', str(path)], target)
+            scalars_before = workspace_scalars(source)
             old = manifest(source, folder / 'before.json')
             run(['psql', '-X', '-w', '-v', 'ON_ERROR_STOP=1', '-f', str(ROOT / MIGRATION)], source)
             for extra in extras:
                 run(['psql', '-X', '-w', '-v', 'ON_ERROR_STOP=1', '-f', str(extra)], source)
-            if compare(old, manifest(source, folder / 'after.json')):
-                raise ValueError('Migration changed predecessor rows')
+            preserved_migration(old, manifest(source, folder / 'after.json'), scalars_before, source)
             for target in (source, full):
                 stage = 'native-version-SQL-and-current-renderer-parity'
                 run(['psql', '-X', '-w', '-v', 'ON_ERROR_STOP=1', '-f', str(ROOT / 'supabase/tests/version_commands.sql')], target)
                 parity(target, folder)
                 stage = 'actual-service-version-restore-and-unknown-fields'
-                sql(target, 'set request.jwt.claims=' + literal(json.dumps({'sub': OWNER, 'session_id': '44444444-4444-4444-8444-444444444444'})) + ";update public.workspaces set payload=jsonb_set(payload,'{versions,0,future}'," + literal(json.dumps({'keep': [False, None, 'literal']})) + '::jsonb) where user_id=' + literal(OWNER) + ';do $$begin perform private.project_workspace(' + literal(OWNER) + ',(select payload from public.workspaces where user_id=' + literal(OWNER) + '));end;$$;')
+                sql(target, "update public.resume_versions set extra=jsonb_set(extra,'{future}'," + literal(json.dumps({'keep': [False, None, 'literal']})) + '::jsonb) where user_id=' + literal(OWNER) + " and id='v1';update public.workspaces set payload=case when payload ? 'versions' then payload||private.workspace_entities(user_id) else payload end where user_id=" + literal(OWNER) + ';')
                 outcome = service(target, folder, [{'action': 'analyze'},
                     {'action': 'version', 'selectAllEdits': True, 'score': 0, 'text': 'forged', 'match_metadata': {'rules_revision': 'forged'}},
                     {'action': 'restore', 'restoreLatest': True}, {'action': 'restore', 'restoreLatest': True},

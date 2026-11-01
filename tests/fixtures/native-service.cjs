@@ -8,7 +8,8 @@ const ownedParity=process.env.JOBMATCH_LOCAL_PARITY==='1'&&/^jobmatch_parity_[a-
 const ownedCanonical=process.env.JOBMATCH_LOCAL_CANONICAL==='1'&&/^jobmatch_canonical_[a-f0-9]{32}$/.test(process.env.PGDATABASE??'');
 const ownedExplicit=process.env.JOBMATCH_LOCAL_EXPLICIT==='1'&&/^jobmatch_explicit_[a-f0-9]{32}$/.test(process.env.PGDATABASE??'');
 const ownedLogical=process.env.JOBMATCH_LOCAL_LOGICAL_BACKUPS==='1'&&/^jobmatch_logical_[a-f0-9]{32}$/.test(process.env.PGDATABASE??'');
-if(!(ownedProfile||ownedVersion||ownedParity||ownedCanonical||ownedExplicit||ownedLogical)||!['127.0.0.1','::1'].includes(process.env.PGHOST)||['PGSERVICE','PGSERVICEFILE','PGHOSTADDR','PGOPTIONS'].some(k=>process.env[k]))throw Error('Owned protocol fixture required');
+const ownedCompact=process.env.JOBMATCH_LOCAL_COMPACT==='1'&&/^jobmatch_compact_[a-f0-9]{32}$/.test(process.env.PGDATABASE??'');
+if(!(ownedProfile||ownedVersion||ownedParity||ownedCanonical||ownedExplicit||ownedLogical||ownedCompact)||!['127.0.0.1','::1'].includes(process.env.PGHOST)||['PGSERVICE','PGSERVICEFILE','PGHOSTADDR','PGOPTIONS'].some(k=>process.env[k]))throw Error('Owned protocol fixture required');
 require.extensions['.ts']=(module,file)=>module._compile(ts.transpileModule(fs.readFileSync(file,'utf8'),{fileName:file,compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2023,esModuleInterop:true}}).outputText,file);
 const {NextRequest}=require('next/server'),{POST,GET}=require('../../app/api/service/route.ts');
 const literal=v=>"'"+String(v).replaceAll("'","''")+"'",traces=[];let concurrentGoal=false;

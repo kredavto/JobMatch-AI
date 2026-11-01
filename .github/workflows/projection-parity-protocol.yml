@@ -1,4 +1,4 @@
-name: Current projection parity PostgreSQL preflight
+name: Mirror rollback compatibility — Current projection parity PostgreSQL preflight
 on:
   pull_request:
     paths:
