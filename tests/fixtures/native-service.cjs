@@ -43,9 +43,9 @@ server.requestTimeout=10000;server.maxConnections=8;
  const request=(method,body)=>new NextRequest('https://application-fixture.test/api/service',{method,headers:{origin:'https://application-fixture.test',cookie:'jm_access=synthetic-session'},...(body?{body:JSON.stringify(body)}:{})});
  const first=await GET(request('GET'));assert.equal(first.status,200);let state=await first.json(),analysis;const results=[];
  for(const operation of operations){
-  const {expectedStatus=200,selectAllEdits,selectFirstFact,...intent}=operation;
+  const {expectedStatus=200,selectAllEdits,selectFactContaining,...intent}=operation;
   if(selectAllEdits){assert.ok(analysis);intent.ids=analysis.edits.map(e=>e.id);}
-  if(selectFirstFact){assert.ok(state.facts.length);intent.ids=[state.facts[0].id];}
+  if(selectFactContaining){const found=state.facts.find(f=>f.text.includes(selectFactContaining));assert.ok(found);intent.ids=[found.id];}
   const start=traces.length,response=await POST(request('POST',{revision:state.revision,expectedOwnerId:owner,...intent}));assert.equal(response.status,expectedStatus);
   const body=await response.json(),trace=traces.slice(start);
   if(expectedStatus===200&&intent.action==='analyze')analysis=body;

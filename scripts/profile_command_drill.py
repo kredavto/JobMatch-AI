@@ -163,7 +163,7 @@ def main():
                 if any(f['verified'] for f in sql(target, 'select public.read_workspace();', user=OWNER)['facts']):
                     raise ValueError('Source-field review auto-verified legacy facts')
                 stage = 'separate-fact-verification-current-letter'
-                state = service(target, folder, [{'action': 'verify', 'selectFirstFact': True, 'verified': True}])['state']
+                state = service(target, folder, [{'action': 'verify', 'selectFactContaining': 'B2B', 'verified': True}])['state']
                 fresh = bridge(folder, 'issue', {'workspace': state, 'letterRevision': 1})
                 sql(target, accept_statement(fresh, state['revision'], 1), user=OWNER)
                 verify_history(target, folder, fresh)
