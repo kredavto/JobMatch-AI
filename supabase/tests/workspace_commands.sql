@@ -31,7 +31,7 @@ do $$declare s jsonb;next_state jsonb;bad jsonb;before_audit bigint;before_histo
  {"action":"goal","text":"ok","facts":[]},
  {"action":"goal","text":"ok","user_id":"foreign"},
  {"action":"vacancy","text":"SQL"},
- {"action":"import","text":"SQL"}, {}, null
+ {"action":"unsupported","text":"SQL"}, {}, null
  ]') loop
   begin perform public.apply_workspace_command(4,bad);raise exception 'invalid command accepted';exception when raise_exception then if sqlerrm<>'INVALID_WRITE' then raise;end if;end;
  end loop;
