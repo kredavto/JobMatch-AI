@@ -30,7 +30,7 @@ async function send(ext,body){await ready();const response=await fetch(root+'/ex
 async function extract(name,ext,body){const result=await send(ext,body);assert.equal(await wait(name),0);assert.equal((await inspect(name)).State.Running,false);return result;}
 try{
  await docker(['network','create','--internal',network]);await docker(['network','create',ingress]);
- stage='gateway authorization and credential-free parser isolation';const gateway=await createGateway(),text=await create('text',[],true);await ready();await settings(text);
+ stage='gateway startup';const gateway=await createGateway();stage='parser startup';const text=await create('text',[],true);stage='gateway/backend readiness';await ready();stage='kernel/filesystem/PID/environment settings';await settings(text);
  const gatewayState=await inspect(gateway);assert.equal(gatewayState.HostConfig.Memory,128*1024*1024);assert.equal(Object.keys(gatewayState.NetworkSettings.Networks).length,2);
  const unauth=await fetch(root+'/extract',{method:'POST',body:'Synthetic text'});assert.equal(unauth.status,401);assert.equal((await inspect(text)).State.Running,true);
  const bad=await fetch(root+'/extract',{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/octet-stream','X-File-Extension':'exe'},body:'Synthetic text'});assert.equal(bad.status,400);assert.deepEqual(await bad.json(),{ok:false,code:'INVALID'});assert.equal((await inspect(text)).State.Running,true);
@@ -39,7 +39,7 @@ try{
   stage='refuse runtime startup '+suffix;const name=prefix+'_'+suffix;containers.push(name);
   await docker(['run','-d','--name',name,'--network','none',...limits(memory,cpus,pids),...(role==='gateway'?['-e','PARSER_WORKER_TOKEN='+token]:[]),...Object.entries(env).flatMap(([k,v])=>['-e',k+'='+v]),image,'node','--disable-sigusr1','compiled/worker/'+(role==='gateway'?'gateway':'server')+'.cjs']);
   assert.equal(await wait(name),1);
-  const logs=await docker(['logs',name]);assert.ok(!logs.includes('PUBLIC_ENV_CANARY'));assert.ok(!logs.includes(token));
+  const logs=await docker(['logs',name]);assert.match(logs,role==='parser'?/Required parser isolation configuration unavailable/:/Required container limits unavailable/);assert.ok(!logs.includes('PUBLIC_ENV_CANARY'));assert.ok(!logs.includes(token));
  }
  await rejectStartup('extra_env',{AWS_ACCESS_KEY_ID:'PUBLIC_ENV_CANARY'});
  await rejectStartup('proxy_env',{HTTP_PROXY:'https://PUBLIC_ENV_CANARY.invalid'});
@@ -62,7 +62,7 @@ try{
  assert.equal((await inspect(gateway)).State.Pid,gatewayState.State.Pid);
  stage='kernel CPU ceiling';const cpu=await create('cpu',['/usr/bin/prlimit','--cpu=1:1','--core=0','node','-e','for(;;){}']);assert.equal(await wait(cpu),137);assert.equal((await inspect(cpu)).State.OOMKilled,false);
  stage='kernel total RAM ceiling';const ram=await create('ram',['node','--max-old-space-size=128','-e','const a=[];for(;;)a.push(Buffer.alloc(16*1024*1024,1))']);assert.equal(await wait(ram),137);assert.equal((await inspect(ram)).State.OOMKilled,true);
-}catch{process.stderr.write('FAIL: synthetic parser container test at '+stage+'; no file data or credentials printed.\n');failed=true;}
+}catch{for(const name of containers){try{const i=await inspect(name);process.stderr.write(JSON.stringify({probe:name.slice(prefix.length+1),running:i.State.Running,exit:i.State.ExitCode,oom:i.State.OOMKilled})+'\n');}catch{}}process.stderr.write('FAIL: synthetic parser container test at '+stage+'; no file data or credentials printed.\n');failed=true;}
 finally{
  for(const name of containers){try{await docker(['rm','-f',name]);}catch{process.stderr.write('FAIL: synthetic parser container cleanup.\n');failed=true;}}
  for(const name of [network,ingress])try{await docker(['network','rm',name]);}catch{process.stderr.write('FAIL: synthetic parser network cleanup.\n');failed=true;}

@@ -38,7 +38,7 @@ jobs:
       - name: Record actual immutable image and supported parser packages
         run: |
           docker image inspect --format '{{.Id}}' jobmatch-parser:test
-          docker run --rm --network none --read-only --cap-drop ALL --security-opt no-new-privileges:true --user 10001:10001 jobmatch-parser:test node -e "console.log(JSON.stringify({node:process.version,pdf:require('pdfjs-dist/package.json').version,canvas:require('node:module').createRequire(require.resolve('pdfjs-dist/package.json'))('@napi-rs/canvas/package.json').version,yauzl:require('yauzl/package.json').version}))"
+          docker run --rm --network none --read-only --cap-drop ALL --security-opt no-new-privileges:true --user 10001:10001 jobmatch-parser:test node -e "console.log(JSON.stringify({node:process.version,environmentNames:Object.keys(process.env).sort(),pdf:require('pdfjs-dist/package.json').version,canvas:require('node:module').createRequire(require.resolve('pdfjs-dist/package.json'))('@napi-rs/canvas/package.json').version,yauzl:require('yauzl/package.json').version}))"
       - name: Verify real container limits and one-job lifetime
         env:
           JOBMATCH_PARSER_CONTAINER_TEST: '1'
