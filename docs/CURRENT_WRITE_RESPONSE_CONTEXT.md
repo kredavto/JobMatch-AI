@@ -74,3 +74,6 @@ server authorization evidence; this client change is response consistency only.
 SMTP/live recovery, provider-copy restore/RPO/RTO, operator PD policy/placement,
 qualified model and final live/security/capacity acceptance remain OPEN.
 Historic #1/#2 approval authorizes only those merges.
+
+
+CI attempt e1fb4565eccf22eb6f36e2ac2002a305e5bd43e0: lint/types/unit/build passed; 253 browser PASS / 2 new verify interaction FAIL / 2 live SKIP. Playwright check() incorrectly required immediate controlled-checkbox state before the server acknowledgement. The test now clicks and explicitly checks the acknowledged state (checked on success, unchecked on refusal); production code and no-adoption assertions remain unchanged. Full corrected CI follows.
