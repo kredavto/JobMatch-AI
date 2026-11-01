@@ -105,7 +105,9 @@ the file must not be represented as independently authenticated evidence.
 Unit/route tests exercise source changes, expiry, tampering, owner/session errors,
 key rotation, malformed acknowledgements, no retry, export completeness and
 cancellation. Current local snapshot golden bytes and all four templates remain
-unchanged after extracting the stable v1 schema.
+unchanged after extracting the stable v1 schema. Treat that v1 codec and its
+literals as frozen: a new template needs a new codec/version and explicit
+historical-reader dispatch, never rewriting the archived v1 identifier.
 
 `scripts/saved_letter_drill.py` only runs with explicit `JOBMATCH_LOCAL_LETTERS=1`
 and disposable loopback PostgreSQL, refusing hosted/socket/service overrides.
