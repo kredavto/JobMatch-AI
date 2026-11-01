@@ -284,6 +284,8 @@
 
 Узкий security backport оформлен в [PR #74](https://github.com/kredavto/JobMatch-AI/pull/74). App/audit/legacy restore на exact `3a3336b…` успешны, full strict gate внутри inventory явно failed1. Independent security/production acceptance открыта.
 
-### Current-compatible parser candidate (verification in progress)
+### PR #76: current-compatible isolated parser — scoped code/containment verification complete
 
-Old #11 has been adapted above #74 with PDF6.2.108/canvas1.1.0, a stricter credential-free environment manifest, gateway-specific kernel ceilings and bounded/Unicode-checked draft responses. The UI preserves edits made during parsing and binds uploads to a known owner. Local process tests pass; actual Docker/browser proof is pending. No old SQL chain, production deployment or new merge/release authorization is imported. OCR and quarantine/scanning are next, with owned hosting/privacy and real operational acceptance still open.
+[PR #76](https://github.com/kredavto/JobMatch-AI/pull/76) adapts #11 above #74 without the old SQL stack. The patched PDF6.2.108/canvas1.1.0/Node24 path has a strict env allowlist, gateway-specific kernel ceilings, bounded Unicode-safe protocol and owner/edit-aware draft handling. Actual Linux/Docker/HTTP/isolation/CPU/RAM/restart evidence plus 662 unit/API, 125 browser / 2 live SKIP and 20 security checks are linked in VERIFICATION.md. No merge/release or production activation occurred; inline remains the compatibility default until approved hosting exists.
+
+Next: native opt-in OCR against this dependency/runtime set, then scanning/quarantine, with fresh actual tests. Owned TLS/host/privacy/retention, production capacity, live acceptance, provider restore, real SMTP/recovery, qualified model/semantic/held-out, hh.ru permissioned operations, remaining anti-abuse/commands/localization/reminders/monitoring and final operations remain open. Current process/container proof is not promoted to those gates.

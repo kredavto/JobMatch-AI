@@ -30,6 +30,8 @@ MVP: пользователь вручную импортирует резюме
 
 [PR #74](https://github.com/kredavto/JobMatch-AI/pull/74), `3a3336b…`: App/audit/PG17 CI повторили локальные результаты; actual full gate остаётся1. Изолированная 13-table проверка не закрывает реальный restore Supabase или SMTP.
 
-## Isolated parser candidate — implementation, current verification pending
+## PR #76 — scoped parser code/containment proof, full acceptance OPEN
 
-A current-compatible gateway/private-container parser is implemented above unmerged #74, with actual Linux subprocess checks and extra environment/role-budget guards. File extraction remains a reviewed draft; late replies cannot overwrite newer/restored text. Docker and complete browser evidence are pending. Existing inline default is retained until an approved owned endpoint exists; parser/OCR/quarantine, real hosted deployment and full project acceptance are not closed by code or old PR evidence.
+[PR #76](https://github.com/kredavto/JobMatch-AI/pull/76) above unmerged #74 has actual current evidence: 662 unit/API, 36 Linux process/runtime, 20 security tests, lint/types/build, 125 browser PASS / 2 live SKIP; an actual Docker image and gateway/private parser passed document extraction, env/role/cgroup controls, retirement/tmpfs reset and CPU/RAM kill probes. See immutable source/image and CI links in VERIFICATION.md. Extraction is an unsaved reviewed draft; later/restored edits are preserved and error bodies are not rendered.
+
+Inline remains the compatibility default and no approved owned HTTPS service is deployed. OCR, scanning/quarantine and real host/TLS/privacy/live acceptance remain OPEN. Runtime audit is 0; full development inventory still has 15 moderate records and strict-full exit1. This is not full-project, model, independent-security, SMTP or provider-restore acceptance. #1/#2 historic approval does not authorize new merges/releases or activation.
