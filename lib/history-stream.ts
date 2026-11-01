@@ -1,8 +1,10 @@
+import {observeStream} from './ops-telemetry';
 import type {validateHistoryPage} from './history-schema';
 type Page=ReturnType<typeof validateHistoryPage>;
 export const historyExportLimits={rows:5000,bytes:50*1024*1024};
 /** One record per pull; no full archive buffering. Cancellation prevents further page fetches. */
 export function historyStream(first:Page,read:(cursor:number)=>Promise<Page>,limits=historyExportLimits){
+ const finish=observeStream('fact-history');
  let page=first,index=0,rows=0,bytes=0,cancelled=false;
  const encoder=new TextEncoder();
  const line=(data:unknown)=>encoder.encode(JSON.stringify(data)+'\n');
@@ -11,10 +13,10 @@ export function historyStream(first:Page,read:(cursor:number)=>Promise<Page>,lim
    if(cancelled)return;
    try{
     if(index===page.rows.length){
-     if(page.next===null){controller.enqueue(line({complete:true}));controller.close();return;}
+     if(page.next===null){controller.enqueue(line({complete:true}));controller.close();finish('completion-enqueued');return;}
      page=await read(page.next);index=0;
      if(cancelled)return;
-     if(!page.rows.length){controller.enqueue(line({complete:true}));controller.close();return;}
+     if(!page.rows.length){controller.enqueue(line({complete:true}));controller.close();finish('completion-enqueued');return;}
     }
     const chunk=line(page.rows[index]);
     if(rows>=limits.rows||bytes+chunk.byteLength>limits.bytes)throw new Error('EXPORT_LIMIT');
@@ -22,9 +24,9 @@ export function historyStream(first:Page,read:(cursor:number)=>Promise<Page>,lim
    }catch{
     if(cancelled)return;
     controller.enqueue(line({complete:false,error:'Экспорт прерван или превышен лимит объема. Файл неполный; повторите скачивание или обратитесь за расширенным экспортом.'}));
-    controller.close();
+    controller.close();finish('incomplete-enqueued');
    }
   },
-  cancel(){cancelled=true;}
+  cancel(){cancelled=true;finish('cancelled');}
  });
 }

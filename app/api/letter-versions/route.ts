@@ -1,3 +1,4 @@
+import {observeRoute} from '../../../lib/ops-telemetry';
 import {NextRequest,NextResponse} from 'next/server';
 import {z} from 'zod';
 import {sameOrigin,userOf,requireExpectedOwner,failure} from '../../../lib/http';
@@ -16,7 +17,7 @@ const requestSchema=z.discriminatedUnion('action',[
  z.strictObject({action:z.literal('preview'),...context,snapshotJson:z.string().min(1).max(1000000)}),
  z.strictObject({action:z.literal('accept'),...context,receipt:LetterReceiptSchema,accept:z.literal('SAVE_REVIEWED_LETTER_VERSION')})
 ]);
-export async function POST(req:NextRequest){try{
+async function POSTHandler(req:NextRequest){try{
  sameOrigin(req);const user=await userOf(req);requireExpectedOwner(req,user.id);
  const bytes=await boundedBody(req,2100000);let raw:string;try{raw=new TextDecoder('utf8',{fatal:true}).decode(bytes);}catch{throw new UserError('Проверьте кодировку запроса.',400);}const body=requestSchema.parse(JSON.parse(raw));
  if(body.expectedOwnerId!==user.id)throw Error('CONFLICT');
@@ -35,7 +36,7 @@ export async function POST(req:NextRequest){try{
  if(current.ownerId!==workspace.ownerId||current.revision!==workspace.revision||current.original!==workspace.original||current.vacancy!==workspace.vacancy||JSON.stringify(current.facts)!==JSON.stringify(workspace.facts)||letters.revision!==state.revision)throw Error('CONFLICT');
  return NextResponse.json({format:'jobmatch-letter-preview-v1',ownerId:user.id,workspaceRevision:workspace.revision,letterRevision:state.revision,receipt,semanticAssessment:'not-performed',modelVersion:null},{headers:{'Cache-Control':'no-store'}});
 }catch(error){return failure(error);}}
-export async function GET(req:NextRequest){try{
+async function GETHandler(req:NextRequest){try{
  const user=await userOf(req);requireExpectedOwner(req,user.id);const q=req.nextUrl.searchParams;
  if([...q.keys()].some(k=>!['id','export','expectedOwnerId'].includes(k))||q.getAll('id').length>1||q.getAll('export').length>1||q.has('id')&&q.has('export')||q.has('export')&&q.get('export')!=='1')throw new UserError('Проверьте параметры истории писем.',400);
  const id=q.has('id')?z.uuid().parse(q.get('id')):null;await consumeQuota(user,'service');
@@ -44,3 +45,6 @@ export async function GET(req:NextRequest){try{
  if(q.has('export'))return new Response(savedLetterStream(state,id=>readSavedLetter(user,id),req.signal),{headers:{'Cache-Control':'no-store','Content-Type':'application/x-ndjson; charset=utf-8','Content-Disposition':'attachment; filename="jobmatch-saved-letters.ndjson"'}});
  return NextResponse.json(state,{headers:{'Cache-Control':'no-store'}});
 }catch(error){return failure(error);}}
+
+export const POST=observeRoute('letter-versions','POST',POSTHandler);
+export const GET=observeRoute('letter-versions','GET',GETHandler);

@@ -1,0 +1,31 @@
+name: Operational telemetry (synthetic Next)
+on:
+  pull_request:
+    paths:
+      - 'app/api/**'
+      - 'lib/**'
+      - 'scripts/**'
+      - 'tests/**'
+      - 'package*.json'
+      - '.github/workflows/ops-telemetry.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  operational-events:
+    if: github.repository == 'kredavto/JobMatch-AI' && github.event.repository.private == false && (github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    env:
+      NEXT_TELEMETRY_DISABLED: '1'
+      JOBMATCH_OPS_SMOKE: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '24', cache: npm}
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npx vitest run tests/ops-telemetry.test.ts tests/ops-stream-telemetry.test.ts
+      - run: python3 -m unittest discover -s scripts -p 'test_ops*report.py'
+      - run: npm run build
+      - name: Actual Next process, safe events and bounded operator checks
+        run: python3 scripts/ops_telemetry_smoke.py

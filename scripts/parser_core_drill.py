@@ -93,9 +93,21 @@ def main():
             stage = 'outage refuses inline fallback and domain writes'
             run(compose + ['stop', 'gateway'], env)
             before = manifest(source,folder / 'before-outage.json')
-            service(source, folder, [{'uploadFixture':'txt','expectedStatus':503}])
+            outage = service(source, folder, [{'uploadFixture':'txt','expectedStatus':503}])
             if any(t != 'private.request_quotas' for t in compare(before,manifest(source,folder / 'after-outage.json'))):
                 raise ValueError('Worker outage changed domain data')
+            if env.get('JOBMATCH_NATIVE_OPS') == '1':
+                stage = 'closed actual route events and read-only operator alert'
+                observations = extracted.get('ops',[]) + imported.get('ops',[]) + outage.get('ops',[])
+                if len(extracted.get('ops',[])) != 6 or not observations or not any(item.get('status') == 503 for item in observations):
+                    raise ValueError('Actual bounded observer events missing')
+                events = folder / 'owned-ops.events'
+                events.write_text(''.join('JOBMATCH_OPS_V1 '+json.dumps(item)+'\n' for item in observations))
+                check = subprocess.run([sys.executable,str(ROOT / 'scripts/ops_report.py'),'check',str(events),'--min-responses','1','--max-5xx-fraction','0','--max-ge2s-fraction','1','--max-unhandled','0','--max-age-seconds','120'],env=source,capture_output=True,text=True,timeout=30)
+                report = json.loads(check.stdout)
+                if check.returncode != 1 or report['verdict'] != 'observed-alert' or report['collectionCompleteness'] != 'not-established':
+                    raise ValueError('Actual observed outage was not a scoped alert')
+                print('PASS: native current route observations/import200-400-409-503 and service commands; strict metadata/no identifiers, exactly once; real file-only observed-alert, not global health/delivery.')
             stage = 'current profile, rules, letters and native populated restore'
             fresh = current_provenance(source,folder,old)
             before = manifest(source,folder / 'before-restore.json')

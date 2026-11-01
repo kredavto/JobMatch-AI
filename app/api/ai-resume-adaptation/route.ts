@@ -1,3 +1,4 @@
+import {observeRoute} from '../../../lib/ops-telemetry';
 import {NextRequest,NextResponse} from 'next/server';
 import {z} from 'zod';
 import {sameOrigin,userOf,requireExpectedOwner,failure} from '../../../lib/http';
@@ -7,7 +8,7 @@ import {adaptResume,adaptationConfig} from '../../../lib/ai-resume-adaptation-pr
 import {UserError} from '../../../lib/errors';
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
-export async function POST(req:NextRequest){try{
+async function POSTHandler(req:NextRequest){try{
  sameOrigin(req);const user=await userOf(req);requireExpectedOwner(req,user.id);
  const body=z.object({consent:z.literal(true),revision:z.number().int().nonnegative(),expectedOwnerId:z.uuid()}).strict().parse(JSON.parse(new TextDecoder().decode(await boundedBody(req,1024))));
  if(body.expectedOwnerId!==user.id)throw new UserError('Account changed.',409);
@@ -21,3 +22,5 @@ export async function POST(req:NextRequest){try{
  if(current.revision!==state.revision||current.original!==state.original||current.vacancy!==state.vacancy||JSON.stringify(current.facts)!==JSON.stringify(state.facts))throw new Error('CONFLICT');
  return NextResponse.json({ownerId:user.id,revision:state.revision,preview},{headers:{'Cache-Control':'no-store'}});
  }catch(error){return failure(error);}}
+
+export const POST=observeRoute('ai-resume-adaptation','POST',POSTHandler);
