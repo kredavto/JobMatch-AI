@@ -1,0 +1,4 @@
+{
+ "compilerOptions":{"target":"ES2022","lib":["ES2024","DOM","DOM.Iterable"],"module":"NodeNext","moduleResolution":"NodeNext","strict":true,"skipLibCheck":true,"esModuleInterop":true,"rootDir":"..","outDir":"dist","types":["node"],"declaration":false},
+ "include":["*.cts","*.ts","../lib/documents.ts","../lib/pdf-lifecycle.ts","../lib/parser-contract.ts","../lib/errors.ts"]
+}

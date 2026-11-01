@@ -110,4 +110,14 @@ Current compact application commands: [contract, provenance and rollback](docs/C
 
 Current compact import/fact commands: [semantics and provenance](docs/CURRENT_PROFILE_COMMANDS.md); native and hosted acceptance are tracked separately.
 
-Current compact resume versions and restoration: [contract and score trust](docs/CURRENT_VERSION_COMMANDS.md); normalized cutover and hosted acceptance remain open.
+Current compact resume versions and restoration: [contract and score trust](docs/CURRENT_VERSION_COMMANDS.md); compact storage has current native phase/rollback evidence in [CURRENT_COMPACT_STORAGE.md](docs/CURRENT_COMPACT_STORAGE.md); hosted acceptance remains open.
+
+### Optional isolated file import (candidate, default inline)
+
+The parser candidate can route imports to an owned HTTPS gateway and a disposable bounded parser container. Review [ISOLATED_PARSER.md](docs/ISOLATED_PARSER.md) before configuration. It does not deploy a service or close operator privacy/hosting, OCR, scanning or live acceptance. Native Linux checks: `npm run test:parser-worker`; container enforcement requires the actual disposable Docker workflow. The patched PDF 6.2.108 dependency requires Node 24 (or the supported >=22.13 runtime); this worker is built/tested on Node 24.
+
+### Optional scanned-page OCR candidate
+
+[SCANNED_PDF_OCR.md](docs/SCANNED_PDF_OCR.md) describes separately enabled Poppler/Tesseract OCR inside the isolated parser, with three OCR pages maximum, strict transient metadata, no partial-success import and manual review of names/dates/numbers. OCR remains OFF. Current bilingual/native Docker evidence must pass; representative consented-document accuracy, antivirus/quarantine and real hosted acceptance remain open.
+
+Optional private document scan gate: [deployment/trust boundaries](docs/DOCUMENT_SCANNING.md); disabled until operator-approved setup and real-engine acceptance.
