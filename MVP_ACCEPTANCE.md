@@ -187,3 +187,10 @@ Local1130unit/API76files,105Python,20security,lint/types/build и3new actual Rea
 [Native18restore/session/codec](https://github.com/kredavto/JobMatch-AI/actions/runs/41359207954/job/125005730145), [parser→verifiedTLS→productionAPI→compact17restore](https://github.com/kredavto/JobMatch-AI/actions/runs/41359207963/job/125005730175), [Ops](https://github.com/kredavto/JobMatch-AI/actions/runs/41359208011/job/125005730382), [Parser/OCR](https://github.com/kredavto/JobMatch-AI/actions/runs/41359207978/job/125005730359) PASS, worker101/0skip. [ClamAV](https://github.com/kredavto/JobMatch-AI/actions/runs/41359207978/job/125005730617) PASS: engine1.4.6, loaded signed database28171(2026-11-01T06:27:34Z), observation22:52:53.613Z, refresh/reload/refusals. Логи содержат тот же synthetic checkout. Auth/HTTP bridge/data/restore синтетические; это не provider-copy/RPO/RTO/live delivery/globalSLO/unknown-threat/capacity acceptance. Renderer v1 и проверенные защищённые source/schema/auth/service/lockfile Git blobs совпадают с #97.
 
 [PR #98](https://github.com/kredavto/JobMatch-AI/pull/98) следует за ready/unmerged #97; main merge/release не выполняются. Следом: редактор и оставшиеся экраны/даты/offline до отдельного global locale gate. SMTP/recovery/provider restore/ПД/model/final acceptance OPEN.
+
+
+### Текущий редактор: контекст источников и RU/EN — 1 ноября 2026
+
+Свежие main `a3a9ef0c69e1e760010fc391234d66cd4a747e3b`, четыре документа и88открытых PR сверены. Отдельная ветка от ready/unmerged #98 `61aed851a6052554bb63586976ba0ee2c904cbbe`; final #98 App41359867918/job125007773671:1173unit83files/261browserPASS/2liveSKIP, все16workflows PASS. Runtime unavailable; pinned GitHub/leased refs/CI only, локальные/manual visual проверки не заявляются.
+
+Новый блок: два regression-сценария проверяют dirty-source запрет версии и поздний анализ после смены вкладки на неизменённом коде. Red baseline и исправление ещё проверяются; полный проект/EN/model/provider acceptance OPEN. #1/#2 объединены по отдельному разрешению, оно не распространяется на будущие merge/release. Письма/paid infra/LLM user traffic/HH writes не выполняются.
