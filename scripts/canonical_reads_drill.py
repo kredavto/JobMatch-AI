@@ -87,18 +87,23 @@ def main():
                 state = sql(target, 'select public.read_workspace();', user=OWNER)
                 sql(target, "update public.profile_facts set text='SENSITIVE_SYNTHETIC_CANONICAL' where id='f1';")
                 before = manifest(target, folder / ('blocked-before-' + target['PGDATABASE'] + '.json'))
+                stage = 'corrupt-actual-service-503'
                 outcomes = service(target, folder, [{'action': 'goal', 'text': 'Refused', 'expectedStatus': 503},
                     {'action': 'import', 'text': 'Refused import', 'expectedStatus': 503},
                     {'action': 'version', 'ids': [], 'expectedStatus': 503},
                     {'action': 'restore', 'id': 'v1', 'expectedStatus': 503}])
+                stage = 'corrupt-service-single-command-no-fallback'
                 for result in outcomes['results']:
                     commands = [t for t in result['trace'] if t['path'] == '/rest/v1/rpc/apply_workspace_command']
                     if len(commands) != 1 or any(t['path'] == '/rest/v1/rpc/save_workspace' for t in result['trace']):
                         raise ValueError('Corruption caused retry/snapshot fallback')
+                stage = 'corrupt-legacy-SQL-refusal'
                 sql(target, 'select public.save_workspace(' + str(state['revision']) + ',' + literal(json.dumps(state)) + "::jsonb,'goal');", user=OWNER, failure='PROJECTION_CONFLICT')
+                stage = 'corrupt-refusals-no-domain-fingerprint-change'
                 changed = compare(before, manifest(target, folder / ('blocked-after-' + target['PGDATABASE'] + '.json')))
                 if any(name != 'public.quota_counters' for name in changed):
                     raise ValueError('Refused service changed domain rows/history/audit')
+                stage = 'corrupt-refusals-read-only-checker'
                 checker(target, expected=1)
                 # Explicit repair ONLY of this owned synthetic fixture; no production repair path.
                 sql(target, "update public.profile_facts set text='SQL' where id='f1';")
