@@ -84,7 +84,7 @@ def main():
             prefix, suffix = all_sql.split(migration)
             additional_paths = [ROOT / 'supabase/migrations' / p for p in (
                 '20261029080555_central_auth_quota.sql', '20261029082413_auth_quota_operations.sql',
-                '20261028110001_application_commands.sql', '20261028110002_profile_import_commands.sql', '20261028110003_version_commands.sql', '20261028110004_projection_parity.sql', '20261028110005_canonical_workspace_reads.sql')]
+                '20261028110001_application_commands.sql', '20261028110002_profile_import_commands.sql', '20261028110003_version_commands.sql', '20261028110004_projection_parity.sql', '20261028110005_canonical_workspace_reads.sql', '20261028110006_explicit_workspace_writes.sql')]
             if suffix != b''.join(b'\n' + p.read_bytes() for p in additional_paths):
                 raise ValueError('Unexpected post-profile definitions')
             legacy = prefix[:-1]

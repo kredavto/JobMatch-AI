@@ -11,6 +11,14 @@ insert into public.workspaces(user_id,revision,payload) values(auth.uid(),1,'{
  "versions":[{"id":"v1","text":"SQL","created":"2026-10-28T00:00:00Z","vacancy":"SQL","score":100,"evidence_ids":["f1"],"evidence_snapshot":[{"id":"f1","text":"SQL","source":"original","verified":true}]}],
  "applications":[{"id":"a1","title":"Synthetic vacancy","note":"Пример\nзаметки","created":"2026-10-28","status":"Планируется","resumeVersionId":"v1","events":[{"status":"Планируется","date":"2026-10-28"}]}]
 }');
+-- Older schemas project/capture through triggers. New schemas require explicit fixture setup.
+do $$begin
+ if not exists(select 1 from pg_trigger where tgrelid='public.workspaces'::regclass and tgname='workspace_sync_entities' and not tgisinternal) then
+  perform private.project_workspace(auth.uid(),(select payload from public.workspaces where user_id=auth.uid()));
+  insert into public.fact_history(user_id,workspace_revision,kind,facts)
+   select user_id,revision,'change',payload->'facts' from public.workspaces where user_id=auth.uid();
+ end if;
+end;$$;
 insert into public.audit_log(user_id,action) values(auth.uid(),'restore-fixture');
 insert into public.consent_records(user_id,version) values(auth.uid(),'synthetic-test');
 set local role authenticated;
