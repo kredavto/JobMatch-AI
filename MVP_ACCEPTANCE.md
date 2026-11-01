@@ -168,3 +168,22 @@ Local1130unit/API76files,105Python,20security,lint/types/build и3new actual Rea
 
 
 Первый CI исправления e1fb456:253browserPASS/2newverify-interactionFAIL/2liveSKIP, lint/types/unit/build PASS. В новых тестах check() ошибочно ожидал немедленный controlled-checkbox state до ACK; заменено на click с явной проверкой после ACK (success checked/refusal unchecked). Production code не менялся, отказ чужому owner/ревизии и сохранность данных не ослаблены. Результат полного исправленного CI фиксируется далее.
+
+
+### Конструктор уточнения: RU/EN UI, русский v1 literal — 1 ноября 2026
+
+- Свежие main `a3a9ef0c69e1e760010fc391234d66cd4a747e3b`, четыре документа и87открытых PR прочитаны/сверены; отдельная ветка после ready/unmerged #97 `46961ac02e39d7277886bb92160257bbacaac50d`. Runtime unavailable, GitHub files/leased commits/CI only; локальных проверок нет.
+- [x] Подготовлен optional/default-RU StructuredFactPanel UI:37fixedcopy+3closederror keys, late feedback в current locale. Поля/caret/preview/review/pending/basis не меняются от языка. Renderer/v1 wording остаётся на русском с явным hint/pre lang; user data/enum/month/count/scope/continuity не переводятся.
+- [x] Source audit guards и changed/prepare/save byte-equal #97 после отмены только closed error-key/null substitutions. Owner/dirty/revision/duplicate/500cap/review/pending/ACK остаются; Root generic write guards и exact addedClarification сохранены. Полный исправленный CI выполнен; доказательства приведены ниже.
+- Контракт [CURRENT_CLARIFICATION_LOCALES](docs/CURRENT_CLARIFICATION_LOCALES.md). Это ручная строка unverified, не AI rewrite/структурированное доказательство/tenure inference. Глобальный язык OFF, остальные экраны/offline и final acceptance OPEN.
+- Нет API/SQL/GRANT/flags/auth/lockfile/model/renderer/codecs changes, реальных писем/paid infra/LLM user traffic/HH writes/merge/release. SMTP/recovery/provider-copy/RPO/RTO/ПД/model/final ops OPEN; #1/#2 permission не расширяется.
+
+
+Первый CI bf3869c:lint/types PASS/1171unitPASS/1newunitFAIL, build/browser не запускались. Позитивная фикстура содержала U+200D в joined emoji, который неизменённый renderer v1 запрещает. Позитивные данные исправлены на разрешённый Unicode-символ, добавлены явный negative unit и browser-проверка отказа joiner/сохранения invalid input при смене языка; валидация/production code не ослаблены. Итог полного исправленного CI приведён ниже.
+
+
+Фактический исправленный source #98 `5eb00282e09926534ff08ff6417304312342190f`, tree `33e13ae7bccbb297004b8ed435bb709a8c992983`, synthetic checkout `188bf945b2761872ab40ed6677c96241e1160fa3` tree-equal. [App CI](https://github.com/kredavto/JobMatch-AI/actions/runs/41359208029/job/125005730237): lint/types/build PASS;1173unit/API в83файлах PASS;261browserPASS/2liveSKIP. Все6новых controller-сценариев и5unit/SSR PASS.15релевантных source-workflows PASS; отдельный CPU diagnostic исключён из квалификации модели.11изменённых файлов immutable-readback: content и blob metadata равны ожидаемому/git tree index. Локального hash/test/build/manual visual результата нет. Production blobs между двумя CI попытками одинаковы; исправлены только fixtures/tests/docs.
+
+[Native18restore/session/codec](https://github.com/kredavto/JobMatch-AI/actions/runs/41359207954/job/125005730145), [parser→verifiedTLS→productionAPI→compact17restore](https://github.com/kredavto/JobMatch-AI/actions/runs/41359207963/job/125005730175), [Ops](https://github.com/kredavto/JobMatch-AI/actions/runs/41359208011/job/125005730382), [Parser/OCR](https://github.com/kredavto/JobMatch-AI/actions/runs/41359207978/job/125005730359) PASS, worker101/0skip. [ClamAV](https://github.com/kredavto/JobMatch-AI/actions/runs/41359207978/job/125005730617) PASS: engine1.4.6, loaded signed database28171(2026-11-01T06:27:34Z), observation22:52:53.613Z, refresh/reload/refusals. Логи содержат тот же synthetic checkout. Auth/HTTP bridge/data/restore синтетические; это не provider-copy/RPO/RTO/live delivery/globalSLO/unknown-threat/capacity acceptance. Renderer v1 и проверенные защищённые source/schema/auth/service/lockfile Git blobs совпадают с #97.
+
+[PR #98](https://github.com/kredavto/JobMatch-AI/pull/98) следует за ready/unmerged #97; main merge/release не выполняются. Следом: редактор и оставшиеся экраны/даты/offline до отдельного global locale gate. SMTP/recovery/provider restore/ПД/model/final acceptance OPEN.
