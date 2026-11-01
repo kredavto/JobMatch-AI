@@ -85,3 +85,11 @@ SQL/API/auth/GRANT/flags/lockfile/model/document codecs remain unchanged. SMTP/l
 recovery, provider-copy restore/RPO/RTO, operator PD policy/placement, HH permissions,
 qualified model and final live/security/capacity acceptance remain OPEN. Historic
 #1/#2 approval authorizes only those merges; no merge/release is done here.
+
+
+Recorded executable: `5a136f6ef3eeb90fcb9a2a883dbd8e465514763b`, tree
+`bda6feba27e4a3382ba383f6ae8dccace2877400`, [PR #95](https://github.com/kredavto/JobMatch-AI/pull/95).
+[Actual current-tree app job](https://github.com/kredavto/JobMatch-AI/actions/runs/41350486284/job/124979380313):
+1,155 unit/API tests in 80 files; 229 browser PASS / 2 live SKIP; lint/types/build PASS.
+Twelve current PostgreSQL protocols, ops and isolated parser workflows also PASS.
+See VERIFICATION.md for exact jobs and explicit synthetic/live acceptance limits.
