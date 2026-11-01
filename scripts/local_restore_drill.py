@@ -7,6 +7,7 @@ import subprocess
 import sys
 import tempfile
 import uuid
+from storage_fixture import mirror_fixture
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -38,6 +39,7 @@ def main():
         # anon/authenticated roles must already exist in the disposable cluster.
         for filename in ('scripts/restore_fixture.sql', 'supabase/schema.sql', 'scripts/restore_seed.sql'):
             run(['psql', '-X', '-w', '-v', 'ON_ERROR_STOP=1', '-f', str(ROOT / filename)], source)
+        mirror_fixture(source)
         with tempfile.TemporaryDirectory(prefix='jobmatch-drill-') as folder:
             folder = Path(folder)
             baseline, restored, changed = (folder / name for name in ('baseline.json', 'restored.json', 'changed.json'))
@@ -61,7 +63,7 @@ def main():
                                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=180)
             if result.returncode != 1:
                 raise ValueError('Expected detection of changed content')
-        print('PASS: synthetic PostgreSQL dump/restore, 13 populated tables, 10 SQL suites and corruption detection.')
+        print('PASS: MIRROR ROLLBACK COMPATIBILITY; synthetic PostgreSQL dump/restore, 13 populated tables, 10 SQL suites and corruption detection.')
     except (OSError, ValueError, subprocess.SubprocessError):
         print('FAIL: local restore drill failed; no credentials or row data printed.', file=sys.stderr)
         failed = True

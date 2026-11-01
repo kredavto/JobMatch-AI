@@ -9,6 +9,7 @@ import subprocess
 import sys
 import tempfile
 import uuid
+from storage_fixture import workspace_scalars, preserved_migration
 from backup_manifest import snapshot, compare
 from saved_letter_drill import ROOT, OWNER, OTHER, SESSION, OTHER_SESSION, KEY, literal, run, sql, bridge, accept_statement, verify_history
 
@@ -84,7 +85,7 @@ def main():
             prefix, suffix = all_sql.split(migration)
             additional_paths = [ROOT / 'supabase/migrations' / p for p in (
                 '20261029080555_central_auth_quota.sql', '20261029082413_auth_quota_operations.sql',
-                '20261028110001_application_commands.sql', '20261028110002_profile_import_commands.sql', '20261028110003_version_commands.sql', '20261028110004_projection_parity.sql', '20261028110005_canonical_workspace_reads.sql', '20261028110006_explicit_workspace_writes.sql', '20261028120140_workspace_entity_snapshot.sql')]
+                '20261028110001_application_commands.sql', '20261028110002_profile_import_commands.sql', '20261028110003_version_commands.sql', '20261028110004_projection_parity.sql', '20261028110005_canonical_workspace_reads.sql', '20261028110006_explicit_workspace_writes.sql', '20261028120140_workspace_entity_snapshot.sql', '20261028120214_compact_workspace_storage.sql')]
             if suffix != b''.join(b'\n' + p.read_bytes() for p in additional_paths):
                 raise ValueError('Unexpected post-profile definitions')
             legacy = prefix[:-1]
@@ -107,13 +108,13 @@ def main():
                 sql(target, accept_statement(receipt), user=OWNER)
                 if target == source:
                     source_receipt = receipt
+            scalars_before = workspace_scalars(source)
             run([sys.executable, str(ROOT / 'scripts/backup_manifest.py'), 'snapshot', str(folder / 'before.json'), '--include-letters'], source)
             run(['psql', '-X', '-w', '-v', 'ON_ERROR_STOP=1', '-f', str(ROOT / MIGRATION)], source)
             for path in additional_paths:
                 run(['psql', '-X', '-w', '-v', 'ON_ERROR_STOP=1', '-f', str(path)], source)
             run([sys.executable, str(ROOT / 'scripts/backup_manifest.py'), 'snapshot', str(folder / 'after.json'), '--include-letters'], source)
-            if compare(json.loads((folder / 'before.json').read_text()), json.loads((folder / 'after.json').read_text())):
-                raise ValueError('Migration changed predecessor rows')
+            preserved_migration(json.loads((folder / 'before.json').read_text()), json.loads((folder / 'after.json').read_text()), scalars_before, source)
             stage = 'default-off-read-no-copy-and-native-grants'
             for target in (source, full):
                 if sql(target, 'select to_jsonb(public.source_profile_storage_ready());', user=OWNER) is not False:

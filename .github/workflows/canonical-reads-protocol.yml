@@ -1,4 +1,4 @@
-name: Current canonical reads PostgreSQL protocol
+name: Mirror rollback compatibility — Current canonical reads PostgreSQL protocol
 on:
   pull_request:
     paths:

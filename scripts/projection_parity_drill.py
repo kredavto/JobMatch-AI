@@ -10,6 +10,7 @@ import subprocess
 import sys
 import tempfile
 import uuid
+from storage_fixture import mirror_fixture
 from backup_manifest import compare
 from check_projection_parity import validate
 from saved_letter_drill import ROOT, OWNER, KEY, literal, run, sql, bridge, accept_statement, verify_history
@@ -84,7 +85,7 @@ def main():
             if full_sql.count(migration) != 1:
                 raise ValueError('Consolidated parity migration differs')
             prefix, suffix = full_sql.split(migration)
-            extras = [ROOT / 'supabase/migrations' / name for name in ('20261028110005_canonical_workspace_reads.sql','20261028110006_explicit_workspace_writes.sql', '20261028120140_workspace_entity_snapshot.sql')]
+            extras = [ROOT / 'supabase/migrations' / name for name in ('20261028110005_canonical_workspace_reads.sql','20261028110006_explicit_workspace_writes.sql', '20261028120140_workspace_entity_snapshot.sql', '20261028120214_compact_workspace_storage.sql')]
             if suffix != b''.join(b'\n' + p.read_bytes() for p in extras):
                 raise ValueError('Unexpected post-parity definitions')
             predecessor = prefix[:-1]
@@ -99,10 +100,12 @@ def main():
             for target, schema in ((source, folder / 'base.sql'), (full, ROOT / 'supabase/schema.sql')):
                 for path in (ROOT / 'scripts/restore_fixture.sql', schema, ROOT / 'scripts/restore_seed.sql'):
                     run(['psql', '-X', '-w', '-v', 'ON_ERROR_STOP=1', '-f', str(path)], target)
+                mirror_fixture(target)
             old = manifest(source, folder / 'before.json')
             run(['psql', '-X', '-w', '-v', 'ON_ERROR_STOP=1', '-f', str(ROOT / MIGRATION)], source)
             for extra in extras:
                 run(['psql', '-X', '-w', '-v', 'ON_ERROR_STOP=1', '-f', str(extra)], source)
+            mirror_fixture(source)
             if compare(old, manifest(source, folder / 'after.json')):
                 raise ValueError('Administrative migration changed predecessor rows')
             for target in (source, full):
@@ -183,7 +186,7 @@ def main():
                 raise ValueError('Same-count historical corruption not detected')
             if compare(corrupted, manifest(restored, folder / 'after-detection.json')):
                 raise ValueError('Parity checker repaired corrupt rows')
-            print('PASS: PG17 exact populated current upgrade/full schema;all-command/legacy SQL parity and corruption/positions/extras/links/scope;actual current service commands and read-only fingerprint stability;restricted-RLS CLI exit2;held uncommitted writer;8parallel repeatable readers/20writers/1commit/19conflicts;17populated native dump/restore/current source+letter codecs;corrupt version CLI exit1/no repair. Checker covers5core tables/snapshot arrays,not all17 semantic tables;synthetic Auth/HTTP/restore,not provider or production cutover/model acceptance.')
+            print('PASS: MIRROR ROLLBACK COMPATIBILITY; PG17 exact populated current upgrade/full schema;all-command/legacy SQL parity and corruption/positions/extras/links/scope;actual current service commands and read-only fingerprint stability;restricted-RLS CLI exit2;held uncommitted writer;8parallel repeatable readers/20writers/1commit/19conflicts;17populated native dump/restore/current source+letter codecs;corrupt version CLI exit1/no repair. Checker covers5core tables/snapshot arrays,not all17 semantic tables;synthetic Auth/HTTP/restore,not provider or production cutover/model acceptance.')
     except Exception:
         failed = True
         print('FAIL: owned parity protocol at ' + stage + '; no rows/keys/DB diagnostics printed.', file=sys.stderr)

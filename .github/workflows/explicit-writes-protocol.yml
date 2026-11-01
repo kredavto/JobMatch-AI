@@ -1,4 +1,4 @@
-name: Current explicit writes PostgreSQL protocol
+name: Mirror rollback compatibility — Current explicit writes PostgreSQL protocol
 on:
   pull_request:
     paths:

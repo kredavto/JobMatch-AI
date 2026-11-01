@@ -8,6 +8,7 @@ from pathlib import Path
 import sys
 import tempfile
 import uuid
+from storage_fixture import mirror_fixture
 from backup_manifest import compare
 from saved_letter_drill import ROOT, OWNER, KEY, literal, run, sql, bridge, accept_statement, verify_history
 from source_profile_drill import read, context, codec, manifest
@@ -42,7 +43,7 @@ def main():
             if full_sql.count(migration) != 1:
                 raise ValueError('Consolidated canonical migration differs')
             prefix, suffix = full_sql.split(migration)
-            extras = [ROOT / 'supabase/migrations' / name for name in ('20261028110006_explicit_workspace_writes.sql','20261028120140_workspace_entity_snapshot.sql')]
+            extras = [ROOT / 'supabase/migrations' / name for name in ('20261028110006_explicit_workspace_writes.sql','20261028120140_workspace_entity_snapshot.sql', '20261028120214_compact_workspace_storage.sql')]
             if suffix != b''.join(b'\n' + p.read_bytes() for p in extras):
                 raise ValueError('Unexpected post-canonical definitions')
             predecessor = prefix[:-1]
@@ -57,6 +58,7 @@ def main():
             for target, schema in ((source, folder / 'base.sql'), (full, ROOT / 'supabase/schema.sql'), (dirty, folder / 'base.sql')):
                 for path in (ROOT / 'scripts/restore_fixture.sql', schema, ROOT / 'scripts/restore_seed.sql'):
                     run(['psql', '-X', '-w', '-v', 'ON_ERROR_STOP=1', '-f', str(path)], target)
+                mirror_fixture(target)
             stage = 'dirty-migration-atomic-refusal-no-definitions-or-row-change'
             sql(dirty, "update public.profile_facts set text='Dirty synthetic fact' where id='f1';")
             dirty_rows, dirty_defs = manifest(dirty, folder / 'dirty-before.json'), definitions(dirty)
@@ -82,6 +84,7 @@ def main():
             run(['psql', '-X', '-w', '-v', 'ON_ERROR_STOP=1', '-f', str(ROOT / MIGRATION)], source)
             for extra in extras:
                 run(['psql', '-X', '-w', '-v', 'ON_ERROR_STOP=1', '-f', str(extra)], source)
+            mirror_fixture(source)
             if compare(old, manifest(source, folder / 'after-upgrade.json')) or definitions(source) != definitions(full):
                 raise ValueError('Migration changed rows or clean/upgrade definitions/grants/triggers differ')
             for target in (source, full):
@@ -147,7 +150,7 @@ def main():
             checker(restored, expected=1)
             if not compare(baseline, manifest(restored, folder / 'corrupted.json')):
                 raise ValueError('Restored corruption not detected')
-            print('PASS: PG17 exact17populated predecessor/full schema;atomic dirty migration refusal/unchanged rows+definitions+grants+triggers;identical full/upgrade definitions;canonical SQL/exact fact history/legacy compatibility/drift+scope;actual service503/no retry/no snapshot fallback/no domain write except legitimate quota charge;confirmed source and immutable letters preserved;held writer/20commands/1commit/19conflicts;17populated native restore/current codecs/definitions/corruption refusal. Snapshot arrays/legacy remain;synthetic Auth/HTTP/restore,not provider/model/cutover acceptance.')
+            print('PASS: MIRROR ROLLBACK COMPATIBILITY; PG17 exact17populated predecessor/full schema;atomic dirty migration refusal/unchanged rows+definitions+grants+triggers;identical full/upgrade definitions;canonical SQL/exact fact history/legacy compatibility/drift+scope;actual service503/no retry/no snapshot fallback/no domain write except legitimate quota charge;confirmed source and immutable letters preserved;held writer/20commands/1commit/19conflicts;17populated native restore/current codecs/definitions/corruption refusal. Snapshot arrays/legacy remain;synthetic Auth/HTTP/restore,not provider/model/cutover acceptance.')
     except Exception:
         failed = True
         print('FAIL: owned canonical protocol at ' + stage + '; no rows/keys/DB diagnostics printed.', file=sys.stderr)

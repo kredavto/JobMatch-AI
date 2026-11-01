@@ -8,6 +8,7 @@ from pathlib import Path
 import sys
 import tempfile
 import uuid
+from storage_fixture import workspace_scalars, preserved_migration
 from backup_manifest import compare
 from saved_letter_drill import ROOT, OWNER, KEY, literal, run, sql, bridge, accept_statement, verify_history
 from source_profile_drill import TEXT, add, command as profile_command, context, read, codec, manifest
@@ -52,7 +53,7 @@ def main():
             if full_sql.count(migration) != 1:
                 raise ValueError('Consolidated command migration differs')
             prefix, suffix = full_sql.split(migration)
-            extras = [ROOT / 'supabase/migrations' / name for name in ('20261028110002_profile_import_commands.sql', '20261028110003_version_commands.sql', '20261028110004_projection_parity.sql', '20261028110005_canonical_workspace_reads.sql', '20261028110006_explicit_workspace_writes.sql', '20261028120140_workspace_entity_snapshot.sql')]
+            extras = [ROOT / 'supabase/migrations' / name for name in ('20261028110002_profile_import_commands.sql', '20261028110003_version_commands.sql', '20261028110004_projection_parity.sql', '20261028110005_canonical_workspace_reads.sql', '20261028110006_explicit_workspace_writes.sql', '20261028120140_workspace_entity_snapshot.sql', '20261028120214_compact_workspace_storage.sql')]
             if suffix != b''.join(b'\n' + p.read_bytes() for p in extras):
                 raise ValueError('Unexpected post-application definitions')
             predecessor = prefix[:-1]
@@ -67,12 +68,12 @@ def main():
             for target, schema in ((source, folder / 'base.sql'), (full, ROOT / 'supabase/schema.sql')):
                 for path in (ROOT / 'scripts/restore_fixture.sql', schema, ROOT / 'scripts/restore_seed.sql'):
                     run(['psql', '-X', '-w', '-v', 'ON_ERROR_STOP=1', '-f', str(path)], target)
+            scalars_before = workspace_scalars(source)
             old = manifest(source, folder / 'before.json')
             run(['psql', '-X', '-w', '-v', 'ON_ERROR_STOP=1', '-f', str(ROOT / MIGRATION)], source)
             for extra in extras:
                 run(['psql', '-X', '-w', '-v', 'ON_ERROR_STOP=1', '-f', str(extra)], source)
-            if compare(old, manifest(source, folder / 'after.json')):
-                raise ValueError('Additive migration changed predecessor rows')
+            preserved_migration(old, manifest(source, folder / 'after.json'), scalars_before, source)
             for target in (source, full):
                 stage = 'actual-application-SQL-suite-both-paths'
                 run(['psql', '-X', '-w', '-v', 'ON_ERROR_STOP=1', '-f', str(ROOT / 'supabase/tests/application_commands.sql')], target)

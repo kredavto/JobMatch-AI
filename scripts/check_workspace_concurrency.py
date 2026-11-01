@@ -20,7 +20,9 @@ def permitted(environment):
               and re.fullmatch(r'jobmatch_drill_[0-9a-f]{32}', environment.get('PGDATABASE', '')) is not None)
     explicit = (environment.get('JOBMATCH_LOCAL_EXPLICIT') == '1' and host in ('127.0.0.1', '::1')
                 and re.fullmatch(r'jobmatch_explicit_[0-9a-f]{32}', environment.get('PGDATABASE', '')) is not None)
-    return (legacy or explicit) and not any(environment.get(key) for key in ('PGSERVICE', 'PGHOSTADDR', 'PGSERVICEFILE', 'PGOPTIONS'))
+    compact = (environment.get('JOBMATCH_LOCAL_COMPACT') == '1' and host in ('127.0.0.1', '::1')
+               and re.fullmatch(r'jobmatch_compact_[0-9a-f]{32}', environment.get('PGDATABASE', '')) is not None)
+    return (legacy or explicit or compact) and not any(environment.get(key) for key in ('PGSERVICE', 'PGHOSTADDR', 'PGSERVICEFILE', 'PGOPTIONS'))
 
 
 class CheckFailure(Exception):
@@ -114,10 +116,11 @@ COMMIT;
   OR (SELECT count(*) FROM public.audit_log WHERE user_id='%s')<>%d
   OR (SELECT count(*) FROM public.fact_history WHERE user_id='%s')<>1
   OR (SELECT count(*) FROM public.consent_records WHERE user_id='%s')<>1
-  OR s->'facts' IS DISTINCT FROM '[]'::jsonb OR s->'versions' IS DISTINCT FROM '[]'::jsonb
-  OR s->'applications' IS DISTINCT FROM '[]'::jsonb THEN RAISE EXCEPTION 'QA_STATE'; END IF;
+  OR (SELECT count(*) FROM public.profile_facts WHERE user_id='%s')<>0
+  OR (SELECT count(*) FROM public.resume_versions WHERE user_id='%s')<>0
+  OR (SELECT count(*) FROM public.applications WHERE user_id='%s')<>0 THEN RAISE EXCEPTION 'QA_STATE'; END IF;
  IF (private.workspace_projection_report()->'ok') IS DISTINCT FROM 'true'::jsonb THEN RAISE EXCEPTION 'QA_PARITY';END IF;
-END;$$;""" % (uid, uid, revision, uid, audits, uid, uid))
+END;$$;""" % (uid, uid, revision, uid, audits, uid, uid, uid, uid, uid))
 
     def race(self, revision):
         self.stage = 'new workspace race' if revision == 0 else 'existing workspace race'
@@ -161,6 +164,19 @@ END;$$;""" % (uid, uid, revision, uid, audits, uid, uid))
         if [outcome(self.finish(worker)) for worker in workers] != ['AUTH', 'AUTH']:
             raise CheckFailure('Revoked waiters accepted')
         self.assert_state(self.a, 3, 3)
+        self.stage = 'session revoked while first workspace waits'
+        # Remove/recreate only this probe's random owner; never a preexisting fixture owner.
+        self.query("DELETE FROM auth.users WHERE id='" + self.a + "';INSERT INTO auth.users(id) VALUES('" + self.a + "');INSERT INTO auth.sessions(id,user_id) VALUES('" + self.sa + "','" + self.a + "');")
+        holder = self.owner_lock()
+        names = ['jobmatch_qa_initial_revoke_command', 'jobmatch_qa_initial_revoke_legacy']
+        workers = [self.worker(self.a, self.sa, 0, kind, name)
+                   for kind, name in zip(('command', 'legacy'), names)]
+        self.wait_for(names, 'advisory')
+        self.query("DELETE FROM auth.sessions WHERE id='" + self.sa + "';")
+        self.finish(holder, 'COMMIT;\n')
+        if [outcome(self.finish(worker)) for worker in workers] != ['AUTH', 'AUTH']:
+            raise CheckFailure('Revoked first-workspace waiters accepted')
+        self.query("DO $$BEGIN IF EXISTS(select 1 from public.workspaces where user_id='" + self.a + "') OR EXISTS(select 1 from public.fact_history where user_id='" + self.a + "') OR EXISTS(select 1 from public.audit_log where user_id='" + self.a + "') OR EXISTS(select 1 from public.consent_records where user_id='" + self.a + "') THEN RAISE EXCEPTION 'QA_PARTIAL_INITIAL_REVOKE';END IF;END;$$;")
         self.stage = 'exclusive table gate'
         holder = self.holder("LOCK TABLE public.workspaces IN ACCESS EXCLUSIVE MODE; "
                              "DO $$BEGIN IF (private.workspace_projection_report()->'ok') IS DISTINCT FROM 'true'::jsonb "
@@ -199,7 +215,7 @@ def main():
             print('FAIL: synthetic concurrency fixture cleanup.', file=sys.stderr)
             failed = True
     if not failed:
-        print('PASS: real concurrent command/legacy creation and updates, owner isolation, revoked waiters and exclusive table gate.')
+        print('PASS: real concurrent command/legacy creation and updates, owner isolation, revoked existing+first-workspace waiters and exclusive table gate.')
     return 1 if failed else 0
 
 

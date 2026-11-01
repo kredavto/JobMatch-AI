@@ -1,4 +1,4 @@
-name: Synthetic PostgreSQL restore
+name: Mirror rollback compatibility — Synthetic PostgreSQL restore
 on:
   pull_request:
     paths:

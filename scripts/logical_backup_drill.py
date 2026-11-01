@@ -7,6 +7,7 @@ import subprocess
 import sys
 import tempfile
 import uuid
+from storage_fixture import mirror_fixture
 from backup_manifest import compare, COMBINED_TABLES
 from saved_letter_drill import ROOT, OWNER, OTHER, OTHER_SESSION, KEY, literal, run, sql, bridge, accept_statement, verify_history
 from source_profile_drill import read, context, codec, manifest
@@ -55,9 +56,13 @@ def main():
         with tempfile.TemporaryDirectory(prefix='jobmatch-logical-') as temporary:
             folder = Path(temporary)
             full_sql, migration = (ROOT / 'supabase/schema.sql').read_bytes(), (ROOT / MIGRATION).read_bytes()
-            if full_sql.count(migration) != 1 or not full_sql.endswith(migration):
+            if full_sql.count(migration) != 1:
                 raise ValueError('Consolidated helper migration differs')
-            predecessor = full_sql[:-len(migration)-1]
+            prefix, suffix = full_sql.split(migration)
+            extra = ROOT / 'supabase/migrations/20261028120214_compact_workspace_storage.sql'
+            if suffix != b'\n' + extra.read_bytes():
+                raise ValueError('Unexpected post-helper definitions')
+            predecessor = prefix[:-1]
             if hashlib.sha256(predecessor).hexdigest() != BASE_SHA256:
                 raise ValueError('Not exact current explicit/canonical/parity/entity/source/letter/quota predecessor')
             (folder / 'base.sql').write_bytes(predecessor)
@@ -69,6 +74,7 @@ def main():
             for target, schema in ((source, folder / 'base.sql'), (full, ROOT / 'supabase/schema.sql')):
                 for path in (ROOT / 'scripts/restore_fixture.sql', schema, ROOT / 'scripts/restore_seed.sql'):
                     run(['psql', '-X', '-w', '-v', 'ON_ERROR_STOP=1', '-f', str(path)], target)
+                mirror_fixture(target)
             stage = 'missing-helper-refuses-logical-artifact'
             capture(source, folder / 'missing-helper.json', refused=True)
             receipts = {}
@@ -97,6 +103,8 @@ def main():
             if compare(before, manifest(source, folder / 'late-rollback.json')) or definitions(source) != before_defs:
                 raise ValueError('Failed helper DDL changed data/definitions/grants')
             run(['psql', '-X', '-w', '-v', 'ON_ERROR_STOP=1', '-f', str(ROOT / MIGRATION)], source)
+            run(['psql', '-X', '-w', '-v', 'ON_ERROR_STOP=1', '-f', str(extra)], source)
+            mirror_fixture(source)
             if compare(before, manifest(source, folder / 'after.json')) or definitions(source) != definitions(full):
                 raise ValueError('Helper upgrade changed rows or definitions differ')
             scopes = [(False, False, 13, ''), (True, False, 15, '-letters'), (False, True, 15, '-source'), (True, True, 17, '-letters-source')]
@@ -157,7 +165,7 @@ def main():
             sql(restored, "update private.letter_signing_config set signing_key=decode(repeat('ac',32),'hex');")
             if 'private.letter_signing_config' not in compare(logical, capture(restored, folder / 'key-bad-logical.json')):
                 raise ValueError('Logical scope omitted private letter-key fingerprint')
-            print('PASS: PG17 exact17populated/two-owner predecessor/full schema;closed STABLE invoker helper/DDL rollback/unchanged rows+definitions;missing helper+limited RLS fail without artifact;all8physical/logical13-15-17CLI scopes/read-only600/strict no mixing/unknown scalars+entity extras;actual current commands/source+letter codecs;17populated native dump/restore/physical+logical fingerprints/definitions;physical-only mirror drift not hidden as parity;normalized value+private letter-key corruption detected. No compact cutover;synthetic Auth/HTTP/restore,not provider/RPO/RTO/model acceptance.')
+            print('PASS: MIRROR ROLLBACK COMPATIBILITY; PG17 exact17populated/two-owner predecessor/full schema;closed STABLE invoker helper/DDL rollback/unchanged rows+definitions;missing helper+limited RLS fail without artifact;all8physical/logical13-15-17CLI scopes/read-only600/strict no mixing/unknown scalars+entity extras;actual current commands/source+letter codecs;17populated native dump/restore/physical+logical fingerprints/definitions;physical-only mirror drift not hidden as parity;normalized value+private letter-key corruption detected. No compact cutover;synthetic Auth/HTTP/restore,not provider/RPO/RTO/model acceptance.')
     except Exception:
         failed = True
         print('FAIL: owned logical-backup protocol at ' + stage + '; no rows/keys/DB diagnostics printed.', file=sys.stderr)
