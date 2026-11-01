@@ -65,3 +65,9 @@ it('uses installed Zod code-point budgets without normalising astral/combined so
  expect(WorkspaceCommandSchema.safeParse({...command,note:command.note+'a'}).success).toBe(false);
  expect(WorkspaceCommandSchema.parse({...command,title:'e\u0301👩‍💻'})).toMatchObject({title:'e\u0301👩‍💻'});
 });
+
+it('stops on projection mismatch with a safe unavailable response and no retry',async()=>{
+ const fetch=vi.fn().mockResolvedValue(Response.json({message:'PROJECTION_CONFLICT',details:'sensitive internal data'},{status:400}));vi.stubGlobal('fetch',fetch);
+ await expect(applyWorkspaceCommand({id:'owner',token:'jwt'},2,{action:'goal',text:'Analyst'})).rejects.toMatchObject({status:503,message:'Проверка целостности хранилища не пройдена. Запись остановлена. Обратитесь к администратору.'});
+ expect(fetch).toHaveBeenCalledTimes(1);
+});

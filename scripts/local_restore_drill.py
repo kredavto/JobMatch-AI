@@ -51,7 +51,7 @@ def main():
             data = json.loads(baseline.read_text())
             if not all(item['rows'] > 0 for item in data['tables'].values()):
                 raise ValueError('Fixture must populate all 13 tables')
-            for test in ('fact_history.sql', 'normalized_entities.sql', 'write_gates.sql', 'workspace_commands.sql', 'application_commands.sql', 'profile_commands.sql', 'version_commands.sql', 'projection_parity.sql'):
+            for test in ('fact_history.sql', 'normalized_entities.sql', 'write_gates.sql', 'workspace_commands.sql', 'application_commands.sql', 'profile_commands.sql', 'version_commands.sql', 'projection_parity.sql', 'canonical_workspace.sql'):
                 run(['psql', '-X', '-w', '-v', 'ON_ERROR_STOP=1', '-f', str(ROOT / 'supabase/tests' / test)], target)
             # Same number of rows, changed content: the manifest must detect it.
             run(['psql', '-X', '-w', '-v', 'ON_ERROR_STOP=1', '-c',
@@ -61,7 +61,7 @@ def main():
                                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=180)
             if result.returncode != 1:
                 raise ValueError('Expected detection of changed content')
-        print('PASS: synthetic PostgreSQL dump/restore, 13 populated tables, 8 SQL suites and corruption detection.')
+        print('PASS: synthetic PostgreSQL dump/restore, 13 populated tables, 9 SQL suites and corruption detection.')
     except (OSError, ValueError, subprocess.SubprocessError):
         print('FAIL: local restore drill failed; no credentials or row data printed.', file=sys.stderr)
         failed = True
