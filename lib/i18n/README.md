@@ -24,3 +24,10 @@ released page still mounts the Russian default. See CURRENT_WORKSPACE_LOCALES.md
 and CURRENT_PROFILE_DRAFT_SAFETY.md in docs for state, request and draft boundaries.
 No locale is sent in profile-write bodies; stored evidence/status/document content
 is not translated. Remaining screens/dates/offline/global selector are still open.
+
+The current rules editor has optional RU/EN presentation in ResumeEditorPanel,
+with Root-owned saved-source context, pending and navigation guards. Only fixed
+known rule reasons/category labels are translated; raw evidence/quotes and the
+Russian v1 document remain literal. UI language preserves selection and undo;
+dirty/paused/stale saved context blocks actions. Global selector remains OFF.
+See docs/CURRENT_EDITOR_CONTEXT_LOCALES.md for limits and immutable CI evidence.
