@@ -1,0 +1,10 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {guardedExtraction} from '../dist/worker/scan-gate.js';
+const signal=()=>new AbortController().signal;
+test('unready scanner prevents scanning and parsing',async()=>{assert.deepEqual(await guardedExtraction(Buffer.from('test'),signal(),{ready:async()=>false,scan:async()=>assert.fail(),parse:async()=>assert.fail()}),{ok:false,code:'UNAVAILABLE'});});
+for(const verdict of ['blocked','unavailable'])test('non-clean '+verdict+' prevents extraction',async()=>{const result=await guardedExtraction(Buffer.from('test'),signal(),{ready:async()=>true,scan:async()=>verdict,parse:async()=>assert.fail()});assert.equal(result.code,verdict==='blocked'?'INVALID':'UNAVAILABLE');});
+test('readiness loss after scan prevents extraction',async()=>{let checks=0;assert.deepEqual(await guardedExtraction(Buffer.from('test'),signal(),{ready:async()=>++checks===1,scan:async()=> 'clean',parse:async()=>assert.fail()}),{ok:false,code:'UNAVAILABLE'});});
+test('cancellation after scan prevents extraction',async()=>{const controller=new AbortController();const result=await guardedExtraction(Buffer.from('test'),controller.signal,{ready:async()=>true,scan:async()=>{controller.abort();return'clean';},parse:async()=>assert.fail()});assert.equal(result.ok,false);});
+test('clean and ready forwards exact bytes once',async()=>{let calls=0;const result=await guardedExtraction(Buffer.from('test'),signal(),{ready:async()=>true,scan:async bytes=>{assert.equal(bytes.toString(),'test');return'clean';},parse:async bytes=>{calls++;assert.equal(bytes.toString(),'test');return{ok:true,text:'Synthetic text'};}});assert.deepEqual(result,{ok:true,text:'Synthetic text'});assert.equal(calls,1);});
+test('readiness error is redacted and prevents extraction',async()=>{assert.deepEqual(await guardedExtraction(Buffer.from('test'),signal(),{ready:async()=>{throw Error('private');},scan:async()=>assert.fail(),parse:async()=>assert.fail()}),{ok:false,code:'UNAVAILABLE'});});

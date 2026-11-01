@@ -1,0 +1,109 @@
+# Overlay only: docker compose -f worker/compose.yaml -f worker/compose.antivirus.yaml ...
+services:
+  gateway:
+    environment:
+      PARSER_SCAN_MODE: required
+      PARSER_SCANNER_PUBLIC_KEY: ${PARSER_SCANNER_PUBLIC_KEY:?Set the observer public key}
+      PARSER_SCANNER_ENGINES: '1.4.6'
+    networks: [scanner_private, observer_private]
+  scanner:
+    build:
+      context: ..
+      dockerfile: worker/scanner/Dockerfile
+    restart: unless-stopped
+    user: clamav
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
+    mem_limit: 4g
+    memswap_limit: 4g
+    cpus: 1.0
+    pids_limit: 64
+    ulimits:
+      core: 0
+      nofile: 256
+    tmpfs: ['/tmp:rw,noexec,nosuid,size=64m,mode=1777']
+    environment:
+      HTTP_PROXY: ''
+      HTTPS_PROXY: ''
+      ALL_PROXY: ''
+      NO_PROXY: ''
+      http_proxy: ''
+      https_proxy: ''
+      all_proxy: ''
+      no_proxy: ''
+      TZ: UTC
+    volumes:
+      - type: volume
+        source: scanner_signatures
+        target: /var/lib/clamav
+        read_only: true
+    networks: [scanner_private]
+  signature-updater:
+    build:
+      context: ..
+      dockerfile: worker/scanner/Dockerfile
+    command: ['/usr/local/bin/jobmatch-freshclam', '--daemon', '--stdout', '--config-file=/etc/clamav/jobmatch-freshclam.conf']
+    restart: unless-stopped
+    user: clamav
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
+    mem_limit: 4g
+    memswap_limit: 4g
+    cpus: 0.5
+    pids_limit: 64
+    ulimits:
+      core: 0
+      nofile: 128
+    tmpfs: ['/tmp:rw,noexec,nosuid,size=64m,mode=1777']
+    environment:
+      TZ: UTC
+    volumes:
+      - type: volume
+        source: scanner_signatures
+        target: /var/lib/clamav
+    networks: [scanner_updates]
+  scanner-observer:
+    build:
+      context: ..
+      dockerfile: worker/Dockerfile
+    command: ['node', '--disable-sigusr1', '--max-old-space-size=64', 'compiled/worker/scanner-observer.cjs']
+    restart: unless-stopped
+    user: '10001:10001'
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ['no-new-privileges:true']
+    mem_limit: 128m
+    memswap_limit: 128m
+    cpus: 0.25
+    pids_limit: 32
+    ulimits:
+      core: 0
+      nofile: 64
+    tmpfs: ['/tmp:rw,noexec,nosuid,size=8m,mode=1777']
+    environment:
+      HTTP_PROXY: ''
+      HTTPS_PROXY: ''
+      ALL_PROXY: ''
+      NO_PROXY: ''
+      http_proxy: ''
+      https_proxy: ''
+      all_proxy: ''
+      no_proxy: ''
+      NODE_OPTIONS: ''
+      SCANNER_TIMEZONE_UTC_CONFIRMED: 'true'
+      SCANNER_ALLOWED_ENGINES: '1.4.6'
+    secrets: [scanner_observer_key]
+    networks: [scanner_private, observer_private]
+volumes:
+  scanner_signatures: {}
+networks:
+  scanner_updates: {}
+  scanner_private:
+    internal: true
+  observer_private:
+    internal: true
+secrets:
+  scanner_observer_key:
+    file: ${SCANNER_OBSERVER_KEY_FILE:?Set an observer-only Ed25519 private key file}
