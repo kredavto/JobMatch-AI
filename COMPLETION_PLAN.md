@@ -87,3 +87,10 @@
 - Локально: 623 unit/route,20 Node security,28 Python,114 browser PASS/2 live SKIP,lint/types/build PASS. Native/provider/mail/AI acceptance не подменяются этими тестами. Merge/release/production SQL/config не выполнялись.
 
 Remote #74 Application/audit/legacy-PG17 CI на `3a3336b…` подтвердили623unit,20security,28Python,114browserPASS/2liveSKIP,типизацию/сборку и runtime0/full15/strictFullExit1. Это не полная security или provider acceptance.
+
+### Source profile development — PR #75 (verification in progress)
+
+- Isolated branch from #73, with #74 dependency fixes explicitly integrated; main is unchanged. #72/#73/#74 remain separate unmerged prerequisites. Historic #1/#2 merge permission is not reused.
+- Implemented manual literal source-bound records, separate confirmation, default-OFF API/native capability and separate source-copy consent; clear removes the cached source but preserves an optimistic revision tombstone. No inference, semantic/model acceptance or hh.ru write.
+- Local so far: 800 unit/API tests, 20 dependency security tests, lint/types/build passed. Native PG17 and browser checks are still in progress; the first native run exposed a wrong test expectation for denied self-grant, now corrected. Do not count configured checks as completed evidence.
+- Next: resolve native/browser results and record immutable proof. Real SMTP/password recovery, actual Supabase-copy restoration/RPO/RTO, operator personal-data decision and independent security/full acceptance remain OPEN.
