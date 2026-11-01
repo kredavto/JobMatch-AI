@@ -5,13 +5,14 @@ const owner='11111111-1111-4111-8111-111111111111',session='44444444-4444-4444-8
 const ownedProfile=process.env.JOBMATCH_LOCAL_PROFILE_COMMANDS==='1'&&/^jobmatch_profile_[a-f0-9]{32}$/.test(process.env.PGDATABASE??'');
 const ownedVersion=process.env.JOBMATCH_LOCAL_VERSION_COMMANDS==='1'&&/^jobmatch_versions_[a-f0-9]{32}$/.test(process.env.PGDATABASE??'');
 const ownedParity=process.env.JOBMATCH_LOCAL_PARITY==='1'&&/^jobmatch_parity_[a-f0-9]{32}$/.test(process.env.PGDATABASE??'');
-if(!(ownedProfile||ownedVersion||ownedParity)||!['127.0.0.1','::1'].includes(process.env.PGHOST)||['PGSERVICE','PGSERVICEFILE','PGHOSTADDR','PGOPTIONS'].some(k=>process.env[k]))throw Error('Owned protocol fixture required');
+const ownedCanonical=process.env.JOBMATCH_LOCAL_CANONICAL==='1'&&/^jobmatch_canonical_[a-f0-9]{32}$/.test(process.env.PGDATABASE??'');
+if(!(ownedProfile||ownedVersion||ownedParity||ownedCanonical)||!['127.0.0.1','::1'].includes(process.env.PGHOST)||['PGSERVICE','PGSERVICEFILE','PGHOSTADDR','PGOPTIONS'].some(k=>process.env[k]))throw Error('Owned protocol fixture required');
 require.extensions['.ts']=(module,file)=>module._compile(ts.transpileModule(fs.readFileSync(file,'utf8'),{fileName:file,compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2023,esModuleInterop:true}}).outputText,file);
 const {NextRequest}=require('next/server'),{POST,GET}=require('../../app/api/service/route.ts');
 const literal=v=>"'"+String(v).replaceAll("'","''")+"'",traces=[];let concurrentGoal=false;
 function pg(statement){return new Promise((resolve,reject)=>{
  const child=execFile('psql',['-X','-qAt','-w','-v','ON_ERROR_STOP=1'],{timeout:8000,maxBuffer:2000000},(error,out,stderr)=>{
-  if(error){const code=['CONFLICT','INVALID_WRITE','AUTH'].find(c=>new RegExp('ERROR:\\s+'+c+'(?:\\s|$)').test(stderr));reject(Error(code??'FIXTURE_REFUSED'));return;}
+  if(error){const code=['CONFLICT','INVALID_WRITE','PROJECTION_CONFLICT','AUTH'].find(c=>new RegExp('ERROR:\\s+'+c+'(?:\\s|$)').test(stderr));reject(Error(code??'FIXTURE_REFUSED'));return;}
   try{resolve(JSON.parse(out.trim()));}catch{reject(Error('FIXTURE_PROTOCOL'));}
  });
  child.stdin.end('set role authenticated;set request.jwt.claims='+literal(JSON.stringify({sub:owner,session_id:session}))+';'+statement);
@@ -37,7 +38,7 @@ const server=http.createServer(async(req,res)=>{
    }else throw Error('FIXTURE_ROUTE');
    value=await pg(statement);
   }
- }catch(error){status=error.message==='AUTH'?401:['CONFLICT','INVALID_WRITE'].includes(error.message)?400:503;value={message:['AUTH','CONFLICT','INVALID_WRITE'].includes(error.message)?error.message:'FIXTURE_REFUSED'};}
+ }catch(error){status=error.message==='AUTH'?401:['CONFLICT','INVALID_WRITE','PROJECTION_CONFLICT'].includes(error.message)?400:503;value={message:['AUTH','CONFLICT','INVALID_WRITE','PROJECTION_CONFLICT'].includes(error.message)?error.message:'FIXTURE_REFUSED'};}
  res.writeHead(status,{'content-type':'application/json','connection':'close'});res.end(JSON.stringify(value));
 });
 server.requestTimeout=10000;server.maxConnections=8;
