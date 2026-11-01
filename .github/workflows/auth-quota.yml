@@ -1,0 +1,100 @@
+name: Central pre-auth quota (synthetic PostgreSQL)
+on:
+  pull_request:
+    paths:
+      - 'lib/auth-quota.ts'
+      - 'lib/db.ts'
+      - 'lib/body.ts'
+      - 'lib/errors.ts'
+      - 'lib/http.ts'
+      - 'tests/auth-quota*'
+      - 'tests/fixtures/auth-quota-native.cjs'
+      - 'app/api/**'
+      - 'supabase/**'
+      - 'scripts/auth_quota_concurrency.py'
+      - 'scripts/auth_quota_ops.py'
+      - 'scripts/test_auth_quota_ops.py'
+      - '.github/workflows/auth-quota.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  postgres:
+    if: github.repository == 'kredavto/JobMatch-AI' && github.event.repository.private == false && (github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: synthetic-only
+        ports: ['5432:5432']
+        options: --health-cmd pg_isready --health-interval 5s --health-retries 10
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: '5432'
+      PGUSER: postgres
+      PGPASSWORD: synthetic-only
+      JOBMATCH_LOCAL_AUTH_QUOTA_TEST: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Install client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+      - name: Create disposable roles and databases
+        run: |
+          psql -v ON_ERROR_STOP=1 -c 'create role anon; create role authenticated;'
+          createdb quota_clean
+          createdb quota_upgrade
+          createdb quota_fresh
+          createdb quota_native
+          psql -v ON_ERROR_STOP=1 -d quota_clean -c 'create schema private;'
+          psql -v ON_ERROR_STOP=1 -d quota_clean -f supabase/migrations/20261029080555_central_auth_quota.sql
+          psql -v ON_ERROR_STOP=1 -d quota_clean -f supabase/migrations/20261029082413_auth_quota_operations.sql
+          psql -v ON_ERROR_STOP=1 -d quota_clean -f supabase/tests/auth_quota.sql
+          psql -v ON_ERROR_STOP=1 -d quota_clean -f supabase/tests/auth_quota_operations.sql
+          psql -v ON_ERROR_STOP=1 -d quota_upgrade -f scripts/restore_fixture.sql
+          sed '/^-- Opt-in server-signed pre-auth quota/,$d' supabase/schema.sql > /tmp/quota-baseline.sql
+          psql -v ON_ERROR_STOP=1 -d quota_upgrade -f /tmp/quota-baseline.sql
+          psql -v ON_ERROR_STOP=1 -d quota_upgrade -f scripts/restore_seed.sql
+          psql -v ON_ERROR_STOP=1 -d quota_upgrade -f supabase/migrations/20261029080555_central_auth_quota.sql
+          psql -v ON_ERROR_STOP=1 -d quota_upgrade -f supabase/migrations/20261029082413_auth_quota_operations.sql
+          psql -v ON_ERROR_STOP=1 -d quota_upgrade -f supabase/tests/auth_quota.sql
+          psql -v ON_ERROR_STOP=1 -d quota_upgrade -f supabase/tests/auth_quota_operations.sql
+          psql -v ON_ERROR_STOP=1 -d quota_fresh -f scripts/restore_fixture.sql
+          psql -v ON_ERROR_STOP=1 -d quota_fresh -f supabase/schema.sql
+          psql -v ON_ERROR_STOP=1 -d quota_fresh -f scripts/restore_seed.sql
+          psql -v ON_ERROR_STOP=1 -d quota_fresh -f supabase/tests/auth_quota.sql
+          psql -v ON_ERROR_STOP=1 -d quota_fresh -f supabase/tests/auth_quota_operations.sql
+          psql -v ON_ERROR_STOP=1 -d quota_native -c 'create schema private;'
+          psql -v ON_ERROR_STOP=1 -d quota_native -f supabase/migrations/20261029080555_central_auth_quota.sql
+          psql -v ON_ERROR_STOP=1 -d quota_native -f supabase/migrations/20261029082413_auth_quota_operations.sql
+          psql -v ON_ERROR_STOP=1 -d quota_native -c "insert into private.auth_quota_config(signing_key) values(decode(repeat('a',64),'hex'));"
+          JOBMATCH_AUTH_QUOTA_OPS_APPROVED=1 PGDATABASE=quota_upgrade python3 scripts/auth_quota_ops.py status
+          JOBMATCH_AUTH_QUOTA_OPS_APPROVED=1 JOBMATCH_AUTH_QUOTA_PURGE_APPROVED=1 PGDATABASE=quota_upgrade python3 scripts/auth_quota_ops.py purge --limit 10
+      - name: Actual production signer and bounded HTTP codec to native anonymous SQL
+        run: |
+          if [ "$(date +%S)" -gt 40 ]; then sleep 21; fi
+          PGDATABASE=quota_native node tests/fixtures/auth-quota-native.cjs
+      - name: Concurrent signed quota (retry only minute-boundary fixture preflight)
+        run: |
+          for attempt in 1 2 3; do
+            # Use fresh databases: never erase or reuse user data.
+            createdb quota_parallel_$attempt
+            psql -v ON_ERROR_STOP=1 -d quota_parallel_$attempt -c 'create schema private;'
+            psql -v ON_ERROR_STOP=1 -d quota_parallel_$attempt -f supabase/migrations/20261029080555_central_auth_quota.sql
+            psql -v ON_ERROR_STOP=1 -d quota_parallel_$attempt -f supabase/migrations/20261029082413_auth_quota_operations.sql
+            if [ "$(date +%S)" -gt 45 ]; then sleep 16; fi
+            PGDATABASE=quota_parallel_$attempt python3 scripts/auth_quota_concurrency.py && break
+            exit 1
+          done
+      - name: Clean synthetic databases
+        if: always()
+        run: |
+          for db in quota_clean quota_upgrade quota_fresh quota_native quota_parallel_1 quota_parallel_2 quota_parallel_3; do
+            dropdb --if-exists --force "$db"
+          done
