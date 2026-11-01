@@ -125,7 +125,7 @@ def main():
                     {'action': 'import', 'text': '\ufeff SQL \r\nPython\nSQL'},
                     {'action': 'fact', 'text': 'Literal 😀 clarification'},
                     {'action': 'verify', 'selectFactContaining': 'SQL', 'verified': True},
-                    {'action': 'vacancy', 'text': 'SQL'}, {'action': 'goal', 'text': 'Data role'},
+                    {'action': 'vacancy', 'text': 'SQL role'}, {'action': 'goal', 'text': 'Data role'},
                     {'action': 'application', 'id': 'a1', 'status': 'Отклик отправлен', 'note': 'Updated literal note', 'resumeVersionId': None},
                     {'action': 'analyze'}, {'action': 'version', 'ids': []}, {'action': 'restore', 'id': 'v1'}]):
                     stage = 'current-service-operation-' + operation['action']
