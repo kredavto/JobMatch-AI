@@ -1,0 +1,25 @@
+# Current source profile and literal version UI: RU/EN preparation
+
+This block follows #91. Both current panels accept an explicit optional `locale` prop, default RU. The production page still passes no locale: a global switch is not enabled until the remaining screens/dates/offline assets and bilingual acceptance are complete. This is actual two-panel localization, not full-project or full-English acceptance.
+
+`lib/i18n/source-panels.ts` contains95 fixed UI message keys plus separate RU/EN kind/field labels. Only explicit typed UI keys reach `sourceText`; never source quotes, user-entered strings, payloads, downloaded documents, or stored status values. Errors retain closed message segments and notices retain keys, so existing feedback re-renders in the current language, including a response completing after a language change. Raw error diagnostics remain discarded.
+
+Locale is excluded from owner/source/disabled keys and from network/context effects. Changing it preserves field draft, DOM selection/caret, selected entries, preview, consent checkboxes and pending request identity. Existing changes of owner/source/revision/disabled state still invalidate the appropriate state. The language alone does not read, write, retry, confirm legacy facts or call a provider. Existing validation/owner/active-session/CAS/ack/default-OFF/storage permission contracts are unchanged.
+
+The frozen `source-literal-ru-v1` document remains Russian framing plus exact source quotes. UI text explicitly explains this. No domain label/template/grammar, snapshot, hash material, source-original CRLF/emoji, Unicode ranges, consent marker, identifier, API body, saved text, JSON or TXT is translated. English document generation would require a separately versioned renderer and matching SQL/native proof; it is not inferred from UI language.
+
+History timestamps now render using explicit RU or en-GB and UTC, with a visible UTC suffix and unchanged ISO `time.datetime`. This is display only: no record date/time conversion or mutation. User-entered employment/certificate date quotes remain uninterpreted raw source text. UTC display intentionally replaces the old device-timezone-dependent history label.
+
+## Verification
+
+Local1130unit/API76files,105Python,20security,lint/types/build PASS.5new unit scenarios cover every message in both languages/default/unsupported fallback, label parity, retranslation of feedback, SSR accessible copy, UTC-equivalent offsets/invalid date fallback, and immutable CRLF/emoji/preview text/hash.3new actual React/browser scenarios run the real two components through a loopback-only synthetic fixture: raw CP selections/caret, storage consent and late write acknowledgement across language changes, exact request bodies/no retry/no implicit verification, validated JSON/TXT download, frozen Russian preview, UTC history under Pacific/Honolulu, creation-OFF cleanup, translated errors without refetch and ignored late old-owner response. Mobile axe/overflow passed;390px English screenshot inspected. Headless fonts show fallback glyphs for the emoji sequence; DOM/raw download assertions preserve its actual Unicode bytes. Automated/visual checks do not replace manual screen-reader or physical-device acceptance. Full application/browser/native CI is pending and will be recorded in VERIFICATION.md.
+
+The fixture is under tests/fixtures, outside Next app/public, and adds no production route or language preference. Its explicitly opted-in server binds127.0.0.1/ephemeral port, closes on IPC/disconnect, ignores .env files and public env prefixes, uses a small allowlisted child environment while retaining proxy/CA settings, and emits only its allocated port/static startup refusal. Tests use synthetic identities, intercepted API payloads and no live Auth/SQL/SMTP/model/HH. It resolves Vite through Vitest's declared dependency, supporting nested installs; no packages or lockfile were added/changed. It is a browser interaction fixture, not evidence of provider authorization or real storage. The full production default-RU E2E suite is separate.
+
+Standalone widget check:
+
+```sh
+npx playwright test --config tests/source-locales.config.ts
+```
+
+No SQL/migration/GRANT/dependency/production flag/credential/paid infrastructure/mail/main merge/release changes. Real SMTP/recovery/provider-copy restore/RPO/RTO/operator PD decision, qualified model/semantics/held-out, HH permissions, full localization and final operations remain OPEN. Historic #1/#2 approval remains limited to them. Next internal localization work: remaining current screens and feedback, explicit date/time presentation and offline assets before a global switch.
