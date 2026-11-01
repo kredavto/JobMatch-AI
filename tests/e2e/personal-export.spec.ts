@@ -1,7 +1,8 @@
 import {test,expect} from '@playwright/test';
 import {readFile} from 'node:fs/promises';
-const workspace={revision:1,original:'Вымышленный профиль SQL',vacancy:'',goal:'',facts:[],versions:[],applications:[]};
-const archive={format:'jobmatch-personal-data-v1',complete:true,scope:'workspace-audit-consent',exported_at:'2026-10-25T00:00:00Z',fact_history_export:'/api/fact-history?export=1',user:{id:'fixture',email:'demo@example.test'},workspace,audit:[],consent:[]};
+const ownerId='11111111-1111-4111-8111-111111111111';
+const workspace={ownerId,revision:1,original:'Вымышленный профиль SQL',vacancy:'',goal:'',facts:[],versions:[],applications:[]};
+const archive={format:'jobmatch-personal-data-v1',complete:true,scope:'workspace-audit-consent',exported_at:'2026-10-25T00:00:00Z',fact_history_export:'/api/fact-history?export=1',user:{id:ownerId,email:'demo@example.test'},workspace,audit:[],consent:[]};
 test('valid personal archive downloads with explicit scope and separate history instructions',async({page})=>{
  await page.route('**/api/service',r=>r.fulfill({json:r.request().method()==='GET'?workspace:archive}));
  await page.goto('/');await page.getByRole('navigation').getByRole('button',{name:'Настройки',exact:true}).click();
@@ -21,16 +22,19 @@ test('invalid export produces no download and can recover after explicit reload'
  expect(downloads).toBe(1);
 });
 
-test('saved-letter archive link is owner-bound and discloses all four source-bearing archive files',async({page})=>{
+test('all history archive links are owner-bound and disclose all five source-bearing files',async({page})=>{
  const ownerId='11111111-1111-4111-8111-111111111111';
  await page.route('**/api/service',r=>r.fulfill({json:{...workspace,ownerId}}));
  await page.goto('/');await page.getByRole('navigation').getByRole('button',{name:'Настройки',exact:true}).click();
  await expect(page.getByRole('link',{name:'Скачать историю серверных писем (NDJSON)'})).toHaveAttribute('href','/api/letter-versions?export=1&expectedOwnerId='+ownerId);
- await expect(page.getByText(/Для полного архива скачайте JSON, обе истории и JSON структурированного профиля/)).toContainText('выбранные источники и текст вакансии');
- await expect(page.getByText(/Для полного архива скачайте JSON, обе истории/)).toContainText('четыре файла не являются единым транзакционным снимком');
+ await expect(page.getByRole('link',{name:'Скачать историю структурированных версий (NDJSON)'})).toHaveAttribute('href','/api/source-versions?export=1&expectedOwnerId='+ownerId);
+ await expect(page.getByRole('link',{name:'Скачать полную историю фактов (NDJSON)'})).toHaveAttribute('href','/api/fact-history?export=1&expectedOwnerId='+ownerId);
+ await expect(page.getByText(/Для полного архива скачайте JSON, три истории и JSON структурированного профиля/)).toContainText('выбранные источники и текст вакансии');
+ await expect(page.getByText(/Для полного архива скачайте JSON, три истории/)).toContainText('пять файлов не являются единым транзакционным снимком');
 });
-test('missing owner hides saved-letter archive link',async({page})=>{
- await page.route('**/api/service',r=>r.fulfill({json:workspace}));await page.goto('/');
+test('missing owner blocks profile export and all history archive links',async({page})=>{
+ await page.route('**/api/service',r=>r.fulfill({json:{...workspace,ownerId:undefined}}));await page.goto('/');
  await page.getByRole('navigation').getByRole('button',{name:'Настройки',exact:true}).click();
- await expect(page.getByRole('link',{name:'Скачать историю серверных писем (NDJSON)'})).toHaveCount(0);
+ await expect(page.getByRole('link',{name:/Скачать.*историю.*NDJSON/})).toHaveCount(0);
+ await expect(page.getByRole('button',{name:'Экспорт профиля, версий и откликов'})).toBeDisabled();
 });

@@ -59,8 +59,8 @@ def main():
             if full_sql.count(migration) != 1:
                 raise ValueError('Consolidated helper migration differs')
             prefix, suffix = full_sql.split(migration)
-            extra = ROOT / 'supabase/migrations/20261028120214_compact_workspace_storage.sql'
-            if suffix != b'\n' + extra.read_bytes():
+            extras = [ROOT / 'supabase/migrations' / name for name in ('20261028120214_compact_workspace_storage.sql','20261101171000_source_versions.sql')]
+            if suffix != b''.join(b'\n'+extra.read_bytes() for extra in extras):
                 raise ValueError('Unexpected post-helper definitions')
             predecessor = prefix[:-1]
             if hashlib.sha256(predecessor).hexdigest() != BASE_SHA256:
@@ -103,7 +103,8 @@ def main():
             if compare(before, manifest(source, folder / 'late-rollback.json')) or definitions(source) != before_defs:
                 raise ValueError('Failed helper DDL changed data/definitions/grants')
             run(['psql', '-X', '-w', '-v', 'ON_ERROR_STOP=1', '-f', str(ROOT / MIGRATION)], source)
-            run(['psql', '-X', '-w', '-v', 'ON_ERROR_STOP=1', '-f', str(extra)], source)
+            for extra in extras:
+                run(['psql', '-X', '-w', '-v', 'ON_ERROR_STOP=1', '-f', str(extra)], source)
             mirror_fixture(source)
             if compare(before, manifest(source, folder / 'after.json')) or definitions(source) != definitions(full):
                 raise ValueError('Helper upgrade changed rows or definitions differ')

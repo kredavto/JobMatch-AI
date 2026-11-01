@@ -109,6 +109,13 @@ def main():
         rollback = ROOT / 'supabase/rollback' / forward.name
         consolidated = (ROOT / 'supabase/schema.sql').read_bytes()
         migration = forward.read_bytes()
+        source_versions = ROOT / 'supabase/migrations/20261101171000_source_versions.sql'
+        addon = source_versions.read_bytes()
+        if consolidated.count(addon)!=1 or not consolidated.endswith(b'\n'+addon):
+            raise ValueError('Unexpected current source-version additive suffix')
+        consolidated = consolidated[:-len(addon)-1]
+        if hashlib.sha256(consolidated).hexdigest() != '6d363eccef5bb136c43bd372f0725398ea97924429e719a43a6835932437c7e1':
+            raise ValueError('Not exact current compact provenance core')
         if consolidated.count(migration) != 1 or not consolidated.endswith(migration):
             raise ValueError('Unexpected consolidated compact migration')
         predecessor = consolidated[:-len(migration)-1]
@@ -155,6 +162,8 @@ def main():
             prefix_file.write(predecessor);prefix_file.flush()
             for filename in [ROOT / 'scripts/restore_fixture.sql', Path(prefix_file.name), ROOT / 'scripts/restore_seed.sql']:
                 sql(upgrade, filename, file=True)
+        # Additive feature uses the same abstract workspace API in both storage modes.
+        sql(upgrade, source_versions, file=True)
         seed_provenance(upgrade)
         if catalog(source) == catalog(upgrade):
             raise ValueError('Mirror and compact definitions unexpectedly identical')

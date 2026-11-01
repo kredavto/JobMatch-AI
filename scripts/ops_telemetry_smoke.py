@@ -196,10 +196,10 @@ def main():
                 status = server.request('/api/' + route, method, b'{}' if method == 'POST' else None)
                 if status not in {400, 401, 403, 503}:
                     raise ValueError('Unexpected guard response')
-            for route in ('service','letter-versions','source-profile'):
+            for route in ('service','letter-versions','source-profile','source-versions'):
                 if server.request('/api/'+route,'POST',b'{}') not in {400,401}:
                     raise ValueError('Current POST guard differs')
-            server.wait(lambda rows: {(row.get('route'),row.get('handler')) for row in rows} >= {(route,'POST') for route in ('service','letter-versions','source-profile')})
+            server.wait(lambda rows: {(row.get('route'),row.get('handler')) for row in rows} >= {(route,'POST') for route in ('service','letter-versions','source-profile','source-versions')})
             # No valid mailbox, credentials, provider configuration or side-effect intent is supplied.
             phase('canaries')
             if server.request('/api/service', 'POST',
@@ -246,7 +246,7 @@ def main():
         phase('cleanup')
         if server.bad:
             raise ValueError('Unexpected child output/provider fetch attempt')
-    print('PASS: real Next handlers off/on, all eleven current static route labels/fourteen handlers, private-canary refusal, unchanged guard statuses, observed alert and capped/inconclusive file checks; loopback-only fixture, no live-provider acceptance.')
+    print('PASS: real Next handlers off/on, all twelve current static route labels/sixteen handlers, private-canary refusal, unchanged guard statuses, observed alert and capped/inconclusive file checks; loopback-only fixture, no live-provider acceptance.')
     return 0
 
 
