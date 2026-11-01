@@ -27,3 +27,8 @@ MVP: пользователь вручную импортирует резюме
 
 ## 1 ноября 2026 — отдельный backend-кандидат писем
 Source-current preview/accept, серверная история и экспорт подготовлены в отдельной ветке; панель сохранения ещё не подключена. Это не выполненная пользовательская приёмка и не семантическая верификация. Native PG17 full/populated incremental/RLS/15-table synthetic restore и 703 unit/route + 116 browser (2 live SKIP) прошли на executable `b25db42…`, [PR #72](https://github.com/kredavto/JobMatch-AI/pull/72). Это проверка отдельного технического блока; production SQL/ключ/включение не выполнены. Полная эксплуатационная приёмка, SMTP/recovery, реальный provider restore и решение оператора о ПД остаются открыты. Контракт: [SAVED_LETTER_PROTOCOL.md](docs/SAVED_LETTER_PROTOCOL.md).
+
+## Продолжение 1 ноября 2026 — интерфейс серверных писем
+Поверх ещё не объединённого #72 реализован пользовательский preview/accept/history flow с отдельным storage consent и unknown-result reconciliation. Черновик сохраняется при чтении актуального профиля; новая ревизия/источник требует нового просмотра. 737 unit/route, 30 Python, 140 browser PASS/2 live SKIP, lint/types/build PASS локально. Браузерный API управляемый; реальная Supabase/live приёмка и включение default-off не выполнены. Родительская модельная, семантическая и эксплуатационная приёмка остаётся открытой. [Контракт](docs/SAVED_LETTER_UI.md).
+
+[PR #73](https://github.com/kredavto/JobMatch-AI/pull/73), exact executable `ffd8ae6…`: Application и native PG17 CI PASS с теми же 737/140/2 SKIP/30 результатами; production/live приёмка остаётся открытой.

@@ -1,9 +1,9 @@
 # Saved letters: backend protocol candidate
 
 This change is based only on main `a3a9ef0c69e1e760010fc391234d66cd4a747e3b`.
-It adds a separately reviewable backend/storage/export block. The cover-letter
-panel still produces local files; connecting server preview, explicit acceptance,
-history and failure recovery to that panel is the next implementation step.
+It adds a separately reviewable backend/storage/export block. The backend was introduced separately in PR #72. Its dependent UI candidate
+connects server preview, explicit acceptance, history and failure recovery; see
+[SAVED_LETTER_UI.md](SAVED_LETTER_UI.md). Neither candidate activates production.
 No migration, key provision, production setting, merge or release is performed.
 
 ## What is recorded
@@ -96,7 +96,8 @@ Personal-data JSON now advertises `saved_letters_export` in addition to
 `fact_history_export`. It still contains workspace/audit/consent only: download
 both separate NDJSON histories for a full app archive after this migration is
 activated. Settings includes an owner-bound history download link and the three-file archive
-instructions. The letter preview/accept/history UX remains follow-up work.
+instructions. The dependent letter preview/accept/history UI candidate is described in
+[SAVED_LETTER_UI.md](SAVED_LETTER_UI.md); operator activation remains separate.
 A downloaded JSON is editable. Its checksum is not offline signature proof and
 the file must not be represented as independently authenticated evidence.
 
