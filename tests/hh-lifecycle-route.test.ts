@@ -1,0 +1,13 @@
+import {beforeEach,afterEach,it,expect,vi} from 'vitest';
+import {NextRequest} from 'next/server';
+import {validateHHPreview} from '../lib/hh-vacancy-contract';
+const db=vi.hoisted(()=>({identity:vi.fn(),consumeQuota:vi.fn()}));
+vi.mock('../lib/db',()=>db);
+import {POST} from '../app/api/hh-vacancy/route';
+const owner='11111111-1111-4111-8111-111111111111';
+const request=()=>new NextRequest('https://app.test/api/hh-vacancy',{method:'POST',headers:{origin:'https://app.test'},body:JSON.stringify({url:'https://hh.ru/vacancy/123',expectedOwnerId:owner})});
+const fetchMock=vi.fn();
+beforeEach(()=>{vi.clearAllMocks();db.identity.mockResolvedValue({id:owner,token:'fixture'});vi.stubGlobal('fetch',fetchMock);vi.stubEnv('JOBMATCH_HH_VACANCY_IMPORT','approved');vi.stubEnv('JOBMATCH_HH_USER_AGENT','JobMatch/1 (operator@example.test)');vi.stubEnv('JOBMATCH_HH_APP_ACCESS_TOKEN','synthetic');});
+afterEach(()=>{vi.unstubAllGlobals();vi.unstubAllEnvs();});
+it('never returns archived upstream text or employer data',async()=>{fetchMock.mockResolvedValue(Response.json({id:'123',name:'PRIVATE_TITLE',description:'PRIVATE_DESCRIPTION',archived:true,employer:{name:'PRIVATE_EMPLOYER'}}));const response=await POST(request());expect(response.status).toBe(410);expect(response.headers.get('cache-control')).toBe('no-store');expect(await response.text()).not.toContain('PRIVATE');});
+it('issues a bounded content-bound observation only for active vacancy',async()=>{fetchMock.mockResolvedValue(Response.json({id:'123',name:'SQL',description:'<p>SQL analyst</p>',archived:false}));const response=await POST(request());expect(response.status).toBe(200);expect(response.headers.get('cache-control')).toBe('no-store');const data=await validateHHPreview(await response.json(),owner,'123');expect(data.previewOnly).toBe(true);expect(data.provenance.retention).toBe('memory-only');});

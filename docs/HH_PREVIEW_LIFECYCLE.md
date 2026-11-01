@@ -1,0 +1,33 @@
+# HH lifecycle preparation: preview-only, not activation
+
+Base: exact main `f000327bc472d4df2cb8a9052ea6c98b6e96f9be` (2026-11-01). No migration, account/credential generation, feature enablement, or acceptance of legal terms is included.
+
+## Official constraints checked 2026-11-01
+
+[HH API terms](https://hh.ru/article/15116) require app registration (1.1), applicant onboarding acceptance with the HH offer link (1.4), prohibit changing received materials and require keeping them current/removing archived vacancies (3.11), and restrict third-party transfer and eligible recipients (4.6). [OpenAPI](https://api.hh.ru/openapi/redoc) documents `GET /vacancies/{vacancy_id}` and an application-token response; inaccessible/missing vacancies, CAPTCHA and rate limits require safe failure, not scraping. These observations are not legal advice or confirmation that JobMatch's planned processing is permitted. Obtain operator/HH review of transformation, storage, lifecycle, recipients and inference before activation.
+
+## Safe implemented slice
+
+- An archived upstream response now fails with 410 before any upstream description/employer text is returned. 403/404/429/network failures expose no provider body, with no retry, redirect or CAPTCHA bypass.
+- Each active response includes `jobmatch-hh-observation-v1`: canonical vacancy ID/URL, server observation completion time, fixed five-minute expiry, exact UTF-8 normalized-text SHA-256, `unsigned-observation`, `memory-only`, `preview-only`. Owner binding remains on the enclosing response. This is transport provenance only: **not a signature, authorization, persistent record or freshness SLA**. A third party can rewrite the data and recompute its hash; the server never accepts this envelope as proof for a write.
+- Browser validation checks owner, requested ID, canonical URL, exact text hash, strict shape, five-minute expiry and excessive future time. Legacy or tampered responses are refused. A timer and focus/visibility checks remove expired preview content; they do not make background API calls. Browser clock/lifecycle scheduling is not a durable deletion guarantee or memory zeroization.
+- Explicit recheck discards the old preview before fetching. Archived, missing, throttled or unverified results never retain old text as if still current. Cancel, source edit, navigation and owner changes cannot restore delayed results. Manual draft is untouched.
+- **Apply-to-draft is removed for HH previews.** Until durable lifecycle storage exists, an imported preview cannot silently become an unlabelled saved vacancy. Manual input/save remains independent. The service rejects declared `provenance`, `hhProvenance`, `hhVacancyId`, `source` or `sourceId` on legacy vacancy saves instead of silently discarding it. This is not a general DLP classifier: deliberate manual copying or a modified client can still submit arbitrary ordinary text. It cannot reliably infer provenance of historical/manual text.
+- Existing import gate and credentials remain unchanged and default-off. A setting of `approved` alone does not create legal acceptance. Preview permission itself must be approved before enabling the gate.
+
+## Why full archival deletion cannot be delivered without migration/decision
+
+The main storage contract stores `Workspace.vacancy` as a string. `apply_workspace_command` strictly accepts only `{action:'vacancy',text}` under an owner/revision lock. Legacy snapshot writes and projection/history triggers are SQL-guarded. Resume versions duplicate vacancy text in workspace JSON and normalized `resume_versions.vacancy`; restore duplicates that source again. Personal export includes workspace/versions. Local letter JSON snapshots additionally contain `source.vacancy`. Audit log currently records action/time, not a vacancy body. There is no durable source ID, freshness state, invalidation reference, or trusted server observation in those copies.
+
+A client metadata field alone would either be rejected, discarded, or forgeable; adding an unsigned JSON field to a generic save is not a safe persistence boundary. No attempt is made to infer old HH origin, overwrite historical versions, delete manually supplied text, or run production SQL.
+
+## Next additive stage (requires explicit migration/security review)
+
+1. Agree with the operator/HH which transformations, retention, archive handling and recipient/model uses are permitted; implement the required onboarding flow without accepting anything on a user's behalf. Decide how local/exported copies are covered: the server cannot recall already downloaded files.
+2. Add owner-scoped source records/reference columns or a rigorously validated provenance field, with RLS and authenticated session checks. Record provider/ID/canonical URL, observed text hash, timestamps, state (`active`, `stale`, `archived`, `unavailable`) and observation version. Keep existing manual records explicitly legacy/unknown; do not guess/backfill by text matching.
+3. Add a separate atomic HH-save RPC. It must bind the server-validated observation and text to owner/session/workspace revision and expiry, with a real trusted-server write mechanism or authenticated/signature receipt; the current unsigned preview is insufficient. New signing credentials/service authority need a separate approval. Existing generic commands must not overwrite/remove source metadata or relabel HH data as manual.
+4. Bind every stored version/restored version/export/letter source to that source lifecycle. Define archive purge versus immutable-history semantics before touching the existing version write guards. Test all copies and restore/rollback, not only the current workspace text. Avoid introducing an archival bypass through compatibility snapshots.
+5. Implement a bounded revalidation/worker path with distributed quota, safe failures/backoff and owner isolation; interval and allowed stale use are product/operator decisions, not dictated by the five-minute preview TTL. Tombstone/invalidate on archive and remove retained HH content through the agreed transactional mechanism. Do not treat 403/404/network errors as verified archival or silently reuse stale content.
+6. Run populated-fixture migration/RLS/concurrency/rollback tests and operator-reviewed backup/restore, then authorized live provider checks. Only then reconsider enabling persistent HH import, analysis, AI transfer and exports.
+
+**Current blocker:** full durable provenance and deletion across version/export copies requires an additive database/RPC design and a policy decision on historical/local copies. This change deliberately stops at a safe ephemeral preview; it does not claim that the HH integration is ready to turn on.

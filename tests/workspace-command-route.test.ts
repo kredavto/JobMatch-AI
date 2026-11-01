@@ -28,3 +28,5 @@ it('fails closed on quota and never retries an ambiguous write',async()=>{
  expect((await call({action:'goal',text:'x'})).status).toBe(409);
  expect(db.applyWorkspaceCommand).toHaveBeenCalledTimes(1);expect(db.saveWorkspace).not.toHaveBeenCalled();
 });
+
+it.each(['provenance','hhProvenance','hhVacancyId','source','sourceId'])('never silently launders declared HH source %s into legacy text',async key=>{const response=await call({action:'vacancy',text:'SQL analyst',[key]:{source:'hh-api'}});expect(response.status).toBe(409);expect(db.applyWorkspaceCommand).not.toHaveBeenCalled();expect(db.saveWorkspace).not.toHaveBeenCalled();});

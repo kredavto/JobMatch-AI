@@ -1,8 +1,9 @@
 import {z} from 'zod';
+import {createHash} from 'node:crypto';
 import {boundedBody} from './body';
 import {UserError as BaseUserError} from './errors';
 class UserError extends BaseUserError {constructor(message:string,status:number,readonly code:string){super(message,status);}}
-import {hhVacancyId} from './hh-vacancy-contract';
+import {hhVacancyId,HHObservationSchema,HH_PREVIEW_TTL_MS} from './hh-vacancy-contract';
 const unavailable=()=>new UserError('HH import unavailable',503,'HH_IMPORT_UNAVAILABLE');
 const invalid=()=>new UserError('Invalid HH response',502,'HH_IMPORT_INVALID');
 const named=z.object({name:z.string().max(2000)});
@@ -49,8 +50,12 @@ export async function importHHVacancy(input:string,signal:AbortSignal){
   const parsed=Vacancy.safeParse(JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(bytes)));
   if(!parsed.success||parsed.data.id!==id)throw invalid();
   const vacancy=parsed.data;
+  // Never return archived descriptions to clients or downstream draft consumers.
+  if(vacancy.archived)throw new UserError('Вакансия в архиве. Импорт недоступен; выберите актуальную вакансию.',410,'HH_IMPORT_ARCHIVED');
   const text=[vacancyPlainText(vacancy.name),vacancy.employer&&vacancyPlainText(vacancy.employer.name),vacancy.area&&vacancyPlainText(vacancy.area.name),vacancyPlainText(vacancy.description),vacancy.key_skills?.map(s=>vacancyPlainText(s.name)).join(', ')].filter(Boolean).join('\n\n');
   if(!vacancyPlainText(vacancy.description)||text.length>30000)throw invalid();
-  return {id,url:`https://hh.ru/vacancy/${id}`,text,archived:vacancy.archived};
+  const checkedAt=Date.now(),url=`https://hh.ru/vacancy/${id}`;
+  const provenance=HHObservationSchema.parse({format:'jobmatch-hh-observation-v1',source:'hh-api',vacancyId:id,canonicalUrl:url,fetchedAt:new Date(checkedAt).toISOString(),expiresAt:new Date(checkedAt+HH_PREVIEW_TTL_MS).toISOString(),textSha256:createHash('sha256').update(text,'utf8').digest('hex'),authority:'unsigned-observation',retention:'memory-only',usage:'preview-only'});
+  return {id,url,text,archived:false as const,previewOnly:true as const,provenance};
  }catch(error){if(error instanceof UserError&&error.code?.startsWith('HH_IMPORT_'))throw error;throw unavailable();}
 }
