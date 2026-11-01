@@ -1,6 +1,6 @@
 import copy
 import unittest
-from backup_manifest import TABLES, compare, fingerprint
+from backup_manifest import TABLES, LETTER_TABLES, compare, fingerprint
 
 
 class ManifestTests(unittest.TestCase):
@@ -26,6 +26,21 @@ class ManifestTests(unittest.TestCase):
         restored = copy.deepcopy(original)
         restored['created_at'] = 'later'
         self.assertEqual(compare(original, restored), [])
+
+    def test_letters_scope_is_explicit_and_cannot_compare_to_legacy(self):
+        legacy = self.manifest()
+        letters = {'format': 'jobmatch-backup-manifest-letters-v1',
+                   'tables': {table: fingerprint([b'{"synthetic":true}\n']) for table in LETTER_TABLES}}
+        self.assertEqual(compare(letters, copy.deepcopy(letters)), [])
+        for table in ('private.letter_signing_config', 'public.saved_letter_versions'):
+            changed = copy.deepcopy(letters)
+            changed['tables'][table] = fingerprint([b'{"changed":true}\n'])
+            self.assertEqual(compare(letters, changed), [table])
+        with self.assertRaises(ValueError):
+            compare(legacy, letters)
+        del letters['tables']['private.letter_signing_config']
+        with self.assertRaises(ValueError):
+            compare(letters, letters)
 
     def test_empty_table_is_fingerprinted(self):
         self.assertEqual(fingerprint([])['rows'], 0)

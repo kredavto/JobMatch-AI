@@ -16,6 +16,9 @@ TABLES = (
     'public.audit_log', 'public.consent_records', 'private.request_quotas',
 )
 
+LETTER_TABLES = TABLES + ('public.saved_letter_versions', 'private.letter_signing_config')
+FORMATS = {'jobmatch-backup-manifest-v1': TABLES, 'jobmatch-backup-manifest-letters-v1': LETTER_TABLES}
+
 
 def fingerprint(lines):
     digest = hashlib.sha256()
@@ -27,7 +30,8 @@ def fingerprint(lines):
     return {'rows': count, 'sha256': digest.hexdigest()}
 
 
-def snapshot(output):
+def snapshot(output, include_letters=False):
+    selected = LETTER_TABLES if include_letters else TABLES
     # Use standard PG* environment / PGSERVICE and .pgpass. Never place passwords
     # in command-line arguments or echo database errors (which can contain PII).
     statements = ['BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY;',
@@ -35,7 +39,7 @@ def snapshot(output):
                   "SET LOCAL timezone = 'UTC';", "SET LOCAL row_security = off;",
                   "SET LOCAL client_encoding = 'UTF8';", "SET LOCAL DateStyle = 'ISO, YMD';",
                   "SET LOCAL bytea_output = 'hex';"]
-    for table in TABLES:
+    for table in selected:
         statements.append(f"SELECT 'JOBMATCH_TABLE:{table}';")
         statements.append(f'SELECT row_to_json(t)::text FROM {table} t ORDER BY row_to_json(t)::text COLLATE "C";')
     statements.extend(['COMMIT;', "SELECT 'JOBMATCH_COMPLETE';"])
@@ -62,7 +66,7 @@ def snapshot(output):
                 if current is not None:
                     tables[current] = {'rows': count, 'sha256': digest.hexdigest()}
                 name = line.decode().strip().split(':', 1)[1]
-                expected = TABLES[len(tables)] if len(tables) < len(TABLES) else None
+                expected = selected[len(tables)] if len(tables) < len(selected) else None
                 if name != expected:
                     raise ValueError('Unexpected or duplicate table')
                 current = name
@@ -75,9 +79,9 @@ def snapshot(output):
                 raise ValueError('Unexpected database output')
         if current is not None:
             tables[current] = {'rows': count, 'sha256': digest.hexdigest()}
-        if process.wait() != 0 or not complete or set(tables) != set(TABLES):
+        if process.wait() != 0 or not complete or set(tables) != set(selected):
             raise ValueError('Database snapshot failed; check connection, privileges and schema locally')
-        report = {'format': 'jobmatch-backup-manifest-v1',
+        report = {'format': 'jobmatch-backup-manifest-letters-v1' if include_letters else 'jobmatch-backup-manifest-v1',
                   'created_at': datetime.now(timezone.utc).isoformat(), 'tables': tables}
         # Publish a complete file atomically, without overwriting a baseline.
         destination = os.path.abspath(output)
@@ -107,7 +111,7 @@ def compare(baseline, restored):
     for manifest in (baseline, restored):
         if not isinstance(manifest, dict) or not isinstance(manifest.get('tables'), dict):
             raise ValueError('Invalid manifest')
-        if manifest.get('format') != 'jobmatch-backup-manifest-v1' or set(manifest.get('tables', {})) != set(TABLES):
+        if manifest.get('format') not in FORMATS or set(manifest.get('tables', {})) != set(FORMATS[manifest['format']]):
             raise ValueError('Invalid or incomplete manifest')
         for item in manifest['tables'].values():
             if not isinstance(item, dict):
@@ -116,20 +120,24 @@ def compare(baseline, restored):
                     or not isinstance(item['sha256'], str) or len(item['sha256']) != 64
                     or any(c not in '0123456789abcdef' for c in item['sha256'])):
                 raise ValueError('Invalid table fingerprint')
-    return [table for table in TABLES if baseline['tables'][table] != restored['tables'][table]]
+    if baseline['format'] != restored['format']:
+        raise ValueError('Manifest scopes differ')
+    return [table for table in FORMATS[baseline['format']] if baseline['tables'][table] != restored['tables'][table]]
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest='command', required=True)
-    commands.add_parser('snapshot').add_argument('output')
+    capture = commands.add_parser('snapshot')
+    capture.add_argument('output')
+    capture.add_argument('--include-letters', action='store_true', help='Include saved versions and private signing config; fingerprints only')
     check = commands.add_parser('compare')
     check.add_argument('baseline')
     check.add_argument('restored')
     args = parser.parse_args()
     try:
         if args.command == 'snapshot':
-            snapshot(args.output)
+            snapshot(args.output, args.include_letters)
             print('Manifest created; no database rows saved.')
         else:
             with open(args.baseline) as handle:
@@ -140,7 +148,7 @@ def main():
             if differences:
                 print('FAIL: differing tables: ' + ', '.join(differences))
                 return 1
-            print('PASS: all 13 table fingerprints match. Schema/RLS and Auth delivery still require separate checks.')
+            print(f"PASS: all {len(baseline['tables'])} table fingerprints match. Schema/RLS and Auth delivery still require separate checks.")
     except (OSError, ValueError):
         print('FAIL: cannot complete verification. Check local inputs, PostgreSQL client, connection, privileges and schema.', file=sys.stderr)
         return 2
