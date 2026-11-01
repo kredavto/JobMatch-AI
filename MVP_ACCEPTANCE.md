@@ -24,3 +24,8 @@ MVP: пользователь вручную импортирует резюме
 ## Текущий этап — 29 октября 2026
 - Кандидат 0.35 добавляет повтор письма и исправляет указания при повторной регистрации уже подтверждённого аккаунта. Это программная готовность, не доказательство доставки Gmail.
 - Для 100% публичного MVP всё ещё нужны согласованный почтовый прогон, финальный живой сценарий на Vercel, restore копии провайдера и решение оператора о размещении/хранении данных.
+
+## 1 ноября 2026 — текущие зависимости main
+Узкий security кандидат исправляет runtime findings 2→0 и full inventory 19→15 moderate package records по одному minimatch advisory. Полная строгая проверка действительно exit 1, независимая security/эксплуатационная приёмка не закрыта. 623 unit/route,20 Node security,28 Python,114 browser PASS/2 live SKIP,lint/types/build PASS локально; production не менялся. [Отчёт](security/MAIN_DEPENDENCY_SECURITY_20261101.md).
+
+[PR #74](https://github.com/kredavto/JobMatch-AI/pull/74), `3a3336b…`: App/audit/PG17 CI повторили локальные результаты; actual full gate остаётся1. Изолированная 13-table проверка не закрывает реальный restore Supabase или SMTP.

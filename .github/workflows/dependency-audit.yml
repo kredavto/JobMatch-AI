@@ -1,0 +1,47 @@
+name: Runtime dependency audit and full inventory
+on:
+  pull_request:
+    paths:
+      - package.json
+      - package-lock.json
+      - scripts/dependency_audit.mjs
+      - security/tests/**
+      - .github/workflows/dependency-audit.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  audit:
+    if: github.repository == 'kredavto/JobMatch-AI' && github.event.repository.private == false && (github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npm run test:security
+      - name: Fail on any runtime finding or unavailable report
+        run: npm run audit:dependencies
+      # The strict full command must still return 1 while dev findings remain.
+      # Reporting that result is inventory, not an advisory waiver or release acceptance.
+      - name: Execute and expose strict full gate result
+        run: |
+          set +e
+          npm run audit:dependencies:all --silent > "$RUNNER_TEMP/jobmatch-full-audit.json"
+          audit_status=$?
+          set -e
+          export JOBMATCH_FULL_AUDIT_STATUS="$audit_status"
+          node --input-type=module - "$RUNNER_TEMP/jobmatch-full-audit.json" <<'JS'
+          import {readFile} from 'node:fs/promises';
+          import {auditExit} from './scripts/dependency_audit.mjs';
+          const report=JSON.parse(await readFile(process.argv[2],'utf8'));
+          const status=Number(process.env.JOBMATCH_FULL_AUDIT_STATUS);
+          if(![0,1].includes(status)||status!==auditExit(report,true))throw Error('Full audit unavailable or inconsistent');
+          console.log(JSON.stringify({strictFullGateExit:status,assessment:report}));
+          console.log(status===1?'FULL_DEPENDENCY_GATE_FAILED: findings remain; full security acceptance is OPEN.':'FULL_DEPENDENCY_GATE_PASSED: catalog snapshot only; independent security review remains separate.');
+          JS

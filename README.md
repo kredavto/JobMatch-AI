@@ -95,3 +95,11 @@ Tracker notes now use an explicit Save button. Unsaved notes survive list filter
 
 ### Подтверждение почты (кандидат 0.35)
 `/confirm-email` позволяет повторить запрос подтверждения существующей регистрации. Уже подтверждённому аккаунту нужно войти с прежним паролем; повторная регистрация пароль не меняет. Положительный ответ запроса письма не доказывает доставку. `APP_URL` — обязательный точный HTTPS origin для запросов почтовых ссылок. Другие alias/preview должны открывать основной адрес.
+
+Current-main dependency checks: `npm run test:security` runs library/audit/caller
+regressions; `npm run audit:dependencies` requires a fresh runtime-clear catalog.
+`npm run audit:dependencies:all` is stricter and currently fails on the remaining
+lint/minimatch graph. A green runtime job is not full security acceptance.
+See [the current audit](security/MAIN_DEPENDENCY_SECURITY_20261101.md).
+The PDF 6 candidate requires Node >=22.13.0; CI tests Node 24. Review the deployment
+runtime before activation; no production runtime was changed by this PR.
