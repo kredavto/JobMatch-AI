@@ -143,7 +143,8 @@ def main():
                 if sql(target, "select to_jsonb(public.letter_signing_ready('" + hashlib.sha256(KEY).hexdigest() + "'));", user=OWNER) is not False:
                     raise ValueError('New schema seeded a key')
                 sql(target, "insert into private.letter_signing_config(signing_key) values(decode('" + KEY.hex() + "','hex'));")
-                sql(target, "update public.workspaces set payload=jsonb_set(payload,'{original}',to_jsonb(E'SQL\\r\\nПример 🧑‍💻'::text)) where user_id='" + OWNER + "';")
+                fixture_claims = "set request.jwt.claims=" + literal(json.dumps({'sub': OWNER, 'session_id': SESSION})) + ';'
+                sql(target, fixture_claims + "update public.workspaces set payload=jsonb_set(payload,'{original}',to_jsonb(E'SQL\\r\\nПример 🧑‍💻'::text)) where user_id='" + OWNER + "';")
                 workspace = sql(target, 'select public.read_workspace();', user=OWNER)
                 receipt = bridge(folder, 'issue', {'workspace': {**workspace, 'ownerId': OWNER}, 'letterRevision': 0})
                 result = sql(target, accept_statement(receipt), user=OWNER)
@@ -168,6 +169,13 @@ def main():
             sql(source, accept_statement(receipt, letter_revision=1), user=OWNER, session=OTHER_SESSION, failure='AUTH')
             sql(source, accept_statement({**receipt, 'signature': '00' * 32}, letter_revision=1), user=OWNER, failure='INVALID_WRITE')
             sql(source, accept_statement(receipt, letter_revision=1, marker='yes'), user=OWNER, failure='INVALID_WRITE')
+            sql(source, "update public.profile_facts set verified=false where user_id='" + OWNER + "' and id='f1';")
+            sql(source, accept_statement(receipt, letter_revision=1), user=OWNER, failure='CONFLICT')
+            sql(source, "update public.profile_facts set verified=true where user_id='" + OWNER + "' and id='f1';")
+            sql(source, "update public.workspaces set revision=2 where user_id='" + OWNER + "';")
+            sql(source, accept_statement(receipt, letter_revision=1), user=OWNER, failure='CONFLICT')
+            sql(source, "update public.workspaces set revision=1 where user_id='" + OWNER + "';")
+
             sql(source, accept_statement(receipt, workspace_revision=2, letter_revision=1), user=OWNER, failure='INVALID_WRITE')
             for change, error in (({'issuedAt': 1, 'expiresAt': 601}, 'INVALID_WRITE'),
                                   ({'source': {**valid['source'], 'originalSha256': '0' * 64}}, 'CONFLICT'),

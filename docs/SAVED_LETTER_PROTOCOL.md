@@ -95,7 +95,8 @@ a missing footer also means incomplete. No automatic read or write retries.
 Personal-data JSON now advertises `saved_letters_export` in addition to
 `fact_history_export`. It still contains workspace/audit/consent only: download
 both separate NDJSON histories for a full app archive after this migration is
-activated. The settings UI link and letter history/save UX remain follow-up work.
+activated. Settings includes an owner-bound history download link and the three-file archive
+instructions. The letter preview/accept/history UX remains follow-up work.
 A downloaded JSON is editable. Its checksum is not offline signature proof and
 the file must not be represented as independently authenticated evidence.
 
