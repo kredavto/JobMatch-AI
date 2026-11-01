@@ -13,3 +13,5 @@ Before releasing English: extract remaining copy, map API error codes to message
 Manual screen-reader verification still requires an environment with NVDA/VoiceOver/TalkBack. Automated axe checks are not a substitute.
 
 Current API preparation after #90: `api-errors.ts` supplies closed code/status/RU/EN copy and fixed HTTP redaction; current clients retain explicit legacy same-origin RU compatibility. Strict OCR_LIMIT400 remains separate for existing PDF clients. This does not enable an English interface; see `docs/CURRENT_API_ERRORS.md`.
+
+Current source profile/literal version panels have explicit optional locale props and a typed fixed UI catalog in `source-panels.ts`. Language changes preserve contextual state; frozen document framing and raw quotes are unchanged. History display uses explicit UTC. Production defaults RU, and this is not full-English acceptance; see `docs/CURRENT_SOURCE_LOCALES.md`.
