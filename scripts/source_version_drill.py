@@ -11,7 +11,7 @@ import sys
 import tempfile
 import uuid
 from backup_manifest import snapshot, compare
-from saved_letter_drill import ROOT, OWNER, OTHER, SESSION, KEY, literal, run, sql, bridge, accept_statement, verify_history
+from saved_letter_drill import ROOT, OWNER, OTHER, SESSION, KEY, literal, run, bridge, accept_statement, verify_history
 from source_profile_drill import read, context, codec as profile_codec
 from profile_command_drill import service, source_command
 from compact_storage_drill import catalog, current_provenance, verify_provenance
@@ -27,6 +27,24 @@ def allowed(env):
 
 def database_allowed(env):
     return allowed(env) and re.fullmatch(r'jobmatch_source_versions_[a-f0-9]{32}',env.get('PGDATABASE','')) is not None
+
+
+class NativeSQLFailure(ValueError):
+    def __init__(self,code):
+        self.code=code
+        super().__init__('Native SQL refused')
+
+
+def sql(environment,statement,*,user=None,session=SESSION,failure=None):
+    if not database_allowed(environment):raise ValueError('Owned SQL target required')
+    prefix='' if user is None else 'set role authenticated;set request.jwt.claims='+literal(json.dumps({'sub':user,'session_id':session}))+';'
+    result=subprocess.run(['psql','-X','-qAt','-w','-v','ON_ERROR_STOP=1','-v','VERBOSITY=verbose'],env=environment,input=(prefix+statement).encode(),capture_output=True,timeout=30)
+    if failure and result.returncode and failure.encode() in result.stderr:return None
+    if result.returncode or failure:
+        state=re.search(rb'ERROR:\s+([0-9A-Z]{5}):',result.stderr)
+        raise NativeSQLFailure(state.group(1).decode() if state else 'UNKNOWN')
+    raw=result.stdout.decode().strip()
+    return json.loads(raw) if raw else None
 
 
 def native(target,folder,data,refused=False):
@@ -146,23 +164,36 @@ def main():
             for name in names:run(['createdb','--',name],env);created.append(name)
             source,clean,restored,missing=[dict(env,PGDATABASE=name) for name in names]
             def install(target,paths):
-                for path in paths:run(['psql','-X','-w','-v','ON_ERROR_STOP=1','-f',str(path)],target)
+                for path in paths:
+                    result=subprocess.run(['psql','-X','-w','-v','ON_ERROR_STOP=1','-v','VERBOSITY=verbose','-f',str(path)],env=target,capture_output=True,timeout=90)
+                    if result.returncode:
+                        state=re.search(rb'ERROR:\s+([0-9A-Z]{5}):',result.stderr)
+                        raise NativeSQLFailure(state.group(1).decode() if state else 'UNKNOWN')
             stage='missing predecessor and atomic default-off install'
+            stage='missing predecessor fixture install'
             install(missing,[ROOT/'scripts/restore_fixture.sql'])
+            stage='missing predecessor catalog'
             missing_defs=catalog(missing)
+            stage='missing predecessor refusal'
             sql(missing,migration.decode(),failure='SOURCE_VERSION_PREDECESSOR_REQUIRED')
             if catalog(missing)!=missing_defs or sql(missing,"select to_jsonb(to_regclass('public.source_profile_versions') is not null);"):
                 raise ValueError('Missing predecessor left objects')
+            stage='pinned predecessor bootstrap'
             install(source,[ROOT/'scripts/restore_fixture.sql',folder/'base.sql',ROOT/'scripts/restore_seed.sql'])
+            stage='populated predecessor source and letter'
             old_receipt=seed_core(source,folder)
+            stage='populated predecessor fingerprints'
             baseline=capture(source,folder/'pre17.json',full=False);defs=catalog(source)
             if not all(t['rows']>0 for t in baseline['tables'].values()):raise ValueError('Expected17populated predecessor')
             late=migration.decode().rsplit('commit;',1)[0]+"do $$begin raise exception 'QA_LATE_MIGRATION';end;$$;commit;"
+            stage='late DDL refusal'
             sql(source,late,failure='QA_LATE_MIGRATION')
             if catalog(source)!=defs or compare(baseline,capture(source,folder/'late17.json',full=False)) or sql(source,"select to_jsonb(to_regclass('public.source_profile_versions') is not null);"):
                 raise ValueError('Late migration failure changed data/definitions')
+            stage='successful additive migration'
             install(source,[ROOT/MIGRATION])
             if compare(baseline,capture(source,folder/'after17.json',full=False)) or sql(source,'select public.source_version_storage_ready();',user=OWNER):raise ValueError('Upgrade changed core or enabled storage')
+            stage='clean full bootstrap'
             install(clean,[ROOT/'scripts/restore_fixture.sql',ROOT/'supabase/schema.sql',ROOT/'scripts/restore_seed.sql'])
             stage='actual SQL guards/caps/idempotence/audit fault/retraction/reimport/cleanup/RLS/cascade'
             for target in (source,clean):install(target,[ROOT/'supabase/tests/source_versions.sql'])
@@ -234,7 +265,8 @@ def main():
             report=json.loads(check.stdout)
             if check.returncode!=1 or report['verdict']!='observed-alert' or report['clientDelivery']!='not-established':raise ValueError('Native incomplete stream was not a scoped alert')
             status=0
-    except (OSError,ValueError,KeyError,TypeError,CheckFailure,subprocess.SubprocessError):
+    except (OSError,ValueError,KeyError,TypeError,CheckFailure,subprocess.SubprocessError) as error:
+        if isinstance(error,NativeSQLFailure):print('FAIL: closed SQLSTATE='+error.code,file=sys.stderr)
         print('FAIL: owned source-version stage='+stage+'; no payloads/keys/DB diagnostics.',file=sys.stderr);status=1
     finally:
         for name in created:
