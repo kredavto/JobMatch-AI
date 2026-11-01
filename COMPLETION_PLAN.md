@@ -66,3 +66,9 @@
 - [ ] Model acceptance remains open: 0/16 gold passes, 14 provenance rejections,
   2 gold mismatches despite 16 completed backend responses. No true rewriting,
   human semantic/held-out acceptance or production activation established.
+
+### 1 ноября 2026 — main-only серверный протокол писем (кандидат)
+- Старт: свежий `main a3a9ef0c69e1e760010fc391234d66cd4a747e3b`, прочитаны четыре плана и 61 открытый PR. PR #66–#69 — отклонённые/непринятые исследования; их модельная/пороговая серия остановлена, результаты не повышены до приёмки.
+- [ ] Отдельный backend/storage/export блок: подписанный source-current preview, явное принятие, атомарная неизменяемая версия, owner/session RLS, frozen v1 history reader и ограниченный NDJSON экспорт. Код и тесты подготовлены; native CI ещё ожидается. [Контракт](docs/SAVED_LETTER_PROTOCOL.md).
+- [ ] Следом: подключить протокол к панели писем — отдельное согласие на серверное хранение источников, preview/accept, история, unknown-result recovery и owner/dirty/paused guards, затем браузерная проверка. Текущая панель по-прежнему сохраняет локальные файлы.
+- Выключено по умолчанию, ключ не создан, SQL не применён. CLI/advisors/provider restore не проверены. Исторические разрешения на #1/#2 и отдельный main-only #62 не дают разрешения на это объединение/развёртывание/релиз. Общая приёмка AI и полного проекта, SMTP/recovery, реальная копия Supabase и решение оператора о ПД остаются открыты.

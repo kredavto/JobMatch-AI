@@ -1,22 +1,10 @@
 import {z} from 'zod';
-import {composeLetter,letterStyles,type LetterStyle} from './cover-letter';
-import {reviewLetterEdit,LETTER_EDIT_REVIEW_VERSION} from './letter-edit-review';
+import {composeLetter,type LetterStyle} from './cover-letter';
+import {reviewLetterEdit} from './letter-edit-review';
 import type {Fact} from './engine';
 
-export const LETTER_SNAPSHOT_FORMAT='jobmatch-local-letter-snapshot-v1';
-// Bump whenever composition, framing, evidence selection or gates change.
-export const LETTER_TEMPLATE_VERSION='main-ru-letter-81cb1a6-v1';
-export const LETTER_SNAPSHOT_MAX_BYTES=1_000_000;
-const text=(max:number)=>z.string().min(1).max(max).refine(s=>s.isWellFormed()&&!!s.trim());
-const span=z.strictObject({quote:text(15000),start:z.number().int().min(0).max(15000),end:z.number().int().min(0).max(15000)});
-const reviewSchema=z.strictObject({format:z.literal(LETTER_EDIT_REVIEW_VERSION),coverage:z.literal('bounded-lexical-only'),semanticAssessment:z.literal('not-performed'),edited:z.boolean(),issues:z.array(z.strictObject({id:text(100),kind:z.enum(['manual-edit','number-added','number-removed','negation-added','negation-removed']),before:span.nullable(),after:span.nullable()})).max(257)});
-const schema=z.strictObject({
- format:z.literal(LETTER_SNAPSHOT_FORMAT),trust:z.literal('unsigned-editable-local-snapshot'),templateVersion:z.literal(LETTER_TEMPLATE_VERSION),
- source:z.strictObject({facts:z.array(z.strictObject({id:text(200),text:text(2000),source:text(2000),verified:z.boolean()})).min(1).max(5),vacancy:text(30000)}),
- selection:z.array(text(205)).min(1).max(5),style:z.enum(Object.keys(letterStyles) as [LetterStyle,...LetterStyle[]]),
- generated:text(15000),text:text(15000),review:reviewSchema,
- approval:z.strictObject({wholeLetter:z.literal(true),reviewedIssueIds:z.array(text(100)).max(257)})
-});
+import {LetterSnapshotSchemaV1 as schema,LetterSnapshotReviewSchemaV1 as reviewSchema,LETTER_SNAPSHOT_FORMAT,LETTER_TEMPLATE_VERSION,LETTER_SNAPSHOT_MAX_BYTES} from './letter-snapshot-schema-v1';
+export {LETTER_SNAPSHOT_FORMAT,LETTER_TEMPLATE_VERSION,LETTER_SNAPSHOT_MAX_BYTES} from './letter-snapshot-schema-v1';
 export type LetterSnapshot=z.infer<typeof schema>;
 function assertSnapshot(input:unknown):LetterSnapshot{
  const result=schema.parse(input);
