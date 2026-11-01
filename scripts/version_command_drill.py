@@ -50,8 +50,9 @@ def parity(target, folder):
     for case, want in zip(cases, expected):
         user, session, state = case['user'], case['session'], case['state']
         sql(target, 'insert into auth.users values(' + literal(user) + ');insert into auth.sessions values(' + literal(session) + ',' + literal(user) + ');')
+        # Administrative historical fixture initialization, not a production fallback.
         payload = {k: v for k, v in state.items() if k != 'revision'}
-        sql(target, 'set request.jwt.claims=' + literal(json.dumps({'sub': user, 'session_id': session})) + ';insert into public.workspaces(user_id,revision,payload) values(' + literal(user) + ',1,' + literal(json.dumps(payload, ensure_ascii=False)) + '::jsonb);')
+        sql(target, 'set request.jwt.claims=' + literal(json.dumps({'sub': user, 'session_id': session})) + ';insert into public.workspaces(user_id,revision,payload) values(' + literal(user) + ',1,' + literal(json.dumps(payload, ensure_ascii=False)) + '::jsonb);do $$begin perform private.project_workspace(' + literal(user) + ',(select payload from public.workspaces where user_id=' + literal(user) + '));end;$$;')
         after = sql(target, statement(1, want['command']), user=user, session=session)
         version = after['versions'][-1]
         if {k: v for k, v in version.items() if k not in ('id', 'created')} != want['expected'] or after['revision'] != 2:
@@ -75,7 +76,7 @@ def main():
             if full_sql.count(migration) != 1:
                 raise ValueError('Consolidated version migration differs')
             prefix, suffix = full_sql.split(migration)
-            extras = [ROOT / 'supabase/migrations' / name for name in ('20261028110004_projection_parity.sql','20261028110005_canonical_workspace_reads.sql')]
+            extras = [ROOT / 'supabase/migrations' / name for name in ('20261028110004_projection_parity.sql','20261028110005_canonical_workspace_reads.sql', '20261028110006_explicit_workspace_writes.sql')]
             if suffix != b''.join(b'\n' + p.read_bytes() for p in extras):
                 raise ValueError('Unexpected post-version-command definitions')
             predecessor = prefix[:-1]
@@ -101,7 +102,7 @@ def main():
                 run(['psql', '-X', '-w', '-v', 'ON_ERROR_STOP=1', '-f', str(ROOT / 'supabase/tests/version_commands.sql')], target)
                 parity(target, folder)
                 stage = 'actual-service-version-restore-and-unknown-fields'
-                sql(target, 'set request.jwt.claims=' + literal(json.dumps({'sub': OWNER, 'session_id': '44444444-4444-4444-8444-444444444444'})) + ";update public.workspaces set payload=jsonb_set(payload,'{versions,0,future}'," + literal(json.dumps({'keep': [False, None, 'literal']})) + '::jsonb) where user_id=' + literal(OWNER) + ';')
+                sql(target, 'set request.jwt.claims=' + literal(json.dumps({'sub': OWNER, 'session_id': '44444444-4444-4444-8444-444444444444'})) + ";update public.workspaces set payload=jsonb_set(payload,'{versions,0,future}'," + literal(json.dumps({'keep': [False, None, 'literal']})) + '::jsonb) where user_id=' + literal(OWNER) + ';do $$begin perform private.project_workspace(' + literal(OWNER) + ',(select payload from public.workspaces where user_id=' + literal(OWNER) + '));end;$$;')
                 outcome = service(target, folder, [{'action': 'analyze'},
                     {'action': 'version', 'selectAllEdits': True, 'score': 0, 'text': 'forged', 'match_metadata': {'rules_revision': 'forged'}},
                     {'action': 'restore', 'restoreLatest': True}, {'action': 'restore', 'restoreLatest': True},

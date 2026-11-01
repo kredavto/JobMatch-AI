@@ -39,9 +39,13 @@ def main():
         with tempfile.TemporaryDirectory(prefix='jobmatch-canonical-') as temporary:
             folder = Path(temporary)
             full_sql, migration = (ROOT / 'supabase/schema.sql').read_bytes(), (ROOT / MIGRATION).read_bytes()
-            if full_sql.count(migration) != 1 or not full_sql.endswith(migration):
+            if full_sql.count(migration) != 1:
                 raise ValueError('Consolidated canonical migration differs')
-            predecessor = full_sql[:-len(migration)-1]
+            prefix, suffix = full_sql.split(migration)
+            extra = ROOT / 'supabase/migrations/20261028110006_explicit_workspace_writes.sql'
+            if suffix != b'\n' + extra.read_bytes():
+                raise ValueError('Unexpected post-canonical definitions')
+            predecessor = prefix[:-1]
             if hashlib.sha256(predecessor).hexdigest() != BASE_SHA256:
                 raise ValueError('Not exact current parity/version/profile/application/source/letter/quota predecessor')
             (folder / 'base.sql').write_bytes(predecessor)
@@ -76,6 +80,7 @@ def main():
             if len(old['tables']) != 17 or not all(t['rows'] > 0 for t in old['tables'].values()):
                 raise ValueError('Predecessor must have all seventeen tables populated')
             run(['psql', '-X', '-w', '-v', 'ON_ERROR_STOP=1', '-f', str(ROOT / MIGRATION)], source)
+            run(['psql', '-X', '-w', '-v', 'ON_ERROR_STOP=1', '-f', str(extra)], source)
             if compare(old, manifest(source, folder / 'after-upgrade.json')) or definitions(source) != definitions(full):
                 raise ValueError('Migration changed rows or clean/upgrade definitions/grants/triggers differ')
             for target in (source, full):

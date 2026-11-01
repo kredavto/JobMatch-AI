@@ -14,6 +14,9 @@ insert into public.workspaces(user_id,revision,payload) values(auth.uid(),1,'{
  "versions":[{"id":"v1","text":"SQL","created":"2026-10-25T00:00:00.000Z","vacancy":"SQL","score":100,"evidence_ids":["ev-1"],"evidence_snapshot":[{"id":"ev-1","text":"SQL","source":"original","verified":true}]},{"id":"v0","text":"Original","created":"2026-10-24T00:00:00Z","vacancy":"SQL","score":0,"evidence_ids":[]}],
  "applications":[{"id":"a1","title":"Acme","note":"note","created":"2026-10-25T00:00:00Z","status":"Приглашение","resumeVersionId":"v1","events":[{"status":"Планируется","date":"2026-10-24"},{"status":"Приглашение","date":"2026-10-25"}]},{"id":"a2","title":"Legacy","note":"","created":"2026-10-24","status":"Планируется","events":[]},{"id":"a3","title":"Unlinked","note":"","created":"2026-10-24","status":"Планируется","resumeVersionId":null,"events":[]}]
 }');
+-- Administrative historical fixture setup; direct SQL has no synchronization side effects.
+do $$begin perform private.project_workspace(auth.uid(),(select payload from public.workspaces where user_id=auth.uid()));end;$$;
+insert into public.fact_history(user_id,workspace_revision,kind,facts) select user_id,revision,'change',payload->'facts' from public.workspaces where user_id=auth.uid();
 set local role authenticated;
 do $$declare t text;begin
  if public.read_workspace() is distinct from (select payload||jsonb_build_object('revision',revision) from public.workspaces) then raise exception 'roundtrip changed content/order/optional fields';end if;
@@ -30,6 +33,7 @@ do $$begin
 end;$$;
 reset role;
 insert into public.workspaces(user_id,revision,payload) values(auth.uid(),1,'{"facts":[],"versions":[{"id":"vB","text":"foreign","created":"2026-10-25","vacancy":"other","score":0,"evidence_ids":[]}],"applications":[]}');
+do $$begin perform private.project_workspace(auth.uid(),(select payload from public.workspaces where user_id=auth.uid()));end;$$;
 set local role authenticated;
 select set_config('request.jwt.claims',jsonb_build_object('sub',a,'session_id',sa)::text,true) from qa_entities;
 do $$declare p jsonb;begin

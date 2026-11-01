@@ -92,7 +92,7 @@ def main():
             if full_sql.count(migration) != 1:
                 raise ValueError('Consolidated import migration differs')
             prefix, suffix = full_sql.split(migration)
-            extras = [ROOT / 'supabase/migrations' / name for name in ('20261028110003_version_commands.sql', '20261028110004_projection_parity.sql', '20261028110005_canonical_workspace_reads.sql')]
+            extras = [ROOT / 'supabase/migrations' / name for name in ('20261028110003_version_commands.sql', '20261028110004_projection_parity.sql', '20261028110005_canonical_workspace_reads.sql', '20261028110006_explicit_workspace_writes.sql')]
             if suffix != b''.join(b'\n' + p.read_bytes() for p in extras):
                 raise ValueError('Unexpected post-profile-command definitions')
             predecessor = prefix[:-1]
