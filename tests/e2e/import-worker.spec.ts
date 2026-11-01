@@ -9,14 +9,14 @@ for(const restore of [false,true])test('late extraction preserves newer '+(resto
 test('upstream error content is not rendered, preserves draft and can be retried only by another explicit selection',async({page})=>{let calls=0;const s=await setup(page,r=>{calls++;return calls===1?r.fulfill({status:503,json:{error:'PRIVATE TOKEN UPSTREAM'}}):r.fulfill({json:{text:'Second explicit extraction'}});});await s.field.fill('Keep this manual draft');await s.file.setInputFiles(upload);await expect(page.locator('.error')).toContainText('Импорт временно недоступен');await expect(page.locator('body')).not.toContainText('PRIVATE');await expect(s.field).toHaveValue('Keep this manual draft');expect(calls).toBe(1);await s.file.setInputFiles(upload);await expect(s.field).toHaveValue('Second explicit extraction');expect(calls).toBe(2);expect(s.posts).toEqual([]);});
 test('missing owner blocks file transport instead of relying on the current cookie account',async({page})=>{const s=await setup(page,r=>r.fulfill({json:{text:'Wrong account text'}}),null);await expect(s.file).toBeDisabled();await expect(page.getByRole('alert').filter({hasText:'Не удалось определить аккаунт'})).toContainText('Не удалось определить аккаунт');expect(s.imports).toEqual([]);expect(s.posts).toEqual([]);});
 
-test('accepted workspace mutation invalidates pending extraction without replacing the manual draft',async({page})=>{
+test('pending extraction blocks workspace writes and preserves a separate unsaved goal',async({page})=>{
  let release!:()=>void;const hold=new Promise<void>(r=>{release=r;});
- const s=await setup(page,async r=>{await hold;await r.fulfill({json:{text:'Late parsed text SQL'}});});
- await page.route('**/api/service',r=>r.fulfill({json:r.request().method()==='POST'?{...initial,revision:2,goal:'New owned goal'}:initial}));
+ const s=await setup(page,async r=>{await hold;await r.fulfill({json:{text:'Parsed resume SQL'}});});
  await s.file.setInputFiles(upload);await expect.poll(()=>s.imports.length).toBe(1);
- await page.getByLabel('Должность, уровень, город, формат, зарплата, отрасль').fill('New owned goal');
- await page.getByRole('button',{name:'Сохранить цель',exact:true}).click();
- await expect(page.getByRole('button',{name:'Сохранить цель',exact:true})).toBeEnabled();
- release();await expect(s.field).toHaveValue(initial.original);
- await expect(page.getByLabel('Должность, уровень, город, формат, зарплата, отрасль')).toHaveValue('New owned goal');
+ await page.getByLabel('Должность, уровень, город, формат, зарплата, отрасль').fill('New unsaved goal');
+ await expect(page.getByRole('button',{name:'Сохранить цель',exact:true})).toBeDisabled();
+ await expect(page.getByRole('button',{name:'Сохранить мастер-профиль',exact:true})).toBeDisabled();
+ expect(s.posts).toEqual([]);release();await expect(s.field).toHaveValue('Parsed resume SQL');
+ await expect(page.getByLabel('Должность, уровень, город, формат, зарплата, отрасль')).toHaveValue('New unsaved goal');
+ await expect(page.getByRole('button',{name:'Сохранить цель',exact:true})).toBeEnabled();expect(s.posts).toEqual([]);
 });

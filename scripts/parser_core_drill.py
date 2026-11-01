@@ -11,7 +11,7 @@ import urllib.request
 import uuid
 from backup_manifest import compare
 from compact_storage_drill import catalog, current_provenance, verify_provenance
-from profile_command_drill import service, source_command
+from profile_command_drill import service as native_service, source_command
 from saved_letter_drill import sql, OWNER, KEY, literal, bridge, accept_statement
 from source_profile_drill import manifest
 
@@ -24,6 +24,18 @@ def allowed(env):
 
 def run(command, env, timeout=180):
     subprocess.run(command, env=env, cwd=ROOT, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=timeout)
+
+
+def service(target, folder, operations):
+    try:
+        return native_service(target,folder,operations)
+    except ValueError:
+        output = folder / 'service-output.json'
+        if output.is_file():
+            failure = json.loads(output.read_text()).get('fixtureFailure')
+            if failure and set(failure) == {'stage','status','gatewayRequests','proxyLeak'}:
+                print('FAIL: owned fixture diagnostic ' + json.dumps(failure),file=sys.stderr)
+        raise
 
 
 def main():
