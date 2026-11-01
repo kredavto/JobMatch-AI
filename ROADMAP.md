@@ -278,3 +278,6 @@
 - Единственный APP_URL для почтовых ссылок и запрет запросов с другого домена до отправки; иначе PKCE cookie и ссылка окажутся на разных origin.
 - Понятные безопасные сообщения при 429/503 и неопределённом результате смены пароля; без raw SMTP ошибок и автоматических повторов.
 - CI для lint/typecheck/unit/build/browser добавлен отдельно от synthetic SQL restore. Живые mail/backup/hosting gates остаются открытыми.
+
+## 1 ноября 2026 — main-only security backport
+Из неприменённых #52/#53 выделен узкий кандидат текущего main: PDF6.2.108, ZIP3.2.1, dev follow-redirects1.16.2, отдельный estree8.72.0→minimatch11.0.3 override с реальными caller/rules regression tests; PDF6 требует native canvas^1.0.0: установлен1.1.0, direct canvas0.1.80 сохранён. Runtime audit2→0,full19→15moderate records,strict all exit1. Полная безопасность не заявляется; следующий security этап — поддерживаемый lint graph и ESLint EOS. #72/#73 и большой старый стек не включены; user data/model/mail/provider/HH activation/SQL/release не выполнялись. [Результаты](security/MAIN_DEPENDENCY_SECURITY_20261101.md).

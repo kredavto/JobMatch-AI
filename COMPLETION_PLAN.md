@@ -66,3 +66,9 @@
 - [ ] Model acceptance remains open: 0/16 gold passes, 14 provenance rejections,
   2 gold mismatches despite 16 completed backend responses. No true rewriting,
   human semantic/held-out acceptance or production activation established.
+
+### 1 ноября 2026 — узкий main-only dependency security кандидат
+- Свежий main `a3a9ef0…`, четыре документа, открытые PR и security #52/#53 сверены. Их старый стек не переносится. Отдельные #72/#73 реализуют протокол/UI писем и остаются не объединёнными; этот кандидат не активирует их.
+- [x] В отдельной ветке исправлены текущие runtime PDF/ZIP зависимости и dev redirect dependency, проверен узкий estree/minimatch override и использован поддерживаемый PDF native canvas 1.1.0. Реальный аудит: runtime **2→0**, full **19→15 moderate records** по одному advisory. Строгий полный gate реально exit 1; полная security acceptance не закрыта. [Доказательства](security/MAIN_DEPENDENCY_SECURITY_20261101.md).
+- [ ] Поддерживаемая миграция оставшегося lint graph/ESLint end-of-support без advisory waiver и несовместимого общего major override.
+- Локально: 623 unit/route,20 Node security,28 Python,114 browser PASS/2 live SKIP,lint/types/build PASS. Native/provider/mail/AI acceptance не подменяются этими тестами. Merge/release/production SQL/config не выполнялись.

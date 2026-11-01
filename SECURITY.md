@@ -71,3 +71,6 @@ Both JSON actions and multipart upload use a 15-second total read deadline. Abor
 
 ### PDF lifecycle (0.29)
 An explicit 15-second cooperative deadline covers loading-task and asynchronous text extraction, followed by at most one second waiting for destroy. Cleanup is requested exactly once and its rejections are handled without overwriting the extraction result. Continuations check expiration between page operations. This does not forcibly terminate CPU work or guarantee resource reclamation if PDF.js destroy hangs; module import/native initialization is outside the deadline. Hard CPU/memory budgets and parser sandboxing remain unimplemented.
+
+## Current-main dependency candidate, 2026-11-01
+[Fresh audit and immutable snapshots](security/MAIN_DEPENDENCY_SECURITY_20261101.md): runtime2→0,full19→15moderate package records under one minimatch advisory. `npm run audit:dependencies` gates runtime; `npm run audit:dependencies:all` **still exits1**. The runtime CI exposes the failing full command as inventory, not a waiver or full acceptance. Separate reviewed support migration for ESLint EOS/legacy callable minimatch remains necessary. No production release or independent security acceptance is implied.
