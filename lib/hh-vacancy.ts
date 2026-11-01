@@ -1,8 +1,7 @@
 import {z} from 'zod';
 import {createHash} from 'node:crypto';
 import {boundedBody} from './body';
-import {UserError as BaseUserError} from './errors';
-class UserError extends BaseUserError {constructor(message:string,status:number,readonly code:string){super(message,status);}}
+import {UserError} from './errors';
 import {hhVacancyId,HHObservationSchema,HH_PREVIEW_TTL_MS} from './hh-vacancy-contract';
 const unavailable=()=>new UserError('HH import unavailable',503,'HH_IMPORT_UNAVAILABLE');
 const invalid=()=>new UserError('Invalid HH response',502,'HH_IMPORT_INVALID');

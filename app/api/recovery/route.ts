@@ -33,19 +33,19 @@ async function POSTHandler(req:NextRequest){try{
  }
  if(body.action==='exchange'){
   const verifier=req.cookies.get('jm_recovery_verifier')?.value;
-  if(!verifier||!/^[A-Za-z0-9_-]{43}$/.test(verifier))throw new UserError('Откройте ссылку в том браузере, где запросили восстановление, или запросите новую.',400);
+  if(!verifier||!/^[A-Za-z0-9_-]{43}$/.test(verifier))throw new UserError('Откройте ссылку в том браузере, где запросили восстановление, или запросите новую.',400,'RECOVERY_BROWSER_REQUIRED');
   await consumeAuthQuota('exchange',verifier);
   const data=await supabase('/auth/v1/token?grant_type=pkce','POST',{auth_code:body.code,code_verifier:verifier});
-  let auth;try{auth=parseProviderAuth(data,'login');}catch{throw new UserError('Не удалось проверить ссылку. Запросите новую.',502);}
-  if(auth.kind!=='session')throw new UserError('Не удалось проверить ссылку.',502);
+  let auth;try{auth=parseProviderAuth(data,'login');}catch{throw new UserError('Не удалось проверить ссылку. Запросите новую.',502,'RECOVERY_LINK_INVALID');}
+  if(auth.kind!=='session')throw new UserError('Не удалось проверить ссылку.',502,'RECOVERY_VERIFICATION_INVALID');
   const response=ok({ok:true});response.cookies.set('jm_recovery_access',auth.access_token,{...options,maxAge:Math.min(600,auth.expires_in)});response.cookies.set('jm_recovery_verifier','',{...options,maxAge:0});return response;
  }
  const token=req.cookies.get('jm_recovery_access')?.value;
- if(!token)throw new UserError('Ссылка не подтверждена или истекла. Запросите восстановление заново.',401);
+ if(!token)throw new UserError('Ссылка не подтверждена или истекла. Запросите восстановление заново.',401,'RECOVERY_SESSION_REQUIRED');
  await consumeAuthQuota('update',token);
  const user=await identity(token);
  const updated=await supabase('/auth/v1/user','PUT',{password:body.password},token);
- if(updated?.id!==user.id)throw new UserError('Не удалось подтвердить смену пароля. Попробуйте войти с новым паролем.',502);
+ if(updated?.id!==user.id)throw new UserError('Не удалось подтвердить смену пароля. Попробуйте войти с новым паролем.',502,'PASSWORD_UPDATE_UNCONFIRMED');
  let sessionsRevoked=true;
  try{await supabase('/auth/v1/logout?scope=global','POST',{},token);}catch{sessionsRevoked=false;}
  const response=ok({ok:true,sessionsRevoked});response.cookies.set('jm_recovery_access','',{...options,maxAge:0});response.cookies.set('jm_recovery_verifier','',{...options,maxAge:0});response.cookies.delete('jm_access');response.cookies.delete('jm_refresh');return response;

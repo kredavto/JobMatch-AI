@@ -11,7 +11,7 @@ export const dynamic='force-dynamic';
 async function POSTHandler(req:NextRequest){try{
  sameOrigin(req);const user=await userOf(req);requireExpectedOwner(req,user.id);
  const body=z.object({url:z.string().min(1).max(2048),expectedOwnerId:z.uuid()}).strict().parse(JSON.parse(new TextDecoder().decode(await boundedBody(req,4096))));
- if(body.expectedOwnerId!==user.id)throw new UserError('Account changed',409);
+ if(body.expectedOwnerId!==user.id)throw new UserError('Account changed',409,'ACCOUNT_CONTEXT_CHANGED');
  hhVacancyConfig();await consumeQuota(user,'import');
  const vacancy=await importHHVacancy(body.url,req.signal);
  return NextResponse.json({ownerId:user.id,...vacancy},{headers:{'Cache-Control':'no-store'}});

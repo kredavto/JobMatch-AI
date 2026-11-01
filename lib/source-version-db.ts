@@ -7,39 +7,39 @@ import type {z} from 'zod';
 export async function sourceVersionStorageAvailable(user:Identity){
  if(process.env.JOBMATCH_SOURCE_VERSIONS_ENABLED!=='true'||process.env.JOBMATCH_SOURCE_PROFILE_ENABLED!=='true')return false;
  const value=await supabase('/rest/v1/rpc/source_version_storage_ready','POST',{},user.token);
- if(typeof value!=='boolean')throw new UserError('Настройка версий не прошла проверку.',502);
+ if(typeof value!=='boolean')throw new UserError('Настройка версий не прошла проверку.',502,'SOURCE_VERSION_CONFIG_INVALID');
  return value;
 }
 export async function sourceVersionCommand(user:Identity,input:z.infer<typeof VersionRequestSchema>){
- if(input.action==='save'&&!await sourceVersionStorageAvailable(user))throw new UserError('Сохранение структурированных версий недоступно.',503);
+ if(input.action==='save'&&!await sourceVersionStorageAvailable(user))throw new UserError('Сохранение структурированных версий недоступно.',503,'SOURCE_VERSION_STORAGE_UNAVAILABLE');
  const params={p_workspace_revision:input.workspaceRevision,p_profile_revision:input.profileRevision,p_entry_ids:input.entryIds};
  let value:unknown;
  try{value=await supabase('/rest/v1/rpc/'+(input.action==='save'?'save_source_version':'preview_source_version'),'POST',input.action==='save'?{...params,p_preview_hash:input.previewHash,p_accept:input.accept}:params,user.token);}
  catch(error){
   if(input.action==='preview'||error instanceof Error&&['AUTH','CONFLICT','RATE'].includes(error.message)||error instanceof UserError&&error.status<500)throw error;
-  throw new UserError('Результат сохранения неизвестен. Прочитайте историю без автоматического повтора.',502);
+  throw new UserError('Результат сохранения неизвестен. Прочитайте историю без автоматического повтора.',502,'SOURCE_VERSION_SAVE_UNKNOWN');
  }
  try{
   if(input.action==='preview')return await validateSourcePreview(value,user.id,input.workspaceRevision,input.profileRevision,input.entryIds);
   const version=await validateSourceVersion(value,user.id);
   if(version.preview_hash!==input.previewHash||version.snapshot.workspace_revision!==input.workspaceRevision||version.snapshot.revision!==input.profileRevision||version.snapshot.entries.length!==input.entryIds.length||version.snapshot.entries.some(e=>!input.entryIds.includes(e.id)))throw Error();
   return version;
- }catch{throw new UserError('Ответ версии не прошёл проверку. Прочитайте историю и профиль без повтора записи.',502);}
+ }catch{throw new UserError('Ответ версии не прошёл проверку. Прочитайте историю и профиль без повтора записи.',502,'SOURCE_VERSION_WRITE_INVALID');}
 }
 export async function listSourceVersions(user:Identity){
  const value=await supabase('/rest/v1/rpc/list_source_versions','POST',{},user.token);
- try{return await validateSourceVersionList(value,user.id);}catch{throw new UserError('История структурированных версий не прошла проверку.',502);}
+ try{return await validateSourceVersionList(value,user.id);}catch{throw new UserError('История структурированных версий не прошла проверку.',502,'SOURCE_VERSION_HISTORY_INVALID');}
 }
 export async function readSourceVersion(user:Identity,id:string){
  const value=await supabase('/rest/v1/rpc/read_source_version','POST',{p_id:id},user.token);
- if(value===null)throw new UserError('Версия не найдена.',404);
- try{const version=await validateSourceVersion(value,user.id);if(version.id!==id)throw Error();return version;}catch{throw new UserError('Происхождение версии не прошло проверку.',502);}
+ if(value===null)throw new UserError('Версия не найдена.',404,'SOURCE_VERSION_NOT_FOUND');
+ try{const version=await validateSourceVersion(value,user.id);if(version.id!==id)throw Error();return version;}catch{throw new UserError('Происхождение версии не прошло проверку.',502,'STRUCTURED_VERSION_INVALID');}
 }
 export async function clearSourceVersions(user:Identity,collectionHash:string){
  let value:unknown;
  try{value=await supabase('/rest/v1/rpc/clear_source_versions','POST',{p_collection_hash:collectionHash,p_accept:'DELETE_LITERAL_SOURCE_VERSIONS'},user.token);}
- catch(error){if(error instanceof Error&&['AUTH','CONFLICT','RATE'].includes(error.message)||error instanceof UserError&&error.status<500)throw error;throw new UserError('Результат удаления неизвестен. Прочитайте историю без автоматического повтора.',502);}
- try{const state=await validateSourceVersionList(value,user.id);if(state.versions.length)throw Error();return state;}catch{throw new UserError('Ответ удаления не прошёл проверку. Перечитайте историю.',502);}
+ catch(error){if(error instanceof Error&&['AUTH','CONFLICT','RATE'].includes(error.message)||error instanceof UserError&&error.status<500)throw error;throw new UserError('Результат удаления неизвестен. Прочитайте историю без автоматического повтора.',502,'SOURCE_VERSION_CLEAR_UNKNOWN');}
+ try{const state=await validateSourceVersionList(value,user.id);if(state.versions.length)throw Error();return state;}catch{throw new UserError('Ответ удаления не прошёл проверку. Перечитайте историю.',502,'SOURCE_VERSION_CLEAR_INVALID');}
 }
 
 export type SourceVersionReader=(id:string)=>Promise<unknown>;
