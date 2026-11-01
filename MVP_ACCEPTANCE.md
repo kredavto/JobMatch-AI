@@ -32,3 +32,14 @@ Source-current preview/accept, серверная история и экспор
 Поверх ещё не объединённого #72 реализован пользовательский preview/accept/history flow с отдельным storage consent и unknown-result reconciliation. Черновик сохраняется при чтении актуального профиля; новая ревизия/источник требует нового просмотра. 737 unit/route, 30 Python, 140 browser PASS/2 live SKIP, lint/types/build PASS локально. Браузерный API управляемый; реальная Supabase/live приёмка и включение default-off не выполнены. Родительская модельная, семантическая и эксплуатационная приёмка остаётся открытой. [Контракт](docs/SAVED_LETTER_UI.md).
 
 [PR #73](https://github.com/kredavto/JobMatch-AI/pull/73), exact executable `ffd8ae6…`: Application и native PG17 CI PASS с теми же 737/140/2 SKIP/30 результатами; production/live приёмка остаётся открытой.
+
+## 1 ноября 2026 — текущие зависимости main
+Узкий security кандидат исправляет runtime findings 2→0 и full inventory 19→15 moderate package records по одному minimatch advisory. Полная строгая проверка действительно exit 1, независимая security/эксплуатационная приёмка не закрыта. 623 unit/route,20 Node security,28 Python,114 browser PASS/2 live SKIP,lint/types/build PASS локально; production не менялся. [Отчёт](security/MAIN_DEPENDENCY_SECURITY_20261101.md).
+
+[PR #74](https://github.com/kredavto/JobMatch-AI/pull/74), `3a3336b…`: App/audit/PG17 CI повторили локальные результаты; actual full gate остаётся1. Изолированная 13-table проверка не закрывает реальный restore Supabase или SMTP.
+
+## PR #75 — manual source profile code verified; full acceptance OPEN
+
+[PR #75](https://github.com/kredavto/JobMatch-AI/pull/75), executable `6046bad5df08ff5b61d2cef8e655e0edfa21aaa6`, has passed 804 unit/API tests, 32 Python checks, 20 security tests, 161 browser scenarios / 2 live SKIP, lint/types/build and the native PG17 source/letter/legacy protocols linked in VERIFICATION.md. Manual fields are literal source ranges; add is unconfirmed and user confirmation is separate. Same-text reimport, cleanup with storage off, monotonic Clear, concurrency, cap, cascade and 17 populated synthetic restore fingerprints are verified within that fixture scope.
+
+It remains an unmerged dependent PR (#73 plus #74 fixes), with extra full-source storage OFF. Literal range agreement and user review do not prove truth, semantics or a working model. Full dependency gate still fails on 15 moderate development package records. Real recovery mail, actual Supabase restore/RPO/RTO, operator PD placement/retention/withdrawal, independent security, qualified model/held-out/semantic rewrite and final operations remain NOT ACCEPTED/open. Parser isolation/OCR and other internal blocks still require implementation/verification. No new merge/release permission is inferred from historic #1/#2 approval.

@@ -21,12 +21,13 @@ test('invalid export produces no download and can recover after explicit reload'
  expect(downloads).toBe(1);
 });
 
-test('saved-letter archive link is owner-bound and discloses separate source-bearing history',async({page})=>{
+test('saved-letter archive link is owner-bound and discloses all four source-bearing archive files',async({page})=>{
  const ownerId='11111111-1111-4111-8111-111111111111';
  await page.route('**/api/service',r=>r.fulfill({json:{...workspace,ownerId}}));
  await page.goto('/');await page.getByRole('navigation').getByRole('button',{name:'Настройки',exact:true}).click();
  await expect(page.getByRole('link',{name:'Скачать историю серверных писем (NDJSON)'})).toHaveAttribute('href','/api/letter-versions?export=1&expectedOwnerId='+ownerId);
- await expect(page.getByText(/Для полного архива скачайте JSON и обе истории/)).toContainText('выбранные источники и текст вакансии');
+ await expect(page.getByText(/Для полного архива скачайте JSON, обе истории и JSON структурированного профиля/)).toContainText('выбранные источники и текст вакансии');
+ await expect(page.getByText(/Для полного архива скачайте JSON, обе истории/)).toContainText('четыре файла не являются единым транзакционным снимком');
 });
 test('missing owner hides saved-letter archive link',async({page})=>{
  await page.route('**/api/service',r=>r.fulfill({json:workspace}));await page.goto('/');

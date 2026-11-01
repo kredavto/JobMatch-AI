@@ -27,3 +27,9 @@ it.each(['/auth/v1/signup','/auth/v1/recover?redirect_to=fixture','/auth/v1/rese
 it.each(['error_code','code'])('explains invalid login without SMTP advice, existence disclosure or raw provider details (%s)',async key=>{vi.stubGlobal('fetch',vi.fn().mockResolvedValue(Response.json({[key]:'invalid_credentials',message:'smtp credential private token'},{status:400})));await expect(supabase('/auth/v1/token?grant_type=password','POST',{})).rejects.toMatchObject({status:400,message:'Неверная почта или пароль JobMatch AI. Если забыли пароль, воспользуйтесь восстановлением доступа.'});});
 
 it.each(['letter_signing_ready','read_saved_letters','read_saved_letter','accept_saved_letter'])('maps native revoked-session refusal from %s to AUTH',async rpc=>{vi.stubGlobal('fetch',vi.fn().mockResolvedValue(Response.json({code:'P0001',message:'AUTH',details:'private diagnostics'},{status:400})));await expect(supabase('/rest/v1/rpc/'+rpc,'POST',{},'user-jwt')).rejects.toThrow('AUTH');});
+it.each(['/rest/v1/rpc/read_source_profile','/rest/v1/rpc/source_profile_storage_ready','/rest/v1/rpc/command_source_profile'])('preserves revoked-session AUTH for guarded source RPC %s',async path=>{vi.stubGlobal('fetch',vi.fn().mockResolvedValue(Response.json({message:'AUTH'},{status:400})));await expect(supabase(path,'POST',{},'user-jwt')).rejects.toThrow('AUTH');});
+it('maps only the source writer capability refusal to a fixed unavailable response',async()=>{
+ vi.stubGlobal('fetch',vi.fn().mockImplementation(async()=>Response.json({message:'SOURCE_PROFILE_UNAVAILABLE',details:'PRIVATE'},{status:400})));
+ await expect(supabase('/rest/v1/rpc/command_source_profile','POST',{},'user-jwt')).rejects.toMatchObject({status:503,message:'Сохранение структурированного профиля недоступно.'});
+ await expect(supabase('/rest/v1/rpc/unrelated','POST',{})).rejects.toMatchObject({status:502});
+});
