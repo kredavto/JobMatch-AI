@@ -38,6 +38,8 @@ Source-current preview/accept, серверная история и экспор
 
 [PR #74](https://github.com/kredavto/JobMatch-AI/pull/74), `3a3336b…`: App/audit/PG17 CI повторили локальные результаты; actual full gate остаётся1. Изолированная 13-table проверка не закрывает реальный restore Supabase или SMTP.
 
-## PR #75 — pending source-profile verification
+## PR #75 — manual source profile code verified; full acceptance OPEN
 
-Manual structured fields and separate confirmation are implemented in an isolated dependent PR, with literal Unicode ranges and default-OFF extra-source storage. Unit/API, types, lint and build pass locally; native/browser acceptance remains pending until actual results are recorded. Model quality, semantic rewrite, provider restore, real recovery mail and operator PD decision remain NOT ACCEPTED/open. This is not full-project completion.
+[PR #75](https://github.com/kredavto/JobMatch-AI/pull/75), executable `6046bad5df08ff5b61d2cef8e655e0edfa21aaa6`, has passed 804 unit/API tests, 32 Python checks, 20 security tests, 161 browser scenarios / 2 live SKIP, lint/types/build and the native PG17 source/letter/legacy protocols linked in VERIFICATION.md. Manual fields are literal source ranges; add is unconfirmed and user confirmation is separate. Same-text reimport, cleanup with storage off, monotonic Clear, concurrency, cap, cascade and 17 populated synthetic restore fingerprints are verified within that fixture scope.
+
+It remains an unmerged dependent PR (#73 plus #74 fixes), with extra full-source storage OFF. Literal range agreement and user review do not prove truth, semantics or a working model. Full dependency gate still fails on 15 moderate development package records. Real recovery mail, actual Supabase restore/RPO/RTO, operator PD placement/retention/withdrawal, independent security, qualified model/held-out/semantic rewrite and final operations remain NOT ACCEPTED/open. Parser isolation/OCR and other internal blocks still require implementation/verification. No new merge/release permission is inferred from historic #1/#2 approval.
