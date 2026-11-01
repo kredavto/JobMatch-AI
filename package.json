@@ -12,7 +12,9 @@
     "test:e2e": "playwright test",
     "test:security": "node --test security/tests/*.test.mjs",
     "audit:dependencies": "node scripts/dependency_audit.mjs",
-    "audit:dependencies:all": "node scripts/dependency_audit.mjs --require-all"
+    "audit:dependencies:all": "node scripts/dependency_audit.mjs --require-all",
+    "build:parser-worker": "tsc -p worker/tsconfig.json",
+    "test:parser-worker": "npm run build:parser-worker && node --test worker/tests/*.test.mjs"
   },
   "dependencies": {
     "@napi-rs/canvas": "0.1.80",

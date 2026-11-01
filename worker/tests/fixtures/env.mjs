@@ -1,0 +1,1 @@
+process.stdout.write(JSON.stringify({ok:true,text:'Environment: '+JSON.stringify({worker:process.env.PARSER_WORKER_TOKEN,db:process.env.SUPABASE_URL,key:process.env.SUPABASE_SECRET_KEY,token:process.env.IMPORT_PARSER_TOKEN})}));
