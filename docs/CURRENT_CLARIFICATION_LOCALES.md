@@ -48,8 +48,8 @@ byte-equal to #97. This is a refactor audit, not independent semantic/provider p
 Six actual-controller browser cases cover episode/caret/preview/review/held save,
 team result/unconfirmed acknowledgement, validation plus mobile axe/overflow,
 dirty/newer source re-preparation, duplicate raw wording and English owner change.
-Four unit/SSR cases cover copy/qualifications/scenario values, owner/limit/dirty
-blocking and an exact Russian v1 team line using English input. All old renderer
+Five unit/SSR cases cover copy/qualifications/scenario values, owner/limit/dirty
+blocking an exact Russian v1 team line using English input, and retained U+200D refusal. All old renderer
 and structured-fact browser tests remain. APIs/identities are intercepted synthetic
 fixtures with reserved example.test addresses; no real email is sent.
 
@@ -62,4 +62,11 @@ SMTP/live recovery, provider-copy restore/RPO/RTO, operator PD policy/placement 
 qualified model remain OPEN. Historic #1/#2 approval authorizes only those merges.
 
 
-CI attempt bf3869c20c8a9f817cea86ff940e0e1623e9743d: lint/types PASS, 1171 unit PASS / 1 new unit FAIL; build/browser did not run. The positive fixture used a joined emoji containing U+200D, rejected by the unchanged v1 hidden-character rule. Positive fixtures now use a permitted supplementary symbol; an explicit negative unit and a current-language browser validation check retain joiner refusal and raw invalid input. Renderer/production code and safeguards are unchanged. Corrected full CI follows.
+CI attempt bf3869c20c8a9f817cea86ff940e0e1623e9743d: lint/types PASS, 1171 unit PASS / 1 new unit FAIL; build/browser did not run. The positive fixture used a joined emoji containing U+200D, rejected by the unchanged v1 hidden-character rule. Positive fixtures now use a permitted supplementary symbol; an explicit negative unit and a current-language browser validation check retain joiner refusal and raw invalid input. Renderer/production code and safeguards are unchanged. Corrected full CI passed as recorded below.
+
+
+Фактический исправленный source #98 `5eb00282e09926534ff08ff6417304312342190f`, tree `33e13ae7bccbb297004b8ed435bb709a8c992983`, synthetic checkout `188bf945b2761872ab40ed6677c96241e1160fa3` tree-equal. [App CI](https://github.com/kredavto/JobMatch-AI/actions/runs/41359208029/job/125005730237): lint/types/build PASS;1173unit/API в83файлах PASS;261browserPASS/2liveSKIP. Все6новых controller-сценариев и5unit/SSR PASS.15релевантных source-workflows PASS; отдельный CPU diagnostic исключён из квалификации модели.11изменённых файлов immutable-readback: content и blob metadata равны ожидаемому/git tree index. Локального hash/test/build/manual visual результата нет. Production blobs между двумя CI попытками одинаковы; исправлены только fixtures/tests/docs.
+
+[Native18restore/session/codec](https://github.com/kredavto/JobMatch-AI/actions/runs/41359207954/job/125005730145), [parser→verifiedTLS→productionAPI→compact17restore](https://github.com/kredavto/JobMatch-AI/actions/runs/41359207963/job/125005730175), [Ops](https://github.com/kredavto/JobMatch-AI/actions/runs/41359208011/job/125005730382), [Parser/OCR](https://github.com/kredavto/JobMatch-AI/actions/runs/41359207978/job/125005730359) PASS, worker101/0skip. [ClamAV](https://github.com/kredavto/JobMatch-AI/actions/runs/41359207978/job/125005730617) PASS: engine1.4.6, loaded signed database28171(2026-11-01T06:27:34Z), observation22:52:53.613Z, refresh/reload/refusals. Логи содержат тот же synthetic checkout. Auth/HTTP bridge/data/restore синтетические; это не provider-copy/RPO/RTO/live delivery/globalSLO/unknown-threat/capacity acceptance. Renderer v1 и проверенные защищённые source/schema/auth/service/lockfile Git blobs совпадают с #97.
+
+[PR #98](https://github.com/kredavto/JobMatch-AI/pull/98) следует за ready/unmerged #97; main merge/release не выполняются. Следом: редактор и оставшиеся экраны/даты/offline до отдельного global locale gate. SMTP/recovery/provider restore/ПД/model/final acceptance OPEN.
