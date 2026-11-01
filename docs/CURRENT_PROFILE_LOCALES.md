@@ -77,3 +77,12 @@ paid infrastructure, user LLM traffic, HH writes, main merge or release.
 SMTP/live recovery, provider-copy restore/RPO/RTO, operator PD policy/placement,
 qualified model and final live/security/capacity acceptance remain OPEN.
 Historic #1/#2 approval applies only to those merges.
+
+
+Recorded executable: `377d6c52dad962f19e836ee428b1369d35f9d2b7`, tree
+`7625e0bea48f234bfda177419b526cd00247c43d`, [PR #96](https://github.com/kredavto/JobMatch-AI/pull/96).
+[Actual app CI](https://github.com/kredavto/JobMatch-AI/actions/runs/41352955020/job/124986879229):
+1,160 unit/API tests in 81 files; 239 browser PASS / 2 live SKIP; lint/types/build PASS.
+All ten new current-controller cases PASS; 15 relevant source workflows PASS.
+The exact jobs, baseline failures, immutable readback and runtime limits are in
+VERIFICATION.md. No local/manual visual result is inferred from CI.
