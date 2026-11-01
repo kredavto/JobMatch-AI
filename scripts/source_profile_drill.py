@@ -117,7 +117,7 @@ def main():
                 stage = 'default-off-native-add-refusal'
                 sql(target, command_statement(add(), 0), user=OWNER, failure='SOURCE_PROFILE_UNAVAILABLE')
                 stage = 'owner-cannot-grant-capability'
-                sql(target, 'grant execute on function private.source_profile_storage_permission() to authenticated;', user=OWNER)
+                sql(target, 'grant execute on function private.source_profile_storage_permission() to authenticated;', user=OWNER, failure='permission denied')
                 if sql(target, 'select to_jsonb(public.source_profile_storage_ready());', user=OWNER):
                     raise ValueError('Owner escalated storage capability')
                 sql(target, 'insert into public.source_profiles(user_id,revision) values(' + literal(OWNER) + ',1);', user=OWNER, failure='permission denied')
