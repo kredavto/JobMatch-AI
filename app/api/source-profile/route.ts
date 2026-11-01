@@ -14,7 +14,7 @@ const requestSchema=z.strictObject({expectedOwnerId:z.uuid(),workspaceRevision:r
 const headers={'Cache-Control':'no-store'};
 async function GETHandler(req:NextRequest){try{
  const user=await userOf(req);requireExpectedOwner(req,user.id);
- if([...req.nextUrl.searchParams.keys()].some(k=>k!=='expectedOwnerId'))throw new UserError('Проверьте параметры профиля.',400);
+ if([...req.nextUrl.searchParams.keys()].some(k=>k!=='expectedOwnerId'))throw new UserError('Проверьте параметры профиля.',400,'SOURCE_PROFILE_QUERY_INVALID');
  await consumeQuota(user,'service');
  const [profile,storageAvailable]=await Promise.all([readSourceProfile(user),sourceStorageAvailable(user)]);
  return NextResponse.json({profile,storageAvailable},{headers});
@@ -22,10 +22,10 @@ async function GETHandler(req:NextRequest){try{
 async function POSTHandler(req:NextRequest){try{
  sameOrigin(req);const user=await userOf(req);requireExpectedOwner(req,user.id);
  const bytes=await boundedBody(req,40000);let raw:string;
- try{raw=new TextDecoder('utf8',{fatal:true}).decode(bytes);}catch{throw new UserError('Проверьте кодировку запроса.',400);}
+ try{raw=new TextDecoder('utf8',{fatal:true}).decode(bytes);}catch{throw new UserError('Проверьте кодировку запроса.',400,'REQUEST_ENCODING_INVALID');}
  const body=requestSchema.parse(JSON.parse(raw));
  if(body.expectedOwnerId!==user.id)throw Error('CONFLICT');
- if(body.consentToStore!==storesSource(body.command))throw new UserError('Проверьте согласие на сохранение источника.',400);
+ if(body.consentToStore!==storesSource(body.command))throw new UserError('Проверьте согласие на сохранение источника.',400,'SOURCE_PROFILE_CONSENT_INVALID');
  await consumeQuota(user,'service');
  return NextResponse.json(await commandSourceProfile(user,body.workspaceRevision,body.profileRevision,body.command),{headers});
 }catch(error){return failure(error);}}

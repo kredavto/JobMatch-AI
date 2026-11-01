@@ -3,9 +3,9 @@ import {UserError} from './errors';
 const xml=(s:string)=>s.replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&apos;');
 /** Text-only OOXML: no fields, links, macros, templates or source metadata. */
 export async function resumeDocx(text:string):Promise<Uint8Array>{
- if(text.length>200000)throw new UserError('Версия слишком велика для DOCX. Используйте TXT.',413);
+ if(text.length>200000)throw new UserError('Версия слишком велика для DOCX. Используйте TXT.',413,'DOCX_EXPORT_TOO_LARGE');
  // Reject instead of silently changing the saved facts.
- for(const c of text){const n=c.codePointAt(0)!;if((n<32&&![9,10,13].includes(n))||(n>=0xd800&&n<=0xdfff)||n===0xfffe||n===0xffff)throw new UserError('Текст содержит неподдерживаемые символы. Используйте TXT.');}
+ for(const c of text){const n=c.codePointAt(0)!;if((n<32&&![9,10,13].includes(n))||(n>=0xd800&&n<=0xdfff)||n===0xfffe||n===0xffff)throw new UserError('Текст содержит неподдерживаемые символы. Используйте TXT.',400,'DOCX_EXPORT_CHARACTERS');}
  const zip=new JSZip();
  zip.file('[Content_Types].xml','<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>');
  zip.file('_rels/.rels','<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>');

@@ -13,7 +13,7 @@ async function GETHandler(req:NextRequest){try{
  await consumeQuota(user,'service');
  const workspace=await readWorkspace(user);
  const version=workspace.versions.find(v=>v.id===id);
- if(!version)throw new UserError('Сохраненная версия не найдена.',404);
+ if(!version)throw new UserError('Сохраненная версия не найдена.',404,'VERSION_NOT_FOUND');
  const bytes=await resumeDocx(version.text);
  return new Response(new Uint8Array(bytes),{headers:{'Content-Type':'application/vnd.openxmlformats-officedocument.wordprocessingml.document','Content-Disposition':'attachment; filename="jobmatch-resume.docx"','Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'}});
 }catch(e){return failure(e);}}

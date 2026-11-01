@@ -7,5 +7,5 @@ export async function readFactHistory(user:Identity,before?:number){
  try{
   // Only an empty page proves exhaustion; short pages can reflect provider limits.
   return validateHistoryPage({rows:raw,next:Array.isArray(raw)?raw.at(-1)?.id??null:null},before);
- }catch{throw new UserError('Некорректный ответ сервиса истории. Повторите позже.',502);}
+ }catch{throw new UserError('Некорректный ответ сервиса истории. Повторите позже.',502,'HISTORY_INVALID_RESPONSE');}
 }

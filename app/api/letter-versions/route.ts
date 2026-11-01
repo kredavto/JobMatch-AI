@@ -19,7 +19,7 @@ const requestSchema=z.discriminatedUnion('action',[
 ]);
 async function POSTHandler(req:NextRequest){try{
  sameOrigin(req);const user=await userOf(req);requireExpectedOwner(req,user.id);
- const bytes=await boundedBody(req,2100000);let raw:string;try{raw=new TextDecoder('utf8',{fatal:true}).decode(bytes);}catch{throw new UserError('Проверьте кодировку запроса.',400);}const body=requestSchema.parse(JSON.parse(raw));
+ const bytes=await boundedBody(req,2100000);let raw:string;try{raw=new TextDecoder('utf8',{fatal:true}).decode(bytes);}catch{throw new UserError('Проверьте кодировку запроса.',400,'REQUEST_ENCODING_INVALID');}const body=requestSchema.parse(JSON.parse(raw));
  if(body.expectedOwnerId!==user.id)throw Error('CONFLICT');
  const config=letterSigningConfig();await consumeQuota(user,'service');
  if(body.action==='accept'){
@@ -38,7 +38,7 @@ async function POSTHandler(req:NextRequest){try{
 }catch(error){return failure(error);}}
 async function GETHandler(req:NextRequest){try{
  const user=await userOf(req);requireExpectedOwner(req,user.id);const q=req.nextUrl.searchParams;
- if([...q.keys()].some(k=>!['id','export','expectedOwnerId'].includes(k))||q.getAll('id').length>1||q.getAll('export').length>1||q.has('id')&&q.has('export')||q.has('export')&&q.get('export')!=='1')throw new UserError('Проверьте параметры истории писем.',400);
+ if([...q.keys()].some(k=>!['id','export','expectedOwnerId'].includes(k))||q.getAll('id').length>1||q.getAll('export').length>1||q.has('id')&&q.has('export')||q.has('export')&&q.get('export')!=='1')throw new UserError('Проверьте параметры истории писем.',400,'LETTER_QUERY_INVALID');
  const id=q.has('id')?z.uuid().parse(q.get('id')):null;await consumeQuota(user,'service');
  if(id)return NextResponse.json(await readSavedLetter(user,id),{headers:{'Cache-Control':'no-store','Content-Disposition':'attachment; filename="jobmatch-saved-letter.json"'}});
  const state=await readSavedLetters(user);

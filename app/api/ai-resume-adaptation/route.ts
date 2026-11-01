@@ -11,7 +11,7 @@ export const dynamic='force-dynamic';
 async function POSTHandler(req:NextRequest){try{
  sameOrigin(req);const user=await userOf(req);requireExpectedOwner(req,user.id);
  const body=z.object({consent:z.literal(true),revision:z.number().int().nonnegative(),expectedOwnerId:z.uuid()}).strict().parse(JSON.parse(new TextDecoder().decode(await boundedBody(req,1024))));
- if(body.expectedOwnerId!==user.id)throw new UserError('Account changed.',409);
+ if(body.expectedOwnerId!==user.id)throw new UserError('Account changed.',409,'ACCOUNT_CHANGED');
  adaptationConfig();
  const state=await readWorkspace(user);
  if(state.revision!==body.revision)throw new Error('CONFLICT');

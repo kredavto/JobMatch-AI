@@ -10,7 +10,7 @@ export const dynamic='force-dynamic';
 async function GETHandler(req:NextRequest){try{
  const user=await userOf(req);requireExpectedOwner(req,user.id);await consumeQuota(user,'service');
  const cursor=req.nextUrl.searchParams.get('before');const before=cursor===null?undefined:z.coerce.number().int().positive().max(2147483647).parse(cursor);
- if(req.nextUrl.searchParams.get('export')==='1'&&cursor!==null)throw new UserError('Полный экспорт истории выполняется без курсора.');
+ if(req.nextUrl.searchParams.get('export')==='1'&&cursor!==null)throw new UserError('Полный экспорт истории выполняется без курсора.',400,'HISTORY_CURSOR_INVALID');
  const first=await readFactHistory(user,before);
  if(req.nextUrl.searchParams.get('export')==='1'){
   const stream=historyStream(first,cursor=>readFactHistory(user,cursor));
