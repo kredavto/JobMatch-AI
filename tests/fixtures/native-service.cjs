@@ -2,10 +2,12 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 const fs=require('node:fs'),ts=require('typescript'),http=require('node:http'),assert=require('node:assert/strict'),{execFile}=require('node:child_process');
 const owner='11111111-1111-4111-8111-111111111111',session='44444444-4444-4444-8444-444444444444';
-if(process.env.JOBMATCH_LOCAL_PROFILE_COMMANDS!=='1'||!['127.0.0.1','::1'].includes(process.env.PGHOST)||!/^jobmatch_profile_[a-f0-9]{32}$/.test(process.env.PGDATABASE??'')||['PGSERVICE','PGSERVICEFILE','PGHOSTADDR','PGOPTIONS'].some(k=>process.env[k]))throw Error('Owned profile fixture required');
+const ownedProfile=process.env.JOBMATCH_LOCAL_PROFILE_COMMANDS==='1'&&/^jobmatch_profile_[a-f0-9]{32}$/.test(process.env.PGDATABASE??'');
+const ownedVersion=process.env.JOBMATCH_LOCAL_VERSION_COMMANDS==='1'&&/^jobmatch_versions_[a-f0-9]{32}$/.test(process.env.PGDATABASE??'');
+if(!(ownedProfile||ownedVersion)||!['127.0.0.1','::1'].includes(process.env.PGHOST)||['PGSERVICE','PGSERVICEFILE','PGHOSTADDR','PGOPTIONS'].some(k=>process.env[k]))throw Error('Owned protocol fixture required');
 require.extensions['.ts']=(module,file)=>module._compile(ts.transpileModule(fs.readFileSync(file,'utf8'),{fileName:file,compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2023,esModuleInterop:true}}).outputText,file);
 const {NextRequest}=require('next/server'),{POST,GET}=require('../../app/api/service/route.ts');
-const literal=v=>"'"+String(v).replaceAll("'","''")+"'",traces=[];
+const literal=v=>"'"+String(v).replaceAll("'","''")+"'",traces=[];let concurrentGoal=false;
 function pg(statement){return new Promise((resolve,reject)=>{
  const child=execFile('psql',['-X','-qAt','-w','-v','ON_ERROR_STOP=1'],{timeout:8000,maxBuffer:2000000},(error,out,stderr)=>{
   if(error){const code=['CONFLICT','INVALID_WRITE','AUTH'].find(c=>new RegExp('ERROR:\\s+'+c+'(?:\\s|$)').test(stderr));reject(Error(code??'FIXTURE_REFUSED'));return;}
@@ -26,6 +28,7 @@ const server=http.createServer(async(req,res)=>{
    else if(req.url==='/rest/v1/rpc/read_workspace'){assert.deepEqual(b,{});statement='select public.read_workspace();';}
    else if(req.url==='/rest/v1/rpc/apply_workspace_command'){
     assert.deepEqual(Object.keys(b).sort(),['p_command','p_revision']);assert.ok(Number.isSafeInteger(b.p_revision)&&b.p_revision>=0);
+    if(concurrentGoal&&b.p_command.action==='version'){concurrentGoal=false;await pg('select public.apply_workspace_command('+b.p_revision+','+literal(JSON.stringify({action:'goal',text:'Concurrent owned goal'}))+'::jsonb);');}
     statement='select public.apply_workspace_command('+b.p_revision+','+literal(JSON.stringify(b.p_command))+'::jsonb);';
    }else if(req.url==='/rest/v1/rpc/save_workspace'){
     assert.deepEqual(Object.keys(b).sort(),['p_action','p_payload','p_revision']);assert.ok(Number.isSafeInteger(b.p_revision)&&b.p_revision>=0);assert.ok(['version','restore'].includes(b.p_action));
@@ -43,17 +46,20 @@ server.requestTimeout=10000;server.maxConnections=8;
  const request=(method,body)=>new NextRequest('https://application-fixture.test/api/service',{method,headers:{origin:'https://application-fixture.test',cookie:'jm_access=synthetic-session'},...(body?{body:JSON.stringify(body)}:{})});
  const first=await GET(request('GET'));assert.equal(first.status,200);let state=await first.json(),analysis;const results=[];
  for(const operation of operations){
-  const {expectedStatus=200,selectAllEdits,selectFactContaining,...intent}=operation;
+  const {expectedStatus=200,selectAllEdits,selectFactContaining,restoreLatest,injectConcurrentGoal,...intent}=operation;
   if(selectAllEdits){assert.ok(analysis);intent.ids=analysis.edits.map(e=>e.id);}
   if(selectFactContaining){const found=state.facts.find(f=>f.text.includes(selectFactContaining));assert.ok(found);intent.ids=[found.id];}
+  if(restoreLatest){assert.ok(state.versions.length);intent.id=state.versions.at(-1).id;}
+  if(injectConcurrentGoal){assert.equal(intent.action,'version');concurrentGoal=true;}
   const start=traces.length,response=await POST(request('POST',{revision:state.revision,expectedOwnerId:owner,...intent}));assert.equal(response.status,expectedStatus);
   const body=await response.json(),trace=traces.slice(start);
   if(expectedStatus===200&&intent.action==='analyze')analysis=body;
   else if(expectedStatus===200){if(intent.action==='demo'){const {DEMO_RESUME,DEMO_VACANCIES}=require('../../lib/engine.ts');assert.equal(body.original,DEMO_RESUME);assert.equal(body.vacancy,DEMO_VACANCIES[0].text);}assert.equal(body.ownerId,owner);assert.equal(body.revision,state.revision+1);state=body;}
-  if(['import','demo','fact'].includes(intent.action)){
+  if(['import','demo','fact','restore'].includes(intent.action)){
    assert.ok(!trace.some(t=>t.path==='/rest/v1/rpc/read_workspace'||t.path==='/rest/v1/rpc/save_workspace'));
-   if(expectedStatus===200){const cmd=trace.filter(t=>t.path==='/rest/v1/rpc/apply_workspace_command');assert.equal(cmd.length,1);assert.deepEqual(cmd[0].commandKeys,intent.action==='demo'?['action','text','vacancy']:['action','text']);}
+   if(expectedStatus===200){const cmd=trace.filter(t=>t.path==='/rest/v1/rpc/apply_workspace_command');assert.equal(cmd.length,1);assert.deepEqual(cmd[0].commandKeys,intent.action==='demo'?['action','text','vacancy']:intent.action==='restore'?['action','id']:['action','text']);}
   }
+  if(intent.action==='version'){assert.equal(trace.filter(t=>t.path==='/rest/v1/rpc/read_workspace').length,1);assert.ok(!trace.some(t=>t.path==='/rest/v1/rpc/save_workspace'));}
   results.push({action:intent.action,status:response.status,state,trace});
  }
  fs.writeFileSync(output,JSON.stringify({state,results}));
