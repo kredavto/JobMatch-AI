@@ -73,7 +73,7 @@ workflow не разрешает объявить все зависимости 
   не 140 сценариев отдельного UI PR #73. Provider/mail/HH/real-user data не вызывались.
 - 28 Python tests PASS. Native SQL/restore не менялся; его CI регрессия запрошена.
 - Новый workflow проверяет runtime gate и явно показывает strict full gate exit.
-  Remote результаты будут зафиксированы отдельно после фактического исполнения.
+  Remote результаты зафиксированы ниже после фактического исполнения.
 
 Метаданные PDF 6.2.108 требуют canvas ^1.0.0 и Node >=22.13.0 || >=24.
 Временный pin прежнего canvas 0.1.100 оказался вне объявленного range и удалён.
@@ -93,3 +93,17 @@ workflow не разрешает объявить все зависимости 
 Независимая security-приёмка, parser isolation/OCR/quarantine, принятая модель и
 semantic/held-out evaluation, SMTP/recovery, provider restore Supabase/RPO/RTO,
 операторское решение о ПД и разрешения hh.ru/финальный релиз остаются открытыми.
+
+## Фактические remote результаты PR #74
+
+Executable `3a3336b5d4539ebe079e5e31b7ba105a6073b877`, tree
+`db6fa282ec443edd249610352589578a62816464` совпадает с локальным.
+[Application](https://github.com/kredavto/JobMatch-AI/actions/runs/41290605397/job/124800874187):
+623 unit/114 browser PASS,2 live SKIP,lint/types/build PASS.
+[Audit](https://github.com/kredavto/JobMatch-AI/actions/runs/41290605335/job/124800874163):
+20 security PASS, runtime0/full15, strictFullGateExit1, lock0809c05…;
+FULL_DEPENDENCY_GATE_FAILED явно показывает оставшиеся findings.
+[Legacy PG17](https://github.com/kredavto/JobMatch-AI/actions/runs/41290605379/job/124800874096):
+28 Python,13 populated table fingerprints,4 SQL suites/corruption detection PASS.
+Эта проверка synthetic, provider backup не восстанавливался. Следующий коммит
+меняет только Markdown; его CPU docs-only scope не считается новым inference.

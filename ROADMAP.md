@@ -281,3 +281,5 @@
 
 ## 1 ноября 2026 — main-only security backport
 Из неприменённых #52/#53 выделен узкий кандидат текущего main: PDF6.2.108, ZIP3.2.1, dev follow-redirects1.16.2, отдельный estree8.72.0→minimatch11.0.3 override с реальными caller/rules regression tests; PDF6 требует native canvas^1.0.0: установлен1.1.0, direct canvas0.1.80 сохранён. Runtime audit2→0,full19→15moderate records,strict all exit1. Полная безопасность не заявляется; следующий security этап — поддерживаемый lint graph и ESLint EOS. #72/#73 и большой старый стек не включены; user data/model/mail/provider/HH activation/SQL/release не выполнялись. [Результаты](security/MAIN_DEPENDENCY_SECURITY_20261101.md).
+
+Узкий security backport оформлен в [PR #74](https://github.com/kredavto/JobMatch-AI/pull/74). App/audit/legacy restore на exact `3a3336b…` успешны, full strict gate внутри inventory явно failed1. Independent security/production acceptance открыта.
