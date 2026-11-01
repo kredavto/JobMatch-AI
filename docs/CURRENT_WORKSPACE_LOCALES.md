@@ -78,3 +78,11 @@ renderers or external permissions change. Actual SMTP/recovery, provider-copy
 restore/RPO/RTO, model qualification, HH authorization and final operational/live
 acceptance remain OPEN. Historic #1/#2 merge approval does not authorize this PR's
 merge or release.
+
+
+Recorded executable: `bdd418c057e73f8bec662dcb061ceec0ac4a1cbd`, tree
+`0e4b274e0124fbbe55c959dc02fa88af7ca1e1c9`, [PR #94](https://github.com/kredavto/JobMatch-AI/pull/94).
+[Actual current-tree app job](https://github.com/kredavto/JobMatch-AI/actions/runs/41348544296/job/124973511523):
+1,147 unit/API tests in 79 files; 214 browser PASS / 2 live SKIP; lint/types/build PASS.
+Twelve current PostgreSQL protocols, ops and isolated parser workflows also PASS;
+see the exact jobs and synthetic/live boundaries in VERIFICATION.md.
