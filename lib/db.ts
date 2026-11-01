@@ -3,6 +3,7 @@ import type {MatchMetadata} from './match-config';
 import {z} from 'zod';
 import {WorkspaceSchema} from './workspace-schema';
 import {UserError} from './errors';
+import {boundedBody} from './body';
 import type {Fact} from './engine';
 export type Version={id:string;created:string;text:string;vacancy:string;evidence_ids:string[];score:number;evidence_snapshot?:Fact[];profile_revision?:number;engine_version?:string;match_metadata?:MatchMetadata;restored_from?:string};
 export type Application={id:string;title:string;status:string;note:string;created:string;events:{status:string;date:string}[];resumeVersionId?:string|null};
@@ -13,8 +14,15 @@ export type Identity={id:string;token:string;email?:string};
 function config(){const url=process.env.SUPABASE_URL;const key=process.env.SUPABASE_PUBLISHABLE_KEY;if(!url||!key)throw new UserError('База данных не настроена',503);return {url,key};}
 export async function supabase(path:string,method='GET',body?:unknown,token?:string){
  const {url,key}=config();let res:Response;
- try{res=await fetch(url+path,{method,headers:{apikey:key,...(token?{Authorization:`Bearer ${token}`} : {}),'Content-Type':'application/json'},body:body===undefined?undefined:JSON.stringify(body),cache:'no-store',signal:AbortSignal.timeout(15000)});}catch(e){throw new UserError(e instanceof Error&&e.name==='TimeoutError'?'Сервис не ответил вовремя. Повторите позже.':'Сервис временно недоступен. Повторите позже.',503);}
- let text:string;try{text=await res.text();}catch{throw new UserError('Сервис временно недоступен. Повторите позже.',503);}
+ const preAuthQuota=path==='/rest/v1/rpc/consume_auth_quota';
+ const signal=AbortSignal.timeout(preAuthQuota?2000:15000);
+ try{res=await fetch(url+path,{method,headers:{apikey:key,...(token?{Authorization:`Bearer ${token}`} : {}),'Content-Type':'application/json'},body:body===undefined?undefined:JSON.stringify(body),cache:'no-store',...(preAuthQuota?{redirect:'error' as const}:{}),signal});}catch(e){throw new UserError(e instanceof Error&&e.name==='TimeoutError'?'Сервис не ответил вовремя. Повторите позже.':'Сервис временно недоступен. Повторите позже.',503);}
+ let text:string;try{
+  if(preAuthQuota){
+   if(res.status!==200||res.headers.get('content-type')?.split(';')[0].trim().toLowerCase()!=='application/json'){void res.body?.cancel().catch(()=>{});throw Error('Quota protocol');}
+   text=new TextDecoder('utf-8',{fatal:true}).decode(await boundedBody({headers:res.headers,body:res.body,signal},128,2000));
+  }else text=await res.text();
+ }catch{throw new UserError('Сервис временно недоступен. Повторите позже.',503);}
  // HTTP failures take precedence over HTML/malformed bodies from a proxy.
  if(res.status===429)throw new Error('RATE');
  if(res.status>=500){

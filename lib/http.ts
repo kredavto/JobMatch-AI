@@ -13,7 +13,7 @@ export function failure(e:unknown){
  const m=e instanceof Error?e.message:'';
  const known:Record<string,[number,string]>={AUTH:[401,'Войдите в приложение'],ORIGIN:[403,'Недопустимый источник запроса'],CONFLICT:[409,'Данные изменены в другой вкладке. Обновите страницу.'],RATE:[429,'Слишком много запросов. Повторите через минуту.']};
  const [status,error]=known[m]||(e instanceof UserError?[e.status,e.message]:e instanceof ZodError||e instanceof SyntaxError?[400,'Проверьте введенные данные']:[500,'Не удалось выполнить действие. Повторите позже.']);
- return NextResponse.json({error},{status,headers:{'Cache-Control':'no-store',...(status===429?{'Retry-After':'60'}:{})}});
+ return NextResponse.json({error,...(e instanceof UserError&&e.code==='AUTH_PROTECTION_UNAVAILABLE'?{code:e.code}:{})},{status,headers:{'Cache-Control':'no-store',...(status===429?{'Retry-After':'60'}:{})}});
 }
 
 // An owner hint never grants access; authentication and RLS remain authoritative.

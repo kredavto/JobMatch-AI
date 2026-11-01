@@ -103,3 +103,5 @@ lint/minimatch graph. A green runtime job is not full security acceptance.
 See [the current audit](security/MAIN_DEPENDENCY_SECURITY_20261101.md).
 The PDF 6 candidate requires Node >=22.13.0; CI tests Node 24. Review the deployment
 runtime before activation; no production runtime was changed by this PR.
+
+Opt-in current pre-auth quota: [contract and operator gates](docs/CURRENT_AUTH_QUOTA.md), default local; native evidence is tracked separately from hosted acceptance.
