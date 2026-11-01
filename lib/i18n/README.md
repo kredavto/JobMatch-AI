@@ -17,3 +17,10 @@ Current API preparation after #90: `api-errors.ts` supplies closed code/status/R
 Current source profile/literal version panels have explicit optional locale props and a typed fixed UI catalog in `source-panels.ts`. Language changes preserve contextual state; frozen document framing and raw quotes are unchanged. History display uses explicit UTC. Production defaults RU, and this is not full-English acceptance; see `docs/CURRENT_SOURCE_LOCALES.md`.
 
 Current public AuthPanel and confirmation/recovery forms accept locale props/defaultRU, with retained code/status/stage feedback and explicit pending/consent context boundaries. Root adoption/requests remain authoritative; private reauth/full UI still require localization. Existing placement disclosure requires operator review; translated acknowledgements do not prove mail delivery. See `docs/CURRENT_AUTH_LOCALES.md`.
+
+Current workspace/demo preparation passes optional locale through WorkspacePage to shell,
+AuthPanel, source panels, controlled OverviewPanel and current VacancyPanel. The
+released page still mounts the Russian default. See CURRENT_WORKSPACE_LOCALES.md
+and CURRENT_PROFILE_DRAFT_SAFETY.md in docs for state, request and draft boundaries.
+No locale is sent in profile-write bodies; stored evidence/status/document content
+is not translated. Remaining screens/dates/offline/global selector are still open.
