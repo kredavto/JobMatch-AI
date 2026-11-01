@@ -22,6 +22,9 @@ COMBINED_TABLES = LETTER_TABLES + ('public.source_profiles', 'public.source_prof
 FORMATS = {'jobmatch-backup-manifest-v1': TABLES, 'jobmatch-backup-manifest-letters-v1': LETTER_TABLES,
            'jobmatch-backup-manifest-source-v1': SOURCE_TABLES, 'jobmatch-backup-manifest-letters-source-v1': COMBINED_TABLES}
 
+LOGICAL_FORMATS = {name.replace('manifest', 'logical').replace('-v1', '-v2'): tables for name, tables in FORMATS.items()}
+FORMATS.update(LOGICAL_FORMATS)
+
 
 def fingerprint(lines):
     digest = hashlib.sha256()
@@ -33,8 +36,10 @@ def fingerprint(lines):
     return {'rows': count, 'sha256': digest.hexdigest()}
 
 
-def snapshot(output, include_letters=False, include_source_profile=False):
+def snapshot(output, include_letters=False, include_source_profile=False, logical_workspaces=False):
     format_name = ('jobmatch-backup-manifest-letters-source-v1' if include_letters else 'jobmatch-backup-manifest-source-v1') if include_source_profile else ('jobmatch-backup-manifest-letters-v1' if include_letters else 'jobmatch-backup-manifest-v1')
+    if logical_workspaces:
+        format_name = format_name.replace('manifest', 'logical').replace('-v1', '-v2')
     selected = FORMATS[format_name]
     # Use standard PG* environment / PGSERVICE and .pgpass. Never place passwords
     # in command-line arguments or echo database errors (which can contain PII).
@@ -45,7 +50,11 @@ def snapshot(output, include_letters=False, include_source_profile=False):
                   "SET LOCAL bytea_output = 'hex';"]
     for table in selected:
         statements.append(f"SELECT 'JOBMATCH_TABLE:{table}';")
-        statements.append(f'SELECT row_to_json(t)::text FROM {table} t ORDER BY row_to_json(t)::text COLLATE "C";')
+        source = table
+        if logical_workspaces and table == 'public.workspaces':
+            source = "(SELECT w.user_id,w.revision,(w.payload-ARRAY['facts','versions','applications']) " \
+                     "|| private.workspace_entities(w.user_id) AS payload,w.updated_at FROM public.workspaces w)"
+        statements.append(f'SELECT row_to_json(t)::text FROM {source} t ORDER BY row_to_json(t)::text COLLATE "C";')
     statements.extend(['COMMIT;', "SELECT 'JOBMATCH_COMPLETE';"])
     environment = dict(os.environ)
     environment.setdefault('PGCONNECT_TIMEOUT', '15')
@@ -136,13 +145,14 @@ def main():
     capture.add_argument('output')
     capture.add_argument('--include-letters', action='store_true', help='Include saved versions and private signing config; fingerprints only')
     capture.add_argument('--include-source-profile', action='store_true', help='Include source profile tables; combine with --include-letters for the 17-table scope')
+    capture.add_argument('--logical-workspaces', action='store_true', help='Explicit normalized entity reconstruction; never mix with physical manifest formats')
     check = commands.add_parser('compare')
     check.add_argument('baseline')
     check.add_argument('restored')
     args = parser.parse_args()
     try:
         if args.command == 'snapshot':
-            snapshot(args.output, args.include_letters, args.include_source_profile)
+            snapshot(args.output, args.include_letters, args.include_source_profile, args.logical_workspaces)
             print('Manifest created; no database rows saved.')
         else:
             with open(args.baseline) as handle:

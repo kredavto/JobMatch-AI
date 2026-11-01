@@ -42,8 +42,8 @@ def main():
             if full_sql.count(migration) != 1:
                 raise ValueError('Consolidated canonical migration differs')
             prefix, suffix = full_sql.split(migration)
-            extra = ROOT / 'supabase/migrations/20261028110006_explicit_workspace_writes.sql'
-            if suffix != b'\n' + extra.read_bytes():
+            extras = [ROOT / 'supabase/migrations' / name for name in ('20261028110006_explicit_workspace_writes.sql','20261028120140_workspace_entity_snapshot.sql')]
+            if suffix != b''.join(b'\n' + p.read_bytes() for p in extras):
                 raise ValueError('Unexpected post-canonical definitions')
             predecessor = prefix[:-1]
             if hashlib.sha256(predecessor).hexdigest() != BASE_SHA256:
@@ -80,7 +80,8 @@ def main():
             if len(old['tables']) != 17 or not all(t['rows'] > 0 for t in old['tables'].values()):
                 raise ValueError('Predecessor must have all seventeen tables populated')
             run(['psql', '-X', '-w', '-v', 'ON_ERROR_STOP=1', '-f', str(ROOT / MIGRATION)], source)
-            run(['psql', '-X', '-w', '-v', 'ON_ERROR_STOP=1', '-f', str(extra)], source)
+            for extra in extras:
+                run(['psql', '-X', '-w', '-v', 'ON_ERROR_STOP=1', '-f', str(extra)], source)
             if compare(old, manifest(source, folder / 'after-upgrade.json')) or definitions(source) != definitions(full):
                 raise ValueError('Migration changed rows or clean/upgrade definitions/grants/triggers differ')
             for target in (source, full):
