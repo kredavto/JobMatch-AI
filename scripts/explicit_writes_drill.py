@@ -43,7 +43,7 @@ def main():
             if full_sql.count(migration) != 1:
                 raise ValueError('Consolidated canonical migration differs')
             prefix, suffix = full_sql.split(migration)
-            extras = [ROOT / 'supabase/migrations' / name for name in ('20261028120140_workspace_entity_snapshot.sql','20261028120214_compact_workspace_storage.sql')]
+            extras = [ROOT / 'supabase/migrations' / name for name in ('20261028120140_workspace_entity_snapshot.sql','20261028120214_compact_workspace_storage.sql', '20261101171000_source_versions.sql')]
             if suffix != b''.join(b'\n' + p.read_bytes() for p in extras):
                 raise ValueError('Unexpected post-explicit definitions')
             predecessor = prefix[:-1]

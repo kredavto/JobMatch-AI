@@ -57,3 +57,6 @@ SQL-заменитель Auth моделирует только таблицы �
 Локально запускать только на выделенном одноразовом PostgreSQL с заранее созданными NOLOGIN-ролями `anon` и `authenticated`. Требуются PostgreSQL 17 clients и Python 3; `PGHOST` — `127.0.0.1` или `::1`, `PGUSER` — администратор тестового кластера, `JOBMATCH_LOCAL_RESTORE=1`. В GitHub Actions допускается также hostname `postgres` для изолированного service-контейнера. PGSERVICE/PGHOSTADDR/PGSERVICEFILE запрещены. Инструмент не удаляет существующие базы: удаляются только уникальные базы, созданные им самим. Дамп не публикуется как CI artifact.
 
 Подтверждённый синтетический прогон: [GitHub Actions 40645763293](https://github.com/kredavto/JobMatch-AI/actions/runs/40645763293), SUCCESS, 28 октября 2026. Полный результат и ограничения записаны в `VERIFICATION.md`.
+
+### Новое source-version хранилище (кандидат после #89)
+При наличии public.source_profile_versions прежние13/15/17scope не покрывают её. Для18table manifest нужны все3флага: --include-letters --include-source-profile --include-source-versions; logical дополнительно --logical-workspaces. Formats v3 не смешиваются сv1/v2.3private central Auth-quota tables/key по-прежнему вне fingerprint scope; native dump и manifest scope различаются. См. docs/CURRENT_SOURCE_VERSIONS.md; реальный provider-copy restore/RPO/RTO остаётся OPEN.

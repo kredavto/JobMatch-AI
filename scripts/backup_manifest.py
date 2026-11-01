@@ -24,6 +24,10 @@ FORMATS = {'jobmatch-backup-manifest-v1': TABLES, 'jobmatch-backup-manifest-lett
 
 LOGICAL_FORMATS = {name.replace('manifest', 'logical').replace('-v1', '-v2'): tables for name, tables in FORMATS.items()}
 FORMATS.update(LOGICAL_FORMATS)
+VERSION_TABLES = COMBINED_TABLES + ('public.source_profile_versions',)
+FORMATS['jobmatch-backup-manifest-letters-source-versions-v3'] = VERSION_TABLES
+LOGICAL_FORMATS['jobmatch-backup-logical-letters-source-versions-v3'] = VERSION_TABLES
+FORMATS.update(LOGICAL_FORMATS)
 
 
 def fingerprint(lines):
@@ -36,10 +40,14 @@ def fingerprint(lines):
     return {'rows': count, 'sha256': digest.hexdigest()}
 
 
-def snapshot(output, include_letters=False, include_source_profile=False, logical_workspaces=False):
+def snapshot(output, include_letters=False, include_source_profile=False, logical_workspaces=False, include_source_versions=False):
     format_name = ('jobmatch-backup-manifest-letters-source-v1' if include_letters else 'jobmatch-backup-manifest-source-v1') if include_source_profile else ('jobmatch-backup-manifest-letters-v1' if include_letters else 'jobmatch-backup-manifest-v1')
     if logical_workspaces:
         format_name = format_name.replace('manifest', 'logical').replace('-v1', '-v2')
+    if include_source_versions:
+        if not include_letters or not include_source_profile:
+            raise ValueError('Source-version scope requires both existing provenance scopes')
+        format_name = 'jobmatch-backup-' + ('logical' if logical_workspaces else 'manifest') + '-letters-source-versions-v3'
     selected = FORMATS[format_name]
     # Use standard PG* environment / PGSERVICE and .pgpass. Never place passwords
     # in command-line arguments or echo database errors (which can contain PII).
@@ -146,13 +154,14 @@ def main():
     capture.add_argument('--include-letters', action='store_true', help='Include saved versions and private signing config; fingerprints only')
     capture.add_argument('--include-source-profile', action='store_true', help='Include source profile tables; combine with --include-letters for the 17-table scope')
     capture.add_argument('--logical-workspaces', action='store_true', help='Explicit normalized entity reconstruction; never mix with physical manifest formats')
+    capture.add_argument('--include-source-versions', action='store_true', help='Explicit 18-table scope; requires both --include-letters and --include-source-profile')
     check = commands.add_parser('compare')
     check.add_argument('baseline')
     check.add_argument('restored')
     args = parser.parse_args()
     try:
         if args.command == 'snapshot':
-            snapshot(args.output, args.include_letters, args.include_source_profile, args.logical_workspaces)
+            snapshot(args.output, args.include_letters, args.include_source_profile, args.logical_workspaces,args.include_source_versions)
             print('Manifest created; no database rows saved.')
         else:
             with open(args.baseline) as handle:

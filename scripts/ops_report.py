@@ -13,9 +13,9 @@ import sys
 PREFIX = 'JOBMATCH_OPS_V1 '
 FORMAT = 'jobmatch-ops-event-v1'
 STREAM_FORMAT = 'jobmatch-ops-stream-v1'
-STREAM_ROUTES = {'fact-history','letter-versions'}
+STREAM_ROUTES = {'fact-history','letter-versions','source-versions'}
 OUTCOMES = {'completion-enqueued', 'incomplete-enqueued', 'cancelled'}
-ROUTES = {'letter-versions', 'fact-history', 'import', 'source-profile', 'service', 'hh-vacancy', 'resume-export', 'auth-email', 'ai-resume-adaptation', 'recovery', 'ai-review'}
+ROUTES = {'letter-versions', 'fact-history', 'import', 'source-profile', 'service', 'hh-vacancy', 'resume-export', 'auth-email', 'ai-resume-adaptation', 'recovery', 'ai-review', 'source-versions'}
 BUCKETS = {'lt100ms', 'lt500ms', 'lt2s', 'lt10s', 'ge10s', 'unknown'}
 MAX_BYTES = 16 * 1024 * 1024
 MAX_LINE = 1024
