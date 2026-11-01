@@ -6,7 +6,7 @@ from pathlib import Path
 import tempfile
 import unittest
 from unittest.mock import patch
-from backup_manifest import TABLES, compare, snapshot
+from backup_manifest import TABLES, LETTER_TABLES, SOURCE_TABLES, COMBINED_TABLES, compare, snapshot
 
 
 class Input(io.BytesIO):
@@ -113,3 +113,40 @@ class SnapshotTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+class LogicalSnapshotTests(unittest.TestCase):
+    def test_logical_scopes_remain_explicit_complete_private_and_read_only(self):
+        for letters, profile, tables, name in [
+            (False, False, TABLES, 'jobmatch-backup-logical-v2'),
+            (True, False, LETTER_TABLES, 'jobmatch-backup-logical-letters-v2'),
+            (False, True, SOURCE_TABLES, 'jobmatch-backup-logical-source-v2'),
+            (True, True, COMBINED_TABLES, 'jobmatch-backup-logical-letters-source-v2')]:
+            data = b''.join(('JOBMATCH_TABLE:' + t + '\n{}\n').encode() for t in tables) + b'JOBMATCH_COMPLETE\n'
+            process = Process(data)
+            with self.subTest(name=name), tempfile.TemporaryDirectory() as folder, patch('backup_manifest.subprocess.Popen', return_value=process):
+                path = Path(folder) / 'logical.json'
+                snapshot(path, include_letters=letters, include_source_profile=profile, logical_workspaces=True)
+                report = json.loads(path.read_text())
+                self.assertEqual(report['format'], name)
+                self.assertEqual(set(report['tables']), set(tables))
+                self.assertEqual(compare(report, report), [])
+                self.assertEqual(path.stat().st_mode & 0o777, 0o600)
+                sql = process.stdin.saved.decode()
+                self.assertIn('REPEATABLE READ READ ONLY', sql)
+                self.assertIn('row_security = off', sql)
+                self.assertIn('private.workspace_entities(w.user_id)', sql)
+                self.assertIn('w.updated_at', sql)
+                if letters:
+                    self.assertIn('private.letter_signing_config', sql)
+                if profile:
+                    self.assertIn('public.source_profile_entries', sql)
+                with self.assertRaises(ValueError):
+                    compare(report, {**report, 'format': name.replace('logical', 'manifest').replace('-v2', '-v1')})
+
+    def test_default_physical_manifest_never_uses_entity_helper(self):
+        process = Process(output())
+        with tempfile.TemporaryDirectory() as folder, patch('backup_manifest.subprocess.Popen', return_value=process):
+            path = Path(folder) / 'physical.json'
+            snapshot(path)
+            self.assertEqual(json.loads(path.read_text())['format'], 'jobmatch-backup-manifest-v1')
+            self.assertNotIn('workspace_entities', process.stdin.saved.decode())
