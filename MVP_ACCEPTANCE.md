@@ -29,3 +29,7 @@ MVP: пользователь вручную импортирует резюме
 Узкий security кандидат исправляет runtime findings 2→0 и full inventory 19→15 moderate package records по одному minimatch advisory. Полная строгая проверка действительно exit 1, независимая security/эксплуатационная приёмка не закрыта. 623 unit/route,20 Node security,28 Python,114 browser PASS/2 live SKIP,lint/types/build PASS локально; production не менялся. [Отчёт](security/MAIN_DEPENDENCY_SECURITY_20261101.md).
 
 [PR #74](https://github.com/kredavto/JobMatch-AI/pull/74), `3a3336b…`: App/audit/PG17 CI повторили локальные результаты; actual full gate остаётся1. Изолированная 13-table проверка не закрывает реальный restore Supabase или SMTP.
+
+## Isolated parser candidate — implementation, current verification pending
+
+A current-compatible gateway/private-container parser is implemented above unmerged #74, with actual Linux subprocess checks and extra environment/role-budget guards. File extraction remains a reviewed draft; late replies cannot overwrite newer/restored text. Docker and complete browser evidence are pending. Existing inline default is retained until an approved owned endpoint exists; parser/OCR/quarantine, real hosted deployment and full project acceptance are not closed by code or old PR evidence.

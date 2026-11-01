@@ -74,3 +74,10 @@
 - Локально: 623 unit/route,20 Node security,28 Python,114 browser PASS/2 live SKIP,lint/types/build PASS. Native/provider/mail/AI acceptance не подменяются этими тестами. Merge/release/production SQL/config не выполнялись.
 
 Remote #74 Application/audit/legacy-PG17 CI на `3a3336b…` подтвердили623unit,20security,28Python,114browserPASS/2liveSKIP,типизацию/сборку и runtime0/full15/strictFullExit1. Это не полная security или provider acceptance.
+
+### Current-compatible isolated parser — verification in progress
+
+- Fresh main/plans and all 65 open PRs were read; main is still `a3a9ef0c69e1e760010fc391234d66cd4a747e3b`. #72–75 remain unmerged reviewed candidates; #75's verified manual profile is not represented as an accepted model. Historic owner-approved #1/#2 merges do not grant new merges/releases.
+- New parser branch starts from #74 only and adapts the old #11 source without importing its migration stack. Gateway-only credential, a one-job private parser, resource limits and source-confirmed draft flow are retained with supported patched parser packages. Environment allowlists and separate stricter gateway budgets replace weaker startup checks; malformed Unicode/NUL responses refuse, and late imports preserve newer or restored drafts.
+- Local 662 unit/API, 35 real Linux process/runtime and 20 security tests, lint/types/build pass. New Docker/browser runs remain pending; old #11 results are not current proof. Runtime defaults to inline compatibility and no worker endpoint/configuration is activated.
+- Next: actual disposable Docker/complete browser evidence; then OCR and scanning/quarantine. Owned HTTPS hosting, PD placement/retention, provider restore, actual SMTP/recovery, model/semantic/held-out and final operational acceptance remain open. No production SQL, deployment, paid resource, external LLM user-data transfer or hh.ru write.

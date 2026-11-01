@@ -1,5 +1,5 @@
 import {test,expect} from '@playwright/test';
-const initial={revision:1,original:'SQL',vacancy:'SQL',goal:'Аналитик',facts:[],versions:[],applications:[]};
+const initial={ownerId:'11111111-1111-4111-8111-111111111111',revision:1,original:'SQL',vacancy:'SQL',goal:'Аналитик',facts:[],versions:[],applications:[]};
 for(const status of [403,408,429])test('definitive '+status+' rejection preserves draft without automatic retry',async({page})=>{
  let writes=0;
  await page.route('**/api/service',r=>{

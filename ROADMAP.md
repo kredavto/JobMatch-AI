@@ -283,3 +283,7 @@
 Из неприменённых #52/#53 выделен узкий кандидат текущего main: PDF6.2.108, ZIP3.2.1, dev follow-redirects1.16.2, отдельный estree8.72.0→minimatch11.0.3 override с реальными caller/rules regression tests; PDF6 требует native canvas^1.0.0: установлен1.1.0, direct canvas0.1.80 сохранён. Runtime audit2→0,full19→15moderate records,strict all exit1. Полная безопасность не заявляется; следующий security этап — поддерживаемый lint graph и ESLint EOS. #72/#73 и большой старый стек не включены; user data/model/mail/provider/HH activation/SQL/release не выполнялись. [Результаты](security/MAIN_DEPENDENCY_SECURITY_20261101.md).
 
 Узкий security backport оформлен в [PR #74](https://github.com/kredavto/JobMatch-AI/pull/74). App/audit/legacy restore на exact `3a3336b…` успешны, full strict gate внутри inventory явно failed1. Independent security/production acceptance открыта.
+
+### Current-compatible parser candidate (verification in progress)
+
+Old #11 has been adapted above #74 with PDF6.2.108/canvas1.1.0, a stricter credential-free environment manifest, gateway-specific kernel ceilings and bounded/Unicode-checked draft responses. The UI preserves edits made during parsing and binds uploads to a known owner. Local process tests pass; actual Docker/browser proof is pending. No old SQL chain, production deployment or new merge/release authorization is imported. OCR and quarantine/scanning are next, with owned hosting/privacy and real operational acceptance still open.
