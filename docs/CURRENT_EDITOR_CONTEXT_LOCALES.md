@@ -72,3 +72,7 @@ model/document codec change, production migration, actual SMTP, paid infrastruct
 user LLM traffic, HH write, main merge or release. SMTP/recovery, provider-copy
 restore/RPO/RTO, operator PD policy/placement, qualified model and full acceptance
 remain OPEN. Historic #1/#2 approval applies only to those merges.
+
+
+
+CI исправления attempt1 `232c23c3c3a174cc0756cefab1e99ccc58f64576` / App41361787864/job125013495090:1178unit84files,lint/types/build PASS; два исходных regressions и ещё5новых browser cases PASS,1new quote-selector FAIL. Полный browser suite не завершён: при extract ошибочно удалены соседние SourceProfilePanel/SourceVersionsPanel invocations, existing source-profile cases ожидали отсутствующие панели и job отменён по20минутному лимиту. Подключения восстановлены дословно с исходными owner/revision/dirty/boundary props. Все18существующих imported UI component invocation counts сверены с #98; это разовый source audit, не замена E2E. Quote assertion уже отделяет literal от mandatory badge, validation/guards не ослаблялись. Новый полный CI pending; предыдущая попытка не выдаётся за PASS.
