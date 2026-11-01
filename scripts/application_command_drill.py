@@ -49,9 +49,13 @@ def main():
         with tempfile.TemporaryDirectory(prefix='jobmatch-applications-') as temporary:
             folder = Path(temporary)
             full_sql, migration = (ROOT / 'supabase/schema.sql').read_bytes(), (ROOT / MIGRATION).read_bytes()
-            if not full_sql.endswith(migration) or full_sql.count(migration) != 1:
+            if full_sql.count(migration) != 1:
                 raise ValueError('Consolidated command migration differs')
-            predecessor = full_sql[:-len(migration)-1]
+            prefix, suffix = full_sql.split(migration)
+            extra = ROOT / 'supabase/migrations/20261028110002_profile_import_commands.sql'
+            if suffix != b'\n' + extra.read_bytes():
+                raise ValueError('Unexpected post-application definitions')
+            predecessor = prefix[:-1]
             if hashlib.sha256(predecessor).hexdigest() != BASE_SHA256:
                 raise ValueError('Not exact current seventeen-table/quota predecessor')
             (folder / 'base.sql').write_bytes(predecessor)
@@ -65,6 +69,7 @@ def main():
                     run(['psql', '-X', '-w', '-v', 'ON_ERROR_STOP=1', '-f', str(path)], target)
             old = manifest(source, folder / 'before.json')
             run(['psql', '-X', '-w', '-v', 'ON_ERROR_STOP=1', '-f', str(ROOT / MIGRATION)], source)
+            run(['psql', '-X', '-w', '-v', 'ON_ERROR_STOP=1', '-f', str(extra)], source)
             if compare(old, manifest(source, folder / 'after.json')):
                 raise ValueError('Additive migration changed predecessor rows')
             for target in (source, full):

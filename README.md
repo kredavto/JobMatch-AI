@@ -107,3 +107,5 @@ runtime before activation; no production runtime was changed by this PR.
 Opt-in current pre-auth quota: [contract and operator gates](docs/CURRENT_AUTH_QUOTA.md), default local; native evidence is tracked separately from hosted acceptance.
 
 Current compact application commands: [contract, provenance and rollback](docs/CURRENT_APPLICATION_COMMANDS.md); snapshot compatibility and external acceptance remain open.
+
+Current compact import/fact commands: [semantics and provenance](docs/CURRENT_PROFILE_COMMANDS.md); native and hosted acceptance are tracked separately.

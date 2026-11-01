@@ -14,6 +14,9 @@ const application=z.object({
 
 /** Entity intent only: no snapshot, caller-selected owner, or unrelated writable fields. */
 export const WorkspaceCommandSchema=z.discriminatedUnion('action',[
+ z.object({action:z.literal('import'),text:z.string().min(1).max(100000).refine(validText,'Invalid Unicode')}).strict(),
+ z.object({action:z.literal('demo'),text:z.string().min(1).max(100000).refine(validText,'Invalid Unicode'),vacancy:z.string().min(5).max(30000).refine(validText,'Invalid Unicode')}).strict(),
+ z.object({action:z.literal('fact'),text:z.string().min(2).max(2000).refine(validText,'Invalid Unicode')}).strict(),
  z.object({action:z.literal('goal'),text:z.string().max(1000).refine(validText,'Invalid Unicode')}).strict(),
  z.object({action:z.literal('vacancy'),text:z.string().min(5).max(30000).refine(validText,'Invalid Unicode')}).strict(),
  z.object({action:z.literal('verify'),ids:z.array(entityId).max(500)
