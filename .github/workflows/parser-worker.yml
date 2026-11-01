@@ -18,6 +18,8 @@ jobs:
     if: github.repository == 'kredavto/JobMatch-AI' && github.event.repository.private == false && (github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ubuntu-24.04
     timeout-minutes: 20
+    env:
+      JOBMATCH_REQUIRE_OCR_TESTS: '1'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -25,6 +27,12 @@ jobs:
           node-version: '24'
           cache: npm
       - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Install required real OCR engines, languages and fonts
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends poppler-utils tesseract-ocr tesseract-ocr-eng tesseract-ocr-rus fonts-dejavu-core
+          tesseract --version
+          tesseract --list-langs
       - run: npm run test:parser-worker
       - run: npm test
       - run: npm run lint
@@ -39,6 +47,11 @@ jobs:
         run: |
           docker image inspect --format '{{.Id}}' jobmatch-parser:test
           docker run --rm --network none --read-only --cap-drop ALL --security-opt no-new-privileges:true --user 10001:10001 jobmatch-parser:test node -e "console.log(JSON.stringify({node:process.version,environmentNames:Object.keys(process.env).sort(),pdf:require('pdfjs-dist/package.json').version,canvas:require('node:module').createRequire(require.resolve('pdfjs-dist/package.json'))('@napi-rs/canvas/package.json').version,yauzl:require('yauzl/package.json').version}))"
+      - name: Record actual OCR engine and installed language bytes
+        run: |
+          docker run --rm --network none --read-only --cap-drop ALL --security-opt no-new-privileges:true --user 10001:10001 jobmatch-parser:test tesseract --version
+          docker run --rm --network none --read-only --cap-drop ALL --security-opt no-new-privileges:true --user 10001:10001 jobmatch-parser:test /usr/bin/pdftoppm -v
+          docker run --rm --network none --read-only --cap-drop ALL --security-opt no-new-privileges:true --user 10001:10001 jobmatch-parser:test sh -c 'tesseract --list-langs && sha256sum /usr/share/tesseract-ocr/5/tessdata/eng.traineddata /usr/share/tesseract-ocr/5/tessdata/rus.traineddata'
       - name: Verify real container limits and one-job lifetime
         env:
           JOBMATCH_PARSER_CONTAINER_TEST: '1'

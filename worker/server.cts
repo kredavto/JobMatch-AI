@@ -28,7 +28,7 @@ const server=createServer(async(req,res)=>{
    const chunks:Buffer[]=[];let bytes=0;
    for await(const chunk of req){const value=Buffer.from(chunk);bytes+=value.length;if(bytes>MAX_FILE_BYTES){result={ok:false,code:'TOO_LARGE'};break;}chunks.push(value);}
    clearTimeout(timer);
-   if(bytes<=MAX_FILE_BYTES)result=await runParser(Buffer.concat(chunks),ext,controller.signal);
+   if(bytes<=MAX_FILE_BYTES)result=await runParser(Buffer.concat(chunks),ext,controller.signal,{ocr:process.env.PARSER_WORKER_OCR==='true'});
   }
  }catch{result={ok:false,code:uploadExpired?'TIMEOUT':'UNAVAILABLE'};}
  finally{

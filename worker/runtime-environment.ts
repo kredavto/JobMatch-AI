@@ -9,6 +9,7 @@ export function assertRuntimeEnvironment(role:RuntimeRole,environment:NodeJS.Pro
   if(value===undefined)continue;
   if((EMPTY_RUNTIME_VARIABLES as readonly string[]).includes(name)){if(value!=='')throw Error('Invalid runtime environment');continue;}
   if(name==='PWD'&&value!==process.cwd())throw Error('Invalid runtime environment');
+  if(role==='parser'&&name==='PARSER_WORKER_OCR'&&['true','false'].includes(value))continue;
   if(base.has(name))continue;
   if(role==='gateway'&&name==='PARSER_WORKER_TOKEN'&&validParserToken(value))continue;
   throw Error('Invalid runtime environment');

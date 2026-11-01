@@ -27,7 +27,7 @@ export function validateDocx(data:Buffer):Promise<void>{return new Promise((reso
  });
 });}
 export function validateText(text:string){if(text.trim().length<5)throw new UserError('Текст не найден. Для скана нужен OCR; вставьте текст вручную.');if(text.length>MAX_TEXT_CHARS)throw new UserError('Слишком много текста');return text;}
-export async function extractDocument(filename:string,data:Buffer):Promise<string>{
+export async function extractDocument(filename:string,data:Buffer,options:{readScannedPage?:(page:number)=>Promise<string>}={}):Promise<string>{
  if(data.length>MAX_FILE_BYTES)throw new UserError('Файл должен быть меньше 4 МБ',413);
  const ext=filename.toLowerCase().split('.').pop();let text='';
  if(ext==='txt'){try{text=new TextDecoder('utf-8',{fatal:true}).decode(data);}catch{throw new UserError('TXT должен быть в кодировке UTF-8');}if(text.includes('\u0000'))throw new UserError('В TXT обнаружены бинарные данные');}
@@ -43,7 +43,8 @@ export async function extractDocument(filename:string,data:Buffer):Promise<strin
    for(let i=1;i<=doc.numPages;i++){
     assertActive();const page=await doc.getPage(i);assertActive();
     const content=await page.getTextContent();assertActive();
-    result+=content.items.map(item=>'str' in item?item.str+('hasEOL' in item&&item.hasEOL?'\n':' '):'').join('')+'\n';
+    const embedded=content.items.map(item=>'str' in item?item.str+('hasEOL' in item&&item.hasEOL?'\n':' '):'').join('');
+    result+=(embedded.trim().length<5&&options.readScannedPage?await options.readScannedPage(i):embedded)+'\n';assertActive();
     if(result.length>MAX_TEXT_CHARS)throw new UserError('Слишком много текста');
    }
    return result;

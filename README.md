@@ -107,3 +107,7 @@ runtime before activation; no production runtime was changed by this PR.
 ### Optional isolated file import (candidate, default inline)
 
 The parser candidate can route imports to an owned HTTPS gateway and a disposable bounded parser container. Review [ISOLATED_PARSER.md](docs/ISOLATED_PARSER.md) before configuration. It does not deploy a service or close operator privacy/hosting, OCR, scanning or live acceptance. Native Linux checks: `npm run test:parser-worker`; container enforcement requires the actual disposable Docker workflow. The patched PDF 6.2.108 dependency requires Node 24 (or the supported >=22.13 runtime); this worker is built/tested on Node 24.
+
+### Optional scanned-page OCR candidate
+
+[SCANNED_PDF_OCR.md](docs/SCANNED_PDF_OCR.md) describes separately enabled Poppler/Tesseract OCR inside the isolated parser, with three OCR pages maximum, strict transient metadata, no partial-success import and manual review of names/dates/numbers. OCR remains OFF. Current bilingual/native Docker evidence must pass; representative consented-document accuracy, antivirus/quarantine and real hosted acceptance remain open.
