@@ -95,7 +95,7 @@ late preview after edits, late acceptance preserving newer text, logout,
 source reload, dirty goal, history without analysis, verified downloads, 50-version
 UI bound, monotonic expiry/clock rollback, lexical acknowledgements and mobile
 accessibility. Initial browser failures were incorrect article/region and auth
-mode locators; corrected tests did not weaken runtime guards. Independent review
+mode locators; corrected tests did not weaken runtime guards. Source review
 also identified draft loss when clearing analysis; the editor lifetime was fixed
 and covered before the complete passing run.
 
