@@ -1,4 +1,4 @@
-> Current integration note (1 November2026): use docs/CURRENT_COMPACT_STORAGE.md and the current dependency chain through PR #86. Historical PR #4–#10 identifiers below describe source provenance, not an instruction to merge duplicate historical branches. No provider migration/history repair or production rollback was executed. Current acceptance remains pending until the new native runs are recorded.
+> Current integration note (1 November2026): use docs/CURRENT_COMPACT_STORAGE.md and the current dependency chain through PR #86. Historical PR #4–#10 identifiers below describe source provenance, not an instruction to merge duplicate historical branches. No provider migration/history repair or production rollback was executed. Current synthetic PG17 evidence is recorded in VERIFICATION.md and docs/CURRENT_COMPACT_STORAGE.md; provider/live acceptance remains OPEN.
 
 # Хранение workspace без дублирующих массивов
 
