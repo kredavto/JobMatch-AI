@@ -79,3 +79,11 @@
 - Серверная история доступна в «Моих версиях» без анализа; загрузка актуального профиля сохраняет черновик письма и сбрасывает разрешение на сохранение при изменении источников. Неопределённая запись требует явного чтения истории, точного сверения попытки и нового preview перед новой записью. Автоматического повтора нет.
 - [ ] Следующий независимый технический блок: сверить и перенести подходящие исправления runtime-зависимостей из неприменённых security PR в узкий main-only кандидат; новый npm audit и регрессии импорта. Не считать старые результаты #52/#53 доказательством безопасности текущего main.
 - Модель/семантическое переписывание, live SMTP/recovery, реальная копия Supabase и решение оператора о ПД остаются открыты. Merge/релиз/production SQL не выполнялись.
+
+### 1 ноября 2026 — узкий main-only dependency security кандидат
+- Свежий main `a3a9ef0…`, четыре документа, открытые PR и security #52/#53 сверены. Их старый стек не переносится. Отдельные #72/#73 реализуют протокол/UI писем и остаются не объединёнными; этот кандидат не активирует их.
+- [x] В [PR #74](https://github.com/kredavto/JobMatch-AI/pull/74) исправлены текущие runtime PDF/ZIP зависимости и dev redirect dependency, проверен узкий estree/minimatch override и использован поддерживаемый PDF native canvas 1.1.0. Реальный аудит: runtime **2→0**, full **19→15 moderate records** по одному advisory. Строгий полный gate реально exit 1; полная security acceptance не закрыта. [Доказательства](security/MAIN_DEPENDENCY_SECURITY_20261101.md).
+- [ ] Поддерживаемая миграция оставшегося lint graph/ESLint end-of-support без advisory waiver и несовместимого общего major override.
+- Локально: 623 unit/route,20 Node security,28 Python,114 browser PASS/2 live SKIP,lint/types/build PASS. Native/provider/mail/AI acceptance не подменяются этими тестами. Merge/release/production SQL/config не выполнялись.
+
+Remote #74 Application/audit/legacy-PG17 CI на `3a3336b…` подтвердили623unit,20security,28Python,114browserPASS/2liveSKIP,типизацию/сборку и runtime0/full15/strictFullExit1. Это не полная security или provider acceptance.

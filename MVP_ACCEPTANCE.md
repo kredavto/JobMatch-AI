@@ -32,3 +32,8 @@ Source-current preview/accept, серверная история и экспор
 Поверх ещё не объединённого #72 реализован пользовательский preview/accept/history flow с отдельным storage consent и unknown-result reconciliation. Черновик сохраняется при чтении актуального профиля; новая ревизия/источник требует нового просмотра. 737 unit/route, 30 Python, 140 browser PASS/2 live SKIP, lint/types/build PASS локально. Браузерный API управляемый; реальная Supabase/live приёмка и включение default-off не выполнены. Родительская модельная, семантическая и эксплуатационная приёмка остаётся открытой. [Контракт](docs/SAVED_LETTER_UI.md).
 
 [PR #73](https://github.com/kredavto/JobMatch-AI/pull/73), exact executable `ffd8ae6…`: Application и native PG17 CI PASS с теми же 737/140/2 SKIP/30 результатами; production/live приёмка остаётся открытой.
+
+## 1 ноября 2026 — текущие зависимости main
+Узкий security кандидат исправляет runtime findings 2→0 и full inventory 19→15 moderate package records по одному minimatch advisory. Полная строгая проверка действительно exit 1, независимая security/эксплуатационная приёмка не закрыта. 623 unit/route,20 Node security,28 Python,114 browser PASS/2 live SKIP,lint/types/build PASS локально; production не менялся. [Отчёт](security/MAIN_DEPENDENCY_SECURITY_20261101.md).
+
+[PR #74](https://github.com/kredavto/JobMatch-AI/pull/74), `3a3336b…`: App/audit/PG17 CI повторили локальные результаты; actual full gate остаётся1. Изолированная 13-table проверка не закрывает реальный restore Supabase или SMTP.

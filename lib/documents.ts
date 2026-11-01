@@ -35,7 +35,8 @@ export async function extractDocument(filename:string,data:Buffer):Promise<strin
  else if(ext==='pdf'){
   if(data.subarray(0,5).toString()!=='%PDF-')throw new UserError('Неверный PDF');
   const canvas=await import('@napi-rs/canvas');Object.assign(globalThis,{DOMMatrix:canvas.DOMMatrix,ImageData:canvas.ImageData,Path2D:canvas.Path2D});
-  const pdf=await import('pdfjs-dist/legacy/build/pdf.mjs');const task=pdf.getDocument({data:new Uint8Array(data),useSystemFonts:true});
+  // Text-only core API: no PDF viewer or scripting manager is constructed.
+  const pdf=await import('pdfjs-dist/legacy/build/pdf.mjs');const task=pdf.getDocument({data:new Uint8Array(data),useSystemFonts:true,useWorkerFetch:false});
   text=await readPdfTask(task,async(doc,assertActive)=>{
    if(doc.numPages>30)throw new UserError('Не более 30 страниц');
    let result='';
