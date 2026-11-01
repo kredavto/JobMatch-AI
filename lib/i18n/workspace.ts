@@ -1,6 +1,7 @@
 import {normalizeLocale,type UiLocale} from './locale';
 /** UI copy only. Evidence, request bodies, revisions and authorization never depend on these strings. */
 export const workspaceErrors={
+ "writeResponseContextInvalid":{"ru":"Ответ записи не соответствует исходному аккаунту или следующей ревизии. Черновики оставлены. Загрузите актуальные данные; автоматического повтора нет.","en":"The write response does not match the original account or next revision. Drafts are preserved. Load current data; there is no automatic retry."},
  "demoUnavailable":{"ru":"Демо отключено: сохранённый профиль или несохранённые поля нельзя заменить. Сначала проверьте и сохраните либо вручную восстановите черновики.","en":"The demo is disabled: saved profile data or unsaved fields cannot be replaced. Review and save or manually restore your drafts first."},
  "profileWriteContextInvalid":{"ru":"Ответ сохранения профиля не соответствует исходному аккаунту или следующей ревизии. Черновики оставлены. Загрузите актуальные данные; автоматического повтора нет.","en":"The profile save response does not match the original account or next revision. Drafts are preserved. Load current data; there is no automatic retry."},
  "historyInvalid": {

@@ -1,8 +1,5 @@
-import {validatedWorkspace} from './client-api';
-import {WorkspaceRequestError} from './workspace-feedback';
-/** The current profile command contract increments once; known-owner responses must stay in that account. */
+import {validatedWorkspaceWrite} from './workspace-write-response';
+/** Current profile writes require a displayed owner and exactly the next same-owner revision. */
 export function validatedProfileWrite(data:unknown,expected:{revision:number;ownerId?:string}){
- const next=validatedWorkspace(data);
- if(next.revision!==expected.revision+1||expected.ownerId!==undefined&&next.ownerId!==expected.ownerId)throw new WorkspaceRequestError('profileWriteContextInvalid',502);
- return next;
+ return validatedWorkspaceWrite(data,expected,'profileWriteContextInvalid');
 }

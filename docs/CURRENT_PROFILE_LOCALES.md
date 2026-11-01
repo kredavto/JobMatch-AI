@@ -86,3 +86,10 @@ Recorded executable: `377d6c52dad962f19e836ee428b1369d35f9d2b7`, tree
 All ten new current-controller cases PASS; 15 relevant source workflows PASS.
 The exact jobs, baseline failures, immutable readback and runtime limits are in
 VERIFICATION.md. No local/manual visual result is inferred from CI.
+
+
+Current follow-up: [write response context](CURRENT_WRITE_RESPONSE_CONTEXT.md) retires
+owner-less writes in the current client. Earlier compatibility statements above
+record the pinned historical stage only. Legacy reads remain available; writes
+now require the displayed owner and the next same-owner revision. No server API
+or saved-data migration is involved.

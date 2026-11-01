@@ -93,3 +93,10 @@ Recorded executable: `5a136f6ef3eeb90fcb9a2a883dbd8e465514763b`, tree
 1,155 unit/API tests in 80 files; 229 browser PASS / 2 live SKIP; lint/types/build PASS.
 Twelve current PostgreSQL protocols, ops and isolated parser workflows also PASS.
 See VERIFICATION.md for exact jobs and explicit synthetic/live acceptance limits.
+
+
+Current follow-up: [write response context](CURRENT_WRITE_RESPONSE_CONTEXT.md) retires
+owner-less writes in the current client. Earlier compatibility statements above
+record the pinned historical stage only. Legacy reads remain available; writes
+now require the displayed owner and the next same-owner revision. No server API
+or saved-data migration is involved.
