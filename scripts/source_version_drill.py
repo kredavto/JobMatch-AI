@@ -169,7 +169,6 @@ def main():
                     if result.returncode:
                         state=re.search(rb'ERROR:\s+([0-9A-Z]{5}):',result.stderr)
                         raise NativeSQLFailure(state.group(1).decode() if state else 'UNKNOWN')
-            stage='missing predecessor and atomic default-off install'
             stage='missing predecessor fixture install'
             install(missing,[ROOT/'scripts/restore_fixture.sql'])
             stage='missing predecessor catalog'
@@ -192,7 +191,7 @@ def main():
                 raise ValueError('Late migration failure changed data/definitions')
             stage='successful additive migration'
             install(source,[ROOT/MIGRATION])
-            if compare(baseline,capture(source,folder/'after17.json',full=False)) or sql(source,'select public.source_version_storage_ready();',user=OWNER):raise ValueError('Upgrade changed core or enabled storage')
+            if compare(baseline,capture(source,folder/'after17.json',full=False)) or sql(source,'select to_jsonb(public.source_version_storage_ready());',user=OWNER):raise ValueError('Upgrade changed core or enabled storage')
             stage='clean full bootstrap'
             install(clean,[ROOT/'scripts/restore_fixture.sql',ROOT/'supabase/schema.sql',ROOT/'scripts/restore_seed.sql'])
             stage='actual SQL guards/caps/idempotence/audit fault/retraction/reimport/cleanup/RLS/cascade'
