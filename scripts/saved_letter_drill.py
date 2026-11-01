@@ -155,6 +155,14 @@ def main():
             workspace = sql(source, 'select public.read_workspace();', user=OWNER)
             receipt = bridge(folder, 'issue', {'workspace': {**workspace, 'ownerId': OWNER}, 'letterRevision': 1})
             valid = json.loads(receipt['payload'])
+            foreign = sql(source, 'select public.read_saved_letters();', user=OTHER, session=OTHER_SESSION)
+            if foreign['ownerId'] != OTHER or foreign['revision'] != 0 or foreign['items']:
+                raise ValueError('Cross-owner history exposed')
+            known_id = sql(source, 'select public.read_saved_letters();', user=OWNER)['items'][0]['id']
+            if sql(source, 'select public.read_saved_letter(' + literal(known_id) + ');', user=OTHER, session=OTHER_SESSION) is not None:
+                raise ValueError('Cross-owner receipt exposed')
+            sql(source, 'set role anon;select public.read_saved_letters();', failure='permission denied')
+
             for target in (source, full):
                 for role in ('anon', 'authenticated', 'service_role'):
                     permissions = sql(target, "select to_jsonb(has_table_privilege('" + role + "','private.letter_signing_config','SELECT') or has_table_privilege('" + role + "','public.saved_letter_versions','INSERT,UPDATE,DELETE')); ")
