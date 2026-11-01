@@ -4,7 +4,8 @@ const fs=require('node:fs'),ts=require('typescript'),http=require('node:http'),a
 const owner='11111111-1111-4111-8111-111111111111',session='44444444-4444-4444-8444-444444444444';
 const ownedProfile=process.env.JOBMATCH_LOCAL_PROFILE_COMMANDS==='1'&&/^jobmatch_profile_[a-f0-9]{32}$/.test(process.env.PGDATABASE??'');
 const ownedVersion=process.env.JOBMATCH_LOCAL_VERSION_COMMANDS==='1'&&/^jobmatch_versions_[a-f0-9]{32}$/.test(process.env.PGDATABASE??'');
-if(!(ownedProfile||ownedVersion)||!['127.0.0.1','::1'].includes(process.env.PGHOST)||['PGSERVICE','PGSERVICEFILE','PGHOSTADDR','PGOPTIONS'].some(k=>process.env[k]))throw Error('Owned protocol fixture required');
+const ownedParity=process.env.JOBMATCH_LOCAL_PARITY==='1'&&/^jobmatch_parity_[a-f0-9]{32}$/.test(process.env.PGDATABASE??'');
+if(!(ownedProfile||ownedVersion||ownedParity)||!['127.0.0.1','::1'].includes(process.env.PGHOST)||['PGSERVICE','PGSERVICEFILE','PGHOSTADDR','PGOPTIONS'].some(k=>process.env[k]))throw Error('Owned protocol fixture required');
 require.extensions['.ts']=(module,file)=>module._compile(ts.transpileModule(fs.readFileSync(file,'utf8'),{fileName:file,compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2023,esModuleInterop:true}}).outputText,file);
 const {NextRequest}=require('next/server'),{POST,GET}=require('../../app/api/service/route.ts');
 const literal=v=>"'"+String(v).replaceAll("'","''")+"'",traces=[];let concurrentGoal=false;

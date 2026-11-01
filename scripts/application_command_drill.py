@@ -52,7 +52,7 @@ def main():
             if full_sql.count(migration) != 1:
                 raise ValueError('Consolidated command migration differs')
             prefix, suffix = full_sql.split(migration)
-            extras = [ROOT / 'supabase/migrations' / name for name in ('20261028110002_profile_import_commands.sql', '20261028110003_version_commands.sql')]
+            extras = [ROOT / 'supabase/migrations' / name for name in ('20261028110002_profile_import_commands.sql', '20261028110003_version_commands.sql', '20261028110004_projection_parity.sql')]
             if suffix != b''.join(b'\n' + p.read_bytes() for p in extras):
                 raise ValueError('Unexpected post-application definitions')
             predecessor = prefix[:-1]
