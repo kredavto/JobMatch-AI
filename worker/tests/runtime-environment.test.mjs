@@ -12,3 +12,14 @@ test('gateway startup enforces its own stricter kernel budgets',()=>{const value
 test('entrypoint working directory is allowed only when it matches the actual process directory',()=>{assert.throws(()=>assertRuntimeEnvironment('parser',{...clean,PWD:'/PUBLIC_ENV_CANARY'}));});
 
 test('only parser role accepts an exact nonsecret OCR boolean; invalid or gateway values refuse',()=>{for(const value of ['true','false'])assert.doesNotThrow(()=>assertRuntimeEnvironment('parser',{...clean,PARSER_WORKER_OCR:value}));for(const value of ['','1','yes','TRUE'])assert.throws(()=>assertRuntimeEnvironment('parser',{...clean,PARSER_WORKER_OCR:value}));assert.throws(()=>assertRuntimeEnvironment('gateway',{...clean,PARSER_WORKER_TOKEN:'synthetic_gateway_token_000000000000',PARSER_WORKER_OCR:'true'}));});
+
+test('scanner settings belong only to required gateway mode and observer measurement role',()=>{
+ const gateway={...clean,PARSER_WORKER_TOKEN:'synthetic_gateway_token_000000000000',PARSER_SCAN_MODE:'required',PARSER_SCANNER_PUBLIC_KEY:'public-placeholder',PARSER_SCANNER_ENGINES:'1.4.6'};
+ assert.doesNotThrow(()=>assertRuntimeEnvironment('gateway',gateway));
+ assert.throws(()=>assertRuntimeEnvironment('parser',{...clean,PARSER_SCAN_MODE:'required'}));
+ assert.throws(()=>assertRuntimeEnvironment('gateway',{...gateway,PARSER_SCAN_MODE:'typo'}));
+ assert.throws(()=>assertRuntimeEnvironment('gateway',{...gateway,PARSER_SCANNER_ENGINES:'1.4.6,private'}));
+ const observer={...clean,SCANNER_ALLOWED_ENGINES:'1.4.6',SCANNER_TIMEZONE_UTC_CONFIRMED:'true'};assert.doesNotThrow(()=>assertRuntimeEnvironment('observer',observer));
+ assert.throws(()=>assertRuntimeEnvironment('observer',{...observer,PARSER_WORKER_TOKEN:'public_secret_canary_000000000000'}));
+ assert.throws(()=>assertRuntimeEnvironment('observer',{...observer,SCANNER_TIMEZONE_UTC_CONFIRMED:'false'}));
+});

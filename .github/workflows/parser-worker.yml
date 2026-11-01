@@ -57,3 +57,36 @@ jobs:
           JOBMATCH_PARSER_CONTAINER_TEST: '1'
           PARSER_TEST_IMAGE: jobmatch-parser:test
         run: node worker/tests/container-smoke.mjs
+
+  antivirus:
+    if: github.repository == 'kredavto/JobMatch-AI' && github.event.repository.private == false && (github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Install encrypted archive and PDF fixture tools
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends zip qpdf
+      - name: Validate overlay without real keys
+        env:
+          PARSER_WORKER_TOKEN: synthetic_configuration_token_000000000000
+          PARSER_SCANNER_PUBLIC_KEY: synthetic_configuration_public_key
+          SCANNER_OBSERVER_KEY_FILE: /dev/null
+        run: docker compose -f worker/compose.yaml -f worker/compose.antivirus.yaml config --quiet
+      - name: Build parser and observer image
+        run: docker build -f worker/Dockerfile -t jobmatch-parser:test .
+      - name: Build pinned isolated scanner image
+        run: docker build -f worker/scanner/Dockerfile -t jobmatch-scanner:test .
+      - name: Record actual scanner and parser image identities
+        run: |
+          docker image inspect --format '{{.Id}}' jobmatch-parser:test jobmatch-scanner:test
+          docker run --rm --network none --read-only --cap-drop ALL --security-opt no-new-privileges:true jobmatch-scanner:test /usr/local/bin/jobmatch-clamd --version
+          docker run --rm --network none --read-only --cap-drop ALL --security-opt no-new-privileges:true jobmatch-scanner:test sha256sum /etc/clamav/jobmatch.conf /etc/clamav/jobmatch-policy.cdb
+      - name: Verify real scanner and signed observer gate
+        env:
+          JOBMATCH_ANTIVIRUS_CONTAINER_TEST: '1'
+        run: node worker/tests/antivirus-container.mjs
