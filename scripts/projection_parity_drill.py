@@ -103,16 +103,20 @@ def main():
                 stage = 'SQL-corruption-scope-grants-and-legacy-suite'
                 run(['psql', '-X', '-w', '-v', 'ON_ERROR_STOP=1', '-f', str(ROOT / 'supabase/tests/projection_parity.sql')], target)
                 stage = 'current-service-commands-and-counts-only-read'
+                stage = 'current-service-baseline-checker'
                 first = checker(target)
                 if not first['ok'] or first['checked']['workspaces'] != 1:
                     raise ValueError('Expected populated baseline')
+                stage = 'current-service-initial-version-restore-application'
                 prepared = service(target, folder, [{'action': 'analyze'}, {'action': 'version', 'selectAllEdits': True},
                     {'action': 'restore', 'restoreLatest': True},
                     {'action': 'application', 'title': 'Synthetic current role', 'status': 'Планируется', 'note': '😀\r\nLiteral', 'resumeVersionId': 'v1'}])['state']
+                stage = 'current-source-profile-confirmation'
                 sql(target, 'grant execute on function private.source_profile_storage_permission() to authenticated;')
                 profile = source_command(target, folder, {'action': 'add', 'kind': 'employment', 'fields': {'title': {'quote': 'SQL', 'start': 0, 'end': 3}}})
                 profile = source_command(target, folder, {'action': 'confirm', 'id': profile['entries'][0]['id'], 'confirmed': True})
                 sql(target, "insert into private.letter_signing_config(signing_key) values(decode('" + KEY.hex() + "','hex'));")
+                stage = 'current-immutable-letter-acceptance'
                 receipt = bridge(folder, 'issue', {'workspace': prepared, 'letterRevision': 0})
                 sql(target, accept_statement(receipt, prepared['revision']), user=OWNER)
                 read_folder = folder / target['PGDATABASE']
@@ -124,10 +128,13 @@ def main():
                     {'action': 'vacancy', 'text': 'SQL'}, {'action': 'goal', 'text': 'Data role'},
                     {'action': 'application', 'id': 'a1', 'status': 'Отклик отправлен', 'note': 'Updated literal note', 'resumeVersionId': None},
                     {'action': 'analyze'}, {'action': 'version', 'ids': []}, {'action': 'restore', 'id': 'v1'}]):
+                    stage = 'current-service-operation-' + operation['action']
                     service(target, folder, [operation])
+                    stage = 'current-parity-and-fingerprints-after-' + operation['action']
                     before_check = manifest(target, read_folder / (str(i) + '-before.json'))
                     if not checker(target)['ok'] or compare(before_check, manifest(target, read_folder / (str(i) + '-after.json'))):
                         raise ValueError('Current command drift or read changed fingerprints')
+                stage = 'stale-source-and-letter-preservation'
                 after = read(target)
                 if after['source_matches'] or after['entries'] != profile['entries'] or after['source_original'] != profile['source_original']:
                     raise ValueError('Parity command sequence rewrote stale source evidence')
