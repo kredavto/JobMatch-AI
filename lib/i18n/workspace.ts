@@ -1,6 +1,8 @@
 import {normalizeLocale,type UiLocale} from './locale';
 /** UI copy only. Evidence, request bodies, revisions and authorization never depend on these strings. */
 export const workspaceErrors={
+ "demoUnavailable":{"ru":"Демо отключено: сохранённый профиль или несохранённые поля нельзя заменить. Сначала проверьте и сохраните либо вручную восстановите черновики.","en":"The demo is disabled: saved profile data or unsaved fields cannot be replaced. Review and save or manually restore your drafts first."},
+ "profileWriteContextInvalid":{"ru":"Ответ сохранения профиля не соответствует исходному аккаунту или следующей ревизии. Черновики оставлены. Загрузите актуальные данные; автоматического повтора нет.","en":"The profile save response does not match the original account or next revision. Drafts are preserved. Load current data; there is no automatic retry."},
  "historyInvalid": {
   "ru": "История не прошла проверку. Загруженные снимки оставлены без изменений. Повторите загрузку.",
   "en": "History validation failed. Loaded snapshots are unchanged. Load history again."
@@ -91,6 +93,7 @@ export const workspaceErrors={
  }
 } as const;
 export const workspaceNotices={
+ "profileSavedDraftPreserved":{"ru":"Данные сохранены на сервере. Несохранённый или отредактированный во время запроса текст оставлен в полях. Сравните черновики с серверной версией перед следующей записью.","en":"Data saved on the server. Unsaved text or edits made during the request remain in the fields. Compare your drafts with the server version before the next write."},
  "reloaded": {
   "ru": "Актуальные данные загружены. Ваш текст резюме, вакансии и цели оставлен в полях. Сравните его с серверной версией перед сохранением. Анализ нужно выполнить заново.",
   "en": "Current data loaded. Your resume, vacancy and goal drafts remain in the fields. Compare them with the server version before saving. Run the analysis again."
