@@ -67,6 +67,16 @@ async function startGatewayProxy(){
  process.env.IMPORT_PARSER_MODE='worker';process.env.IMPORT_PARSER_URL='https://127.0.0.1:'+gatewayProxy.address().port+'/extract';process.env.IMPORT_PARSER_TOKEN=token;
 }
 
+async function waitOwnedGateway(){
+ // Readiness probes only: extraction is sent exactly once, never automatically replayed.
+ const deadline=Date.now()+15000;
+ while(Date.now()<deadline){
+  try{const response=await fetch('http://127.0.0.1:8081/health',{signal:AbortSignal.timeout(1000)});if(response.ok&&(await response.json()).ok===true)return;}catch{}
+  await new Promise(r=>setTimeout(r,100));
+ }
+ throw Error('OWNED_GATEWAY_NOT_READY');
+}
+
 (async()=>{let failed=false;try{
  const [input,output]=process.argv.slice(2),operations=JSON.parse(fs.readFileSync(input,'utf8')).operations;
  await new Promise(r=>server.listen(0,'127.0.0.1',r));process.env.SUPABASE_URL='http://127.0.0.1:'+server.address().port;process.env.SUPABASE_PUBLISHABLE_KEY='synthetic-publishable';process.env.JOBMATCH_AUTH_QUOTA_MODE='local';
@@ -77,6 +87,7 @@ async function startGatewayProxy(){
   const {expectedStatus=200,selectAllEdits,selectFactContaining,restoreLatest,injectConcurrentGoal,uploadFixture,uploadOwner,useExtractedText,...intent}=operation;
   if(uploadFixture){
    assert.ok(ownedParserCore);assert.ok(['txt','docx','pdf','bad-txt'].includes(uploadFixture));lastExtracted=undefined;
+   fixtureStage='extract-'+uploadFixture+'-readiness';if(expectedStatus!==503&&(!uploadOwner||uploadOwner===owner))await waitOwnedGateway();
    const generators=await import('../../worker/tests/documents.mjs'),extension=uploadFixture==='bad-txt'?'txt':uploadFixture;
    const bytes=uploadFixture==='docx'?await generators.docx():uploadFixture==='pdf'?generators.pdf():uploadFixture==='bad-txt'?Buffer.from([0xff,0xfe,0xfd]):Buffer.from('SQL\nSynthetic parser profile\nRust');
    const form=new FormData();form.set('file',new File([bytes],'private-owner-resume.'+extension));
