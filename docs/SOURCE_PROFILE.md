@@ -24,7 +24,7 @@ The native RPC independently checks the authenticated role's capability ACL. The
 
 Reading is explicit and creates no profile row or additional source copy. Until the first approved write, the response shows a virtual view of the existing master resume. A captured header stores the full original resume plus ordered fact IDs, not just the selected fragments. The panel discloses this separately from fact/letter storage.
 
-Retraction of confirmation, deletion and Clear remain owner-authorized when creation is disabled. Delete removes one entry but retains the captured source. Clear removes all entries and sets the cached source, fact IDs and source revision to NULL. A non-sensitive owner/revision tombstone remains to prevent revision-zero replay. The read response after Clear contains the virtual current master source with `source_captured:false`; it does not mean a new copy was saved. Account deletion cascades both profile tables. The master resume, audit events, previous backups and user-downloaded files have their own lifetime; Clear does not erase them.
+Retraction of confirmation, deletion and Clear remain owner-authorized when creation is disabled. Delete removes one entry but retains the captured source. Clear removes all entries and sets the cached source, fact IDs and source revision to NULL. An owner/revision tombstone without resume text or fact IDs remains to prevent revision-zero replay. The read response after Clear contains the virtual current master source with `source_captured:false`; it does not mean a new copy was saved. Account deletion cascades both profile tables. The master resume, audit events, previous backups and user-downloaded files have their own lifetime; Clear does not erase them.
 
 ## Protocol and failure behavior
 
