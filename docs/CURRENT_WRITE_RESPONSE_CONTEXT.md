@@ -77,3 +77,13 @@ Historic #1/#2 approval authorizes only those merges.
 
 
 CI attempt e1fb4565eccf22eb6f36e2ac2002a305e5bd43e0: lint/types/unit/build passed; 253 browser PASS / 2 new verify interaction FAIL / 2 live SKIP. Playwright check() incorrectly required immediate controlled-checkbox state before the server acknowledgement. The test now clicks and explicitly checks the acknowledged state (checked on success, unchecked on refusal); production code and no-adoption assertions remain unchanged. Full corrected CI follows.
+
+
+Recorded corrected source: `e5c3068cabcddcd292d603c07f4e92832bfa2a7e`, tree
+`61a72300a3fc656a65234883f5c249b01c22c391`, [PR #97](https://github.com/kredavto/JobMatch-AI/pull/97).
+[Actual app CI](https://github.com/kredavto/JobMatch-AI/actions/runs/41356459823/job/124997444664):
+1,168 unit/API tests in 82 files; 255 browser PASS / 2 live SKIP; lint/types/build PASS.
+All sixteen new current-controller cases PASS. Fifteen relevant source workflows
+PASS. VERIFICATION.md records both actual red attempts, the corrected green source,
+unchanged production blobs during the checkbox-test correction and all synthetic/live limits.
+No local/manual visual result is inferred from CI.
