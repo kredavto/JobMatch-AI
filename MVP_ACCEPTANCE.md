@@ -30,3 +30,5 @@ Source-current preview/accept, серверная история и экспор
 
 ## Продолжение 1 ноября 2026 — интерфейс серверных писем
 Поверх ещё не объединённого #72 реализован пользовательский preview/accept/history flow с отдельным storage consent и unknown-result reconciliation. Черновик сохраняется при чтении актуального профиля; новая ревизия/источник требует нового просмотра. 737 unit/route, 30 Python, 140 browser PASS/2 live SKIP, lint/types/build PASS локально. Браузерный API управляемый; реальная Supabase/live приёмка и включение default-off не выполнены. Родительская модельная, семантическая и эксплуатационная приёмка остаётся открытой. [Контракт](docs/SAVED_LETTER_UI.md).
+
+[PR #73](https://github.com/kredavto/JobMatch-AI/pull/73), exact executable `ffd8ae6…`: Application и native PG17 CI PASS с теми же 737/140/2 SKIP/30 результатами; production/live приёмка остаётся открытой.

@@ -103,3 +103,13 @@ Model/semantic/held-out acceptance, real SMTP/password recovery, real Supabase
 backup/RPO/RTO, operator PD decisions and full production acceptance remain open.
 See VERIFICATION.md and PR checks for immutable CI results, not just this configured
 test plan.
+
+Executed remote proof for [PR #73](https://github.com/kredavto/JobMatch-AI/pull/73):
+source `ffd8ae6e90fc63e6ffa982f4d54b48941cb7d50d`, tree
+`3c88dd0cd7308c746b51ac85bba8ee783bdc13b7`.
+[Application](https://github.com/kredavto/JobMatch-AI/actions/runs/41289092891/job/124796422006)
+repeated 737 unit/140 browser PASS with 2 live SKIP, lint/types/build PASS.
+[Native regression](https://github.com/kredavto/JobMatch-AI/actions/runs/41289092910/job/124796422189)
+repeated 30 Python and the unchanged backend's PG17/15-table synthetic drill.
+These do not establish provider or model acceptance. The following documentation
+commit changes no executable files; its CPU docs-only scope is not fresh inference.

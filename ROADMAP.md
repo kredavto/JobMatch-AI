@@ -284,3 +284,5 @@
 
 ## Продолжение 1 ноября 2026 — UI принятия и истории писем
 В дочерней ветке поверх #72 добавлены отдельное storage consent, проверенный по текущему packet серверный preview, отдельное принятие, owner-bound история и проверяемые TXT/JSON downloads. Неопределённый ответ не повторяется; явное чтение истории сверяет точную квитанцию найденной попытки. История доступна без анализа, текущий черновик не заменяется старой версией и сохраняется при чтении профиля; owner/source/dirty/paused/expiry меняют контекст принятия. Локальные проверки: 737 unit/route, 30 Python, 140 browser PASS/2 live SKIP, lint/types/build PASS. Native/provider/live acceptance — отдельные уровни; ключ/SQL/config/merge/release не выполнялись. Далее — свежая проверка runtime dependency security на текущем main и узкий совместимый backport, не применение старого стека вслепую. [Контракт](docs/SAVED_LETTER_UI.md).
+
+UI-кандидат оформлен в [PR #73](https://github.com/kredavto/JobMatch-AI/pull/73), зависит от #72; Application и native PG17 CI на `ffd8ae6…` успешны. Merge/релиз не выполнены; отдельное разрешение не подразумевается.
