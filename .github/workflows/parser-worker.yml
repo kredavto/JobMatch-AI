@@ -1,0 +1,46 @@
+name: Isolated document parser
+on:
+  pull_request:
+    paths:
+      - 'worker/**'
+      - 'lib/**'
+      - 'app/api/import/**'
+      - 'tests/**'
+      - 'package*.json'
+      - 'tsconfig.json'
+      - '.dockerignore'
+      - '.github/workflows/parser-worker.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  parser:
+    if: github.repository == 'kredavto/JobMatch-AI' && github.event.repository.private == false && (github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npm run test:parser-worker
+      - run: npm test
+      - run: npm run lint
+      - run: npm run typecheck
+      - name: Validate deployment configuration (synthetic token only)
+        env:
+          PARSER_WORKER_TOKEN: synthetic_configuration_token_000000000000
+        run: docker compose -f worker/compose.yaml config --quiet
+      - name: Build disposable parser image
+        run: docker build -f worker/Dockerfile -t jobmatch-parser:test .
+      - name: Record actual immutable image and supported parser packages
+        run: |
+          docker image inspect --format '{{.Id}}' jobmatch-parser:test
+          docker run --rm --network none --read-only --cap-drop ALL --security-opt no-new-privileges:true --user 10001:10001 jobmatch-parser:test node -e "console.log(JSON.stringify({node:process.version,environmentNames:Object.keys(process.env).sort(),pdf:require('pdfjs-dist/package.json').version,canvas:require('node:module').createRequire(require.resolve('pdfjs-dist/package.json'))('@napi-rs/canvas/package.json').version,yauzl:require('yauzl/package.json').version}))"
+      - name: Verify real container limits and one-job lifetime
+        env:
+          JOBMATCH_PARSER_CONTAINER_TEST: '1'
+          PARSER_TEST_IMAGE: jobmatch-parser:test
+        run: node worker/tests/container-smoke.mjs

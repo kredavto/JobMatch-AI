@@ -29,3 +29,9 @@ MVP: пользователь вручную импортирует резюме
 Узкий security кандидат исправляет runtime findings 2→0 и full inventory 19→15 moderate package records по одному minimatch advisory. Полная строгая проверка действительно exit 1, независимая security/эксплуатационная приёмка не закрыта. 623 unit/route,20 Node security,28 Python,114 browser PASS/2 live SKIP,lint/types/build PASS локально; production не менялся. [Отчёт](security/MAIN_DEPENDENCY_SECURITY_20261101.md).
 
 [PR #74](https://github.com/kredavto/JobMatch-AI/pull/74), `3a3336b…`: App/audit/PG17 CI повторили локальные результаты; actual full gate остаётся1. Изолированная 13-table проверка не закрывает реальный restore Supabase или SMTP.
+
+## PR #76 — scoped parser code/containment proof, full acceptance OPEN
+
+[PR #76](https://github.com/kredavto/JobMatch-AI/pull/76) above unmerged #74 has actual current evidence: 662 unit/API, 36 Linux process/runtime, 20 security tests, lint/types/build, 125 browser PASS / 2 live SKIP; an actual Docker image and gateway/private parser passed document extraction, env/role/cgroup controls, retirement/tmpfs reset and CPU/RAM kill probes. See immutable source/image and CI links in VERIFICATION.md. Extraction is an unsaved reviewed draft; later/restored edits are preserved and error bodies are not rendered.
+
+Inline remains the compatibility default and no approved owned HTTPS service is deployed. OCR, scanning/quarantine and real host/TLS/privacy/live acceptance remain OPEN. Runtime audit is 0; full development inventory still has 15 moderate records and strict-full exit1. This is not full-project, model, independent-security, SMTP or provider-restore acceptance. #1/#2 historic approval does not authorize new merges/releases or activation.

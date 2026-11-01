@@ -103,3 +103,7 @@ lint/minimatch graph. A green runtime job is not full security acceptance.
 See [the current audit](security/MAIN_DEPENDENCY_SECURITY_20261101.md).
 The PDF 6 candidate requires Node >=22.13.0; CI tests Node 24. Review the deployment
 runtime before activation; no production runtime was changed by this PR.
+
+### Optional isolated file import (candidate, default inline)
+
+The parser candidate can route imports to an owned HTTPS gateway and a disposable bounded parser container. Review [ISOLATED_PARSER.md](docs/ISOLATED_PARSER.md) before configuration. It does not deploy a service or close operator privacy/hosting, OCR, scanning or live acceptance. Native Linux checks: `npm run test:parser-worker`; container enforcement requires the actual disposable Docker workflow. The patched PDF 6.2.108 dependency requires Node 24 (or the supported >=22.13 runtime); this worker is built/tested on Node 24.
