@@ -60,3 +60,6 @@ API/SQL/GRANT/flags/auth/lockfile/model/renderer/document codec changes, real em
 paid infrastructure, user LLM traffic, HH writes, main merge or release.
 SMTP/live recovery, provider-copy restore/RPO/RTO, operator PD policy/placement and
 qualified model remain OPEN. Historic #1/#2 approval authorizes only those merges.
+
+
+CI attempt bf3869c20c8a9f817cea86ff940e0e1623e9743d: lint/types PASS, 1171 unit PASS / 1 new unit FAIL; build/browser did not run. The positive fixture used a joined emoji containing U+200D, rejected by the unchanged v1 hidden-character rule. Positive fixtures now use a permitted supplementary symbol; an explicit negative unit and a current-language browser validation check retain joiner refusal and raw invalid input. Renderer/production code and safeguards are unchanged. Corrected full CI follows.

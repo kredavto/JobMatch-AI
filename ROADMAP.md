@@ -431,3 +431,6 @@ Local1130unit/API76files,105Python,20security,lint/types/build и3new actual Rea
 - [x] Source audit guards и changed/prepare/save byte-equal #97 после отмены только closed error-key/null substitutions. Owner/dirty/revision/duplicate/500cap/review/pending/ACK остаются; Root generic write guards и exact addedClarification сохранены. Полный CI фиксируется после выполнения.
 - Контракт [CURRENT_CLARIFICATION_LOCALES](docs/CURRENT_CLARIFICATION_LOCALES.md). Это ручная строка unverified, не AI rewrite/структурированное доказательство/tenure inference. Глобальный язык OFF, остальные экраны/offline и final acceptance OPEN.
 - Нет API/SQL/GRANT/flags/auth/lockfile/model/renderer/codecs changes, реальных писем/paid infra/LLM user traffic/HH writes/merge/release. SMTP/recovery/provider-copy/RPO/RTO/ПД/model/final ops OPEN; #1/#2 permission не расширяется.
+
+
+Первый CI bf3869c:lint/types PASS/1171unitPASS/1newunitFAIL, build/browser не запускались. Позитивная фикстура содержала U+200D в joined emoji, который неизменённый renderer v1 запрещает. Позитивные данные исправлены на разрешённый Unicode-символ, добавлены явный negative unit и browser-проверка отказа joiner/сохранения invalid input при смене языка; валидация/production code не ослаблены. Итог полного исправленного CI фиксируется далее.
