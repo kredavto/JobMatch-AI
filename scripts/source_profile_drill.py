@@ -82,9 +82,10 @@ def main():
             if all_sql.count(migration) != 1:
                 raise ValueError('Consolidated migration differs')
             prefix, suffix = all_sql.split(migration)
-            quota_paths = [ROOT / 'supabase/migrations' / p for p in (
-                '20261029080555_central_auth_quota.sql', '20261029082413_auth_quota_operations.sql')]
-            if suffix != b''.join(b'\n' + p.read_bytes() for p in quota_paths):
+            additional_paths = [ROOT / 'supabase/migrations' / p for p in (
+                '20261029080555_central_auth_quota.sql', '20261029082413_auth_quota_operations.sql',
+                '20261028110001_application_commands.sql')]
+            if suffix != b''.join(b'\n' + p.read_bytes() for p in additional_paths):
                 raise ValueError('Unexpected post-profile definitions')
             legacy = prefix[:-1]
             if hashlib.sha256(legacy).hexdigest() != BASE_SHA256:
@@ -108,7 +109,7 @@ def main():
                     source_receipt = receipt
             run([sys.executable, str(ROOT / 'scripts/backup_manifest.py'), 'snapshot', str(folder / 'before.json'), '--include-letters'], source)
             run(['psql', '-X', '-w', '-v', 'ON_ERROR_STOP=1', '-f', str(ROOT / MIGRATION)], source)
-            for path in quota_paths:
+            for path in additional_paths:
                 run(['psql', '-X', '-w', '-v', 'ON_ERROR_STOP=1', '-f', str(path)], source)
             run([sys.executable, str(ROOT / 'scripts/backup_manifest.py'), 'snapshot', str(folder / 'after.json'), '--include-letters'], source)
             if compare(json.loads((folder / 'before.json').read_text()), json.loads((folder / 'after.json').read_text())):
