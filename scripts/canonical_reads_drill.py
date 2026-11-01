@@ -101,7 +101,7 @@ def main():
                 sql(target, 'select public.save_workspace(' + str(state['revision']) + ',' + literal(json.dumps(state)) + "::jsonb,'goal');", user=OWNER, failure='PROJECTION_CONFLICT')
                 stage = 'corrupt-refusals-no-domain-fingerprint-change'
                 changed = compare(before, manifest(target, folder / ('blocked-after-' + target['PGDATABASE'] + '.json')))
-                if any(name != 'public.quota_counters' for name in changed):
+                if any(name != 'private.request_quotas' for name in changed):
                     raise ValueError('Refused service changed domain rows/history/audit')
                 stage = 'corrupt-refusals-read-only-checker'
                 checker(target, expected=1)
