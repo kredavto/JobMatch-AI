@@ -13,7 +13,7 @@ try{
    const url=new URL(request.url||'/','http://127.0.0.1');if(!paths.has(url.pathname)){next();return;}
    if(request.method!=='GET'||JSON.stringify([...url.searchParams])!==JSON.stringify([['export','1'],['expectedOwnerId',ownerId]])){response.writeHead(409,{'Cache-Control':'no-store','Content-Type':'text/plain'});response.end('SYNTHETIC_OWNER_REFUSAL');return;}
    response.writeHead(200,{'Cache-Control':'no-store','Content-Type':'application/x-ndjson','Content-Disposition':'attachment; filename="synthetic-settings.ndjson"'});
-   response.end(JSON.stringify({format:'synthetic-settings-fixture',path:url.pathname,ownerId})+'\n'+JSON.stringify({complete:true})+'\n');
+   response.end(JSON.stringify({format:'synthetic-settings-fixture',path:url.pathname,ownerId,method:request.method,query:[...url.searchParams]})+'\n'+JSON.stringify({complete:true})+'\n');
   });
  }}]:[];
  const {createServer}=await import(pathToFileURL(vitestRequire.resolve('vite')).href);

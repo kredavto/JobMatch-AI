@@ -64,9 +64,8 @@ test('a failed export requires deliberate current-data read before a new request
 });
 test('all three current history links download owner-bound separate NDJSON files',async({page})=>{
  const paths=['/api/fact-history','/api/letter-versions','/api/source-versions'],gets:string[]=[];let posts=0;await page.route('**/api/service',route=>{if(route.request().method()!=='GET')posts++;return route.fulfill({json:initial});});
- page.on('request',request=>{const url=new URL(request.url());if(!paths.includes(url.pathname))return;expect(request.method()).toBe('GET');expect([...url.searchParams]).toEqual([['export','1'],['expectedOwnerId',ownerId]]);gets.push(url.pathname);});
  await openSettings(page);await language(page,'en');const links=panel(page).getByRole('link');await expect(links).toHaveCount(3);
- for(let i=0;i<paths.length;i++){await expect(links.nth(i)).toHaveAttribute('href',paths[i]+'?export=1&expectedOwnerId='+ownerId);const pending=page.waitForEvent('download');await links.nth(i).click();const file=await pending;expect(file.suggestedFilename()).toBe('synthetic-settings.ndjson');expect(await readFile((await file.path())!,'utf8')).toBe(JSON.stringify({format:'synthetic-settings-fixture',path:paths[i],ownerId})+'\n'+JSON.stringify({complete:true})+'\n');}
+ for(let i=0;i<paths.length;i++){await expect(links.nth(i)).toHaveAttribute('href',paths[i]+'?export=1&expectedOwnerId='+ownerId);const pending=page.waitForEvent('download');await links.nth(i).click();const file=await pending;expect(file.suggestedFilename()).toBe('synthetic-settings.ndjson');const text=await readFile((await file.path())!,'utf8');expect(text).toBe(JSON.stringify({format:'synthetic-settings-fixture',path:paths[i],ownerId,method:'GET',query:[['export','1'],['expectedOwnerId',ownerId]]})+'\n'+JSON.stringify({complete:true})+'\n');gets.push(JSON.parse(text.split('\n')[0]).path);}
  expect(gets).toEqual(paths);expect(posts).toBe(0);await expect(panel(page)).toContainText('Every NDJSON must end with a complete: true record');
 });
 test('failed personal-file click revokes the Blob URL, redacts the error and supports manual retry',async({page})=>{
