@@ -1,0 +1,21 @@
+import {test,expect,type Page} from '@playwright/test';
+import {fork,type ChildProcess} from 'node:child_process';
+import {resolve} from 'node:path';
+let child:ChildProcess,origin:string;
+test.describe.configure({timeout:60000});
+test.beforeAll(async()=>{
+ const env:NodeJS.ProcessEnv={NODE_ENV:'test',JOBMATCH_LOCAL_SOURCE_LOCALES:'1'};
+ for(const key of ['PATH','TMPDIR','NODE_EXTRA_CA_CERTS','SSL_CERT_FILE','SSL_CERT_DIR','HTTP_PROXY','HTTPS_PROXY','ALL_PROXY','NO_PROXY','http_proxy','https_proxy','all_proxy','no_proxy'])if(process.env[key])env[key]=process.env[key];
+ child=fork(resolve(__dirname,'../fixtures/source-locale-server.mjs'),[],{execArgv:[],env,stdio:['ignore','ignore','ignore','ipc']});
+ origin=await new Promise<string>((done,fail)=>{const timer=setTimeout(()=>{child.kill();fail(Error('Owned auth fixture startup timed out'));},20000);child.once('error',()=>{clearTimeout(timer);fail(Error('Owned auth fixture failed'));});child.once('exit',()=>{clearTimeout(timer);fail(Error('Owned auth fixture exited'));});child.once('message',value=>{clearTimeout(timer);const port=(value as {port?:unknown})?.port;if(!Number.isInteger(port)||Number(port)<1024||Number(port)>65535){child.kill();fail(Error('Owned auth fixture refused'));return;}done('http://127.0.0.1:'+port);});});
+});
+test.afterAll(async()=>{if(!child||child.exitCode!==null)return;await new Promise<void>((done,fail)=>{const timer=setTimeout(()=>{child.kill();fail(Error('Owned auth fixture cleanup timed out'));},15000);child.once('exit',code=>{clearTimeout(timer);if(code===0)done();else fail(Error('Owned auth fixture cleanup failed'));});child.send('close');});});
+
+
+import {match,parseVacancy,propose} from '../../lib/engine';
+const ownerId='11111111-1111-4111-8111-111111111111';
+const initial=()=>({ownerId,revision:7,original:'Name\nSQL',vacancy:'Требования:\nSQL',goal:'',facts:[{id:'f1',text:'SQL',source:'Synthetic',verified:true}],versions:[],applications:[]});
+async function setup(page:Page){const state=initial(),actions:Record<string,unknown>[]=[];await page.route('**/api/service',async route=>{if(route.request().method()==='GET')return route.fulfill({json:state});const body=route.request().postDataJSON();actions.push(body);if(body.action==='analyze'){const requirements=parseVacancy(state.vacancy);return route.fulfill({json:{analysis:match(state.facts,requirements),edits:propose(state.facts,requirements)}});}return route.fulfill({status:409,json:{code:'REVISION_CONFLICT',error:'PRIVATE_SYNTHETIC'}});});await page.goto(origin+'/tests/fixtures/workspace-locale.html');await page.getByRole('navigation').getByRole('button',{name:'Анализ вакансии',exact:true}).click();await page.getByRole('button',{name:'Проанализировать →',exact:true}).click();await expect(page.locator('#ai-review-title')).toBeVisible();return{actions,panel:page.locator('[aria-labelledby="ai-review-title"]')};}
+
+test('non-JSON unavailable AI response uses fixed feedback instead of JSON parser details',async({page})=>{await page.route('**/api/ai-review',route=>route.fulfill({status:503,contentType:'text/plain',body:'PRIVATE_SYNTHETIC_NOT_JSON'}));const s=await setup(page);await s.panel.getByRole('checkbox').check();await s.panel.getByRole('button').click();await expect(s.panel.getByRole('alert')).toContainText('пока не подключён');await expect(s.panel).not.toContainText('PRIVATE_SYNTHETIC');await expect(page.locator('#editor-save')).toBeVisible();expect(s.actions.map(x=>x.action)).toEqual(['analyze']);});
+test('pausing current workspace revokes AI review consent and hides the prior result',async({page})=>{await page.route('**/api/ai-review',route=>route.fulfill({json:{ownerId,revision:7,review:{requirements:[{quote:'SQL',evidence_ids:['f1']}]}}}));const s=await setup(page);await s.panel.getByRole('checkbox').check();await s.panel.getByRole('button').click();await expect(s.panel.getByRole('blockquote')).toHaveText('SQL');await page.locator('#editor-save').click();await expect(page.getByRole('region',{name:'Восстановление синхронизации'})).toBeVisible();await expect(s.panel.getByRole('checkbox')).not.toBeChecked();await expect(s.panel.getByRole('blockquote')).toHaveCount(0);expect(s.actions.map(x=>x.action)).toEqual(['analyze','version']);});
