@@ -130,3 +130,5 @@ PR #102 source CI: 1201 unit / 87 files and 306 browser tests PASS (2 live SKIP)
 Current local composer and lexical-review controls: [optional RU/EN with literal Russian v1 documents, acknowledgement and export parity](docs/CURRENT_LOCAL_LETTER_LOCALES.md). Career/global locale and final acceptance remain open.
 
 PR #103 source CI: 1201 unit/87 files and 315 browser tests PASS (2 live SKIP), all 15 relevant workflows green. Exact Russian v1 snapshots and acknowledgements survive interface-language changes; career/global locale/full acceptance remain open.
+
+Current career controls: [RU/EN advice display with literal evidence, persistent filter/details, selected-group Russian TXT and manual download retry](docs/CURRENT_CAREER_LOCALES.md). Global locale and live/provider/model acceptance remain open.

@@ -1,4 +1,5 @@
 import {test,expect,type Page} from '@playwright/test';
+import AxeBuilder from '@axe-core/playwright';
 import {fork,type ChildProcess} from 'node:child_process';
 import {resolve} from 'node:path';
 let child:ChildProcess,origin:string;
@@ -26,4 +27,27 @@ test('actual current career controls follow optional English without changing ra
 });
 test('selected career group and open details survive locale and display exact raw quotes',async({page})=>{
  const s=await setup(page);await current(page).getByLabel('Показать требования',{exact:true}).selectOption('unconfirmed');const details=current(page).locator('details').first();await details.locator('summary').click();const quote=careerPlan(workspace.facts,workspace.vacancy).filter(x=>x.status==='unconfirmed')[0].quote;await language(page,'en');await expect(current(page).getByLabel('Show requirements',{exact:true})).toHaveValue('unconfirmed');await expect(details).toHaveAttribute('open','');await expect(details.locator('summary')).toContainText(quote);expect(s.counts()).toEqual({reads:1,writes:['analyze'],unexpected:[]});
+});
+
+async function downloaded(page:Page){const waiting=page.waitForEvent('download');await current(page).getByRole('button',{name:/^(Скачать план подготовки|Download preparation plan) \(TXT\)$/,exact:true}).click();const download=await waiting;expect(download.suggestedFilename()).toBe('jobmatch-interview-plan.txt');return readFile((await download.path())!,'utf8');}
+test('each selected group exports unchanged Russian rule bytes in either interface language',async({page})=>{
+ const s=await setup(page),items=careerPlan(workspace.facts,workspace.vacancy);
+ for(const filter of ['all','unconfirmed','supported']){await current(page).getByLabel('Показать требования',{exact:true}).selectOption(filter);const visible=items.filter(i=>filter==='all'||i.status===filter),ru=await downloaded(page);expect(ru).toBe(careerPlanText(visible));await language(page,'en');await expect(current(page).getByLabel('Show requirements',{exact:true})).toHaveValue(filter);expect(await downloaded(page)).toBe(ru);await expect(current(page)).toContainText('The TXT plan retains the existing Russian rule wording.');await language(page,'ru');}
+ expect(s.counts()).toEqual({reads:1,writes:['analyze'],unexpected:[]});
+});
+test('known English advice preserves raw source evidence and qualification limits',async({page})=>{
+ const s=await setup(page);await language(page,'en');const details=current(page).locator('details');for(const d of await details.all())await d.locator('summary').click();await expect(current(page)).toContainText('First check whether you have this experience.');await expect(current(page)).toContainText('Do not add missing numbers.');await expect(current(page)).toContainText('SQL 🧑‍💻');await expect(current(page)).toContainText('RAW источник source');await expect(current(page)).toContainText('duration, level and full requirement are not proven');await expect(current(page)).toContainText('Exercises are suggestions, not completed achievements.');await expect(current(page)).not.toContainText('PRIVATE');expect(s.counts()).toEqual({reads:1,writes:['analyze'],unexpected:[]});
+});
+test('empty filtered group blocks download without a request in either locale',async({page})=>{
+ const s=await setup(page,{...workspace,vacancy:'SQL'});await language(page,'en');await current(page).getByLabel('Show requirements',{exact:true}).selectOption('unconfirmed');await expect(current(page).locator('details')).toHaveCount(0);await expect(current(page).getByRole('button',{name:'Download preparation plan (TXT)',exact:true})).toBeDisabled();await expect(current(page)).toContainText('There are no requirements in this group.');await language(page,'ru');await expect(current(page).getByLabel('Показать требования',{exact:true})).toHaveValue('unconfirmed');await expect(current(page).getByRole('button',{name:'Скачать план подготовки (TXT)',exact:true})).toBeDisabled();expect(s.counts()).toEqual({reads:1,writes:['analyze'],unexpected:[]});
+});
+test('fixed download error retranslates and only explicit retry creates the selected file',async({page})=>{
+ const s=await setup(page),expected=careerPlanText(careerPlan(workspace.facts,workspace.vacancy).filter(x=>x.status==='unconfirmed'));await current(page).getByLabel('Показать требования',{exact:true}).selectOption('unconfirmed');
+ await page.evaluate(()=>{const original=URL.createObjectURL;Object.assign(window,{restoreCareerUrl:()=>{URL.createObjectURL=original;}});URL.createObjectURL=()=>{throw Error('PRIVATE PATH /SECRET');};});await current(page).getByRole('button',{name:'Скачать план подготовки (TXT)',exact:true}).click();await expect(current(page).getByRole('alert')).toContainText('Не удалось скачать план.');await language(page,'en');await expect(current(page).getByRole('alert')).toContainText('The plan could not be downloaded.');await expect(current(page)).not.toContainText('PRIVATE PATH');await page.evaluate(()=>{(window as unknown as {restoreCareerUrl:()=>void}).restoreCareerUrl();});await expect(current(page).getByRole('alert')).toBeVisible();expect(await downloaded(page)).toBe(expected);await expect(current(page).getByRole('alert')).toHaveCount(0);expect(s.counts()).toEqual({reads:1,writes:['analyze'],unexpected:[]});
+});
+test('English clarification action navigates without creating or confirming facts',async({page})=>{
+ const s=await setup(page);await language(page,'en');await current(page).getByRole('button',{name:'Add a clarification to the profile',exact:true}).click();await expect(page.getByRole('navigation').getByRole('button',{name:'My profile',exact:true})).toHaveAttribute('aria-current','page');expect(s.counts()).toEqual({reads:1,writes:['analyze'],unexpected:[]});
+});
+test('English current career controls pass mobile automated accessibility without writes',async({page})=>{
+ await page.setViewportSize({width:390,height:844});const s=await setup(page);await language(page,'en');for(const details of await current(page).locator('details').all())await details.locator('summary').click();expect((await new AxeBuilder({page}).include('#career-plan').analyze()).violations).toEqual([]);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);expect(s.counts()).toEqual({reads:1,writes:['analyze'],unexpected:[]});
 });
