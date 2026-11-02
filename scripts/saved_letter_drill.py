@@ -232,10 +232,14 @@ def main():
             # Old DB has no English capability and must refuse even a correctly signed English receipt.
             sql(source, 'select public.english_letter_signing_ready(' + literal(hashlib.sha256(KEY).hexdigest()) + ');', user=OWNER, failure='does not exist')
             sql(source, accept_statement(english_receipt, letter_revision=2), user=OWNER, failure='INVALID_WRITE')
+            stage = 'english-before-migration-fingerprints'
             before_english = manifest(source, folder / 'before-english.json')
+            stage = 'english-apply-incremental-migration'
             run(['psql', '-X', '-w', '-v', 'ON_ERROR_STOP=1', '-f', str(english_migration)], source)
+            stage = 'english-after-migration-fingerprints'
             if compare(before_english, manifest(source, folder / 'after-english.json')):
                 raise ValueError('English migration changed existing row fingerprints')
+            stage = 'english-capability-readiness-and-grants'
             for target in (source, full):
                 if sql(target, 'select public.english_letter_signing_ready(' + literal(hashlib.sha256(KEY).hexdigest()) + ');', user=OWNER) is not True:
                     raise ValueError('English readiness missing')
@@ -245,6 +249,7 @@ def main():
                 for role in ('anon', 'service_role'):
                     if sql(target, "select to_jsonb(has_function_privilege(" + literal(role) + ",'public.english_letter_signing_ready(text)','EXECUTE'));"):
                         raise ValueError('Unexpected English readiness grant')
+            stage = 'english-native-refusals'
             english_body = json.loads(english_receipt['payload'])
             for field, value in (('documentLanguage', 'ru'), ('templateVersion', 'main-ru-letter-81cb1a6-v1'), ('format', 'jobmatch-local-letter-snapshot-v1'), ('semanticAssessment', 'verified'), ('modelVersion', 'accepted'), ('extra', True)):
                 changed = json.loads(english_receipt['payload'])
@@ -257,6 +262,7 @@ def main():
             sql(source, "update public.profile_facts set verified=false where user_id='" + OWNER + "' and id='f1';")
             sql(source, accept_statement(english_receipt, letter_revision=2), user=OWNER, failure='CONFLICT')
             sql(source, "update public.profile_facts set verified=true where user_id='" + OWNER + "' and id='f1';")
+            stage = 'english-twenty-optimistic-writers'
             english_statement = accept_statement(english_receipt, letter_revision=2)
             def english_writer(_):
                 result = sql(source, english_statement, user=OWNER, allow_conflict=True)
@@ -273,6 +279,7 @@ def main():
                 ('begin;set local role authenticated;set local request.jwt.claims=' + literal(json.dumps({'sub': OWNER, 'session_id': SESSION})) + ';' + accept_statement(full_english, letter_revision=1) + 'rollback;').encode())
             if sql(full, 'select public.read_saved_letters();', user=OWNER)['revision'] != 1:
                 raise ValueError('English rollback left a row')
+            stage = 'english-capability-rollback-reapply'
             english_saved = manifest(source, folder / 'english-saved.json')
             run(['psql', '-X', '-w', '-v', 'ON_ERROR_STOP=1', '-f', str(english_rollback)], source)
             if compare(english_saved, manifest(source, folder / 'english-rollback.json')):
@@ -317,8 +324,9 @@ def main():
             except ValueError:
                 pass
             print('PASS: PG17 full + populated incremental schema; guarded issuer/RPC/history; 20 writers/1 commit/19 refusals; 50-version bound; account cascade; English old-schema refusal, populated migration, mixed RU/EN history, 20 English writers/1 commit/19 refusals, no-row-change capability rollback/reapply; 15 populated table fingerprints after native dump/restore; key/receipt corruption detected. Synthetic Auth only, not provider restore or capacity acceptance.')
-    except (OSError, ValueError, RuntimeError, KeyError, subprocess.SubprocessError):
-        print('FAIL: synthetic saved-letter drill at ' + stage + '; no credentials or row data printed.', file=sys.stderr)
+    except (OSError, ValueError, RuntimeError, KeyError, subprocess.SubprocessError) as error:
+        detail = str(error) if str(error) in ('English migration changed existing row fingerprints', 'Unexpected English readiness grant', 'Synthetic subprocess failed', 'Native SQL failed', 'Database snapshot failed; check connection, privileges and schema locally', 'Invalid manifest', 'Invalid or incomplete manifest', 'Manifest scopes differ') else type(error).__name__
+        print('FAIL: synthetic saved-letter drill at ' + stage + '; category=' + detail + '; no credentials or row data printed.', file=sys.stderr)
         failed = True
     finally:
         for name in reversed(created):

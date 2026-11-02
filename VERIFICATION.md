@@ -1230,3 +1230,6 @@ Three real signer/archive/summary baseline cases actually FAILED against#112;133
 
 
 AZ first implementation529c1bf170fce5e2a4489f4ef71f6153eddf11e2/tree021427b0322cfb8e662f96e64f6cd94f293e87af: Application41413731374/job125172458926 failed TypeScript TS2304 because the current builder still uses ENGLISH_LETTER_TEMPLATE_VERSION after the structural schema was split. Unit/build/browser did not run. Restored the current composer constant import to the issuance builder; frozen archive schema remains independent of composer. This is an implementation correction, not a passing source result; subsequent CI pending.
+
+
+AZ source3743fa31fb14bc10c8ddffe0cf8b2d9af66a0f1d: native41413909937/job125173035834 failed at English populated migration/rollback phase after expected old-schema capability/RPC refusals. Added bounded stage labels and fixed allowlisted failure categories (no raw SQL/stderr/rows/credentials) to locate the failing operation. No product gate or SQL check relaxed; native acceptance is still unverified pending corrected evidence.
