@@ -1,3 +1,4 @@
+begin;
 -- Stop new English issuance/acceptance; preserve every stored RU/EN receipt for upgraded readers.
 create or replace function private.accept_saved_letter(p_workspace_revision integer,p_letter_revision integer,p_payload text,p_signature text,p_accept text) returns jsonb
 language plpgsql security definer set search_path='' set timezone='UTC' set lock_timeout='2s' as $$
@@ -66,3 +67,4 @@ begin
 end$$;
 drop function public.english_letter_signing_ready(text);
 drop function private.english_letter_signing_ready(text);
+commit;

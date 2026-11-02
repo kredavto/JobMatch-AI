@@ -234,6 +234,13 @@ def main():
             sql(source, accept_statement(english_receipt, letter_revision=2), user=OWNER, failure='INVALID_WRITE')
             stage = 'english-before-migration-fingerprints'
             before_english = manifest(source, folder / 'before-english.json')
+            def english_definitions():
+                return sql(source, "select coalesce(jsonb_agg(jsonb_build_array(p.oid::regprocedure::text,pg_get_functiondef(p.oid),p.proacl::text) order by p.oid::regprocedure::text),'[]') from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname in('public','private') and p.prokind='f';")
+            english_defs = english_definitions()
+            late_migration = english_migration.read_text().rsplit('commit;', 1)[0] + "do $begin raise exception 'QA_ENGLISH_MIGRATION';end$;commit;"
+            sql(source, late_migration, failure='QA_ENGLISH_MIGRATION')
+            if english_definitions() != english_defs or compare(before_english, manifest(source, folder / 'failed-english-migration.json')):
+                raise ValueError('Failed English migration changed definitions or rows')
             stage = 'english-apply-incremental-migration'
             run(['psql', '-X', '-w', '-v', 'ON_ERROR_STOP=1', '-f', str(english_migration)], source)
             stage = 'english-after-migration-fingerprints'
@@ -281,6 +288,11 @@ def main():
                 raise ValueError('English rollback left a row')
             stage = 'english-capability-rollback-reapply'
             english_saved = manifest(source, folder / 'english-saved.json')
+            english_defs = english_definitions()
+            late_rollback = english_rollback.read_text().rsplit('commit;', 1)[0] + "do $begin raise exception 'QA_ENGLISH_ROLLBACK';end$;commit;"
+            sql(source, late_rollback, failure='QA_ENGLISH_ROLLBACK')
+            if english_definitions() != english_defs or compare(english_saved, manifest(source, folder / 'failed-english-rollback.json')):
+                raise ValueError('Failed English rollback changed definitions or rows')
             run(['psql', '-X', '-w', '-v', 'ON_ERROR_STOP=1', '-f', str(english_rollback)], source)
             if compare(english_saved, manifest(source, folder / 'english-rollback.json')):
                 raise ValueError('Capability rollback changed saved bytes')
@@ -323,7 +335,7 @@ def main():
                 raise RuntimeError('Expected fixture MAC probe refusal')
             except ValueError:
                 pass
-            print('PASS: PG17 full + populated incremental schema; guarded issuer/RPC/history; 20 writers/1 commit/19 refusals; 50-version bound; account cascade; English old-schema refusal, populated migration, mixed RU/EN history, 20 English writers/1 commit/19 refusals, no-row-change capability rollback/reapply; 15 populated table fingerprints after native dump/restore; key/receipt corruption detected. Synthetic Auth only, not provider restore or capacity acceptance.')
+            print('PASS: PG17 full + populated incremental schema; guarded issuer/RPC/history; 20 writers/1 commit/19 refusals; 50-version bound; account cascade; English old-schema refusal, populated atomic migration/rollback with injected late-fault definition+row parity, mixed RU/EN history, 20 English writers/1 commit/19 refusals, no-row-change capability rollback/reapply; 15 populated table fingerprints after native dump/restore; key/receipt corruption detected. Synthetic Auth only, not provider restore or capacity acceptance.')
     except (OSError, ValueError, RuntimeError, KeyError, subprocess.SubprocessError) as error:
         detail = str(error) if str(error) in ('English migration changed existing row fingerprints', 'Unexpected English readiness grant', 'Synthetic subprocess failed', 'Native SQL failed', 'Database snapshot failed; check connection, privileges and schema locally', 'Invalid manifest', 'Invalid or incomplete manifest', 'Manifest scopes differ') else type(error).__name__
         print('FAIL: synthetic saved-letter drill at ' + stage + '; category=' + detail + '; no credentials or row data printed.', file=sys.stderr)

@@ -1,3 +1,4 @@
+begin;
 -- Compatible English saved letters. No rows, keys or feature flags are changed.
 create or replace function private.accept_saved_letter(p_workspace_revision integer,p_letter_revision integer,p_payload text,p_signature text,p_accept text) returns jsonb
 language plpgsql security definer set search_path='' set timezone='UTC' set lock_timeout='2s' as $$
@@ -84,3 +85,4 @@ grant execute on function private.english_letter_signing_ready(text),public.engl
 do $$begin if exists(select 1 from pg_roles where rolname='service_role') then
  revoke all on function private.english_letter_signing_ready(text),public.english_letter_signing_ready(text) from service_role;
 end if;end$$;
+commit;
