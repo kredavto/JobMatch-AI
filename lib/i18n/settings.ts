@@ -1,0 +1,46 @@
+import type {Copy} from './locale';
+const ru={
+ "region": "Настройки приложения",
+ "device": "Приложение на устройстве",
+ "install": "Откройте меню браузера и выберите «Установить приложение» или «На экран Домой», если этот пункт доступен. Для установки и первого открытия нужен интернет.",
+ "offline": "При потере сети доступен только справочный офлайн-экран. Резюме, история и ответы API не сохраняются в офлайн-кэше приложения. Не закрывайте вкладку с несохраненным текстом; автоматической отправки изменений нет.",
+ "data": "Данные и интеграции",
+ "hosting": "Данные аккаунта хранятся в настроенной базе PostgreSQL/Supabase; приложение предназначено для размещения на Vercel. Этот экран не подтверждает фактический регион, допустимость размещения персональных данных, сроки хранения или удаление резервных копий: их должен подтвердить оператор.",
+ "capabilities": "Основной анализ использует консервативные правила. Собственный AI-разбор и изолированный parser/OCR требуют отдельной настройки оператором и разрешений пользователя; наличие интерфейса не подтверждает живую приёмку модели. Семантически проверенное переписывание ещё не принято. Приложение не выполняет запись в hh.ru; пароль hh.ru не нужен.",
+ "mail": "Реальная доставка регистрации и восстановления доступа, восстановление копии Supabase и итоговая эксплуатационная приёмка остаются непроверенными.",
+ "export": "Экспорт профиля, версий и откликов",
+ "facts": "Скачать полную историю фактов (NDJSON)",
+ "letters": "Скачать историю серверных писем (NDJSON)",
+ "sources": "Скачать историю структурированных версий (NDJSON)",
+ "archive": "Для полного архива скачайте JSON, три истории и JSON структурированного профиля отдельными файлами. JSON структурированного профиля доступен после явного чтения на вкладке «Профиль» и может содержать дополнительную копию исходника. Эти пять файлов не являются единым транзакционным снимком. История структурированных версий содержит отдельные неизменяемые копии исходного резюме и удаляется отдельно от текущей структуры. В истории писем сохраняются выбранные источники и текст вакансии; серверное сохранение требует отдельного согласия, предпросмотра и принятия и по умолчанию отключено. JSON содержит журнал действий до exported_at.",
+ "limits": "В конце каждого NDJSON должна быть строка complete: true; её отсутствие или ошибка означает неполный файл. Лимит истории фактов: 5000 снимков или 50 МиБ; для большего объёма нужен расширенный экспорт. Файлы содержат персональные данные: проверьте их полноту и храните безопасно. Они не заменяют восстановление копии провайдера.",
+ "ownerUnknown": "Владелец профиля не установлен. Перед экспортом или удалением явно загрузите актуальные данные.",
+ "paused": "Экспорт и удаление приостановлены. Восстановите сессию при необходимости и явно загрузите актуальные данные; запрос не повторяется автоматически.",
+ "deleteTitle": "Удалить аккаунт и данные",
+ "deleteHelp": "Удалятся профиль, версии, отклики, структура, истории, сессии и журнал аккаунта из активной базы. Скачанные вами файлы останутся на вашем устройстве. Сроки удаления резервных копий должен подтвердить оператор.",
+ "confirm": "Введите УДАЛИТЬ",
+ "remove": "Удалить безвозвратно"
+} as const;
+const en:Copy<typeof ru>={
+ "region": "Application settings",
+ "device": "App on your device",
+ "install": "Open your browser menu and choose Install app or Add to Home Screen if available. Installation and the first visit require an internet connection.",
+ "offline": "When offline, only the information screen is available. Resumes, history and API responses are not saved in the app offline cache. Keep this tab open with unsaved text; changes are not sent automatically.",
+ "data": "Data and integrations",
+ "hosting": "Account data is stored in the configured PostgreSQL/Supabase database; the app is designed for Vercel hosting. This screen does not verify the actual region, permitted personal-data placement, retention or deletion of backup copies: the operator must confirm them.",
+ "capabilities": "The main analysis uses conservative rules. Own-model AI review and isolated parser/OCR require separate operator configuration and user permissions; a UI does not establish live model acceptance. Semantically verified rewriting has not been accepted. The app does not write to hh.ru; your hh.ru password is not needed.",
+ "mail": "Real registration and recovery delivery, restoration of a Supabase backup and final operational acceptance remain unverified.",
+ "export": "Export profile, versions and applications",
+ "facts": "Download complete fact history (NDJSON)",
+ "letters": "Download saved-letter history (NDJSON)",
+ "sources": "Download structured-version history (NDJSON)",
+ "archive": "For a complete archive, download the JSON, three histories and structured-profile JSON as separate files. Structured-profile JSON is available after an explicit read in Profile and may contain an additional source copy. These five files are not one transactional snapshot. Structured-version history contains separate immutable copies of the original resume and is deleted separately from the current structure. Letter history stores selected sources and vacancy text; server saving requires separate consent, preview and acceptance and is off by default. JSON includes the action log up to exported_at.",
+ "limits": "Every NDJSON must end with a complete: true record; a missing marker or an error means an incomplete file. Fact history is limited to 5000 snapshots or 50 MiB; larger histories need an extended export. Files contain personal data: check completeness and store them securely. They do not replace restoration of a provider backup.",
+ "ownerUnknown": "The profile owner is unknown. Explicitly load current data before exporting or deleting.",
+ "paused": "Export and deletion are paused. Restore the session if needed and explicitly load current data; the request is not retried automatically.",
+ "deleteTitle": "Delete account and data",
+ "deleteHelp": "Profile, versions, applications, structure, histories, sessions and the account log are removed from the active database. Downloaded files remain on your device. The operator must confirm backup-copy deletion periods.",
+ "confirm": "Type УДАЛИТЬ",
+ "remove": "Delete permanently"
+};
+export const settingsCopy={ru,en};

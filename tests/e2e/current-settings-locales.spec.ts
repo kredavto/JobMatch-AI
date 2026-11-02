@@ -1,4 +1,6 @@
 import {test,expect,type Page} from '@playwright/test';
+import AxeBuilder from '@axe-core/playwright';
+import {readFile} from 'node:fs/promises';
 import {fork,type ChildProcess} from 'node:child_process';
 import {resolve} from 'node:path';
 let child:ChildProcess,origin:string;
@@ -27,4 +29,52 @@ test('valid-shaped export from another user cannot create a personal file',async
 test('a paused workspace cannot expose active settings history download links',async({page})=>{
  await page.route('**/api/service',route=>route.request().method()==='GET'?route.fulfill({json:initial}):route.fulfill({status:503,json:{error:'Unavailable'}}));
  await openSettings(page);await exportButton(page).click();await expect(page.locator('.error')).toBeVisible();await expect(page.getByRole('link',{name:/Скачать.*историю.*NDJSON/})).toHaveCount(0);
+});
+
+async function personalFile(page:Page){const pending=page.waitForEvent('download');await exportButton(page).click();const file=await pending;expect(file.suggestedFilename()).toBe('jobmatch-personal-data.json');return JSON.parse(await readFile((await file.path())!,'utf8'));}
+test('a workspace owner mismatch creates no file and keeps all exports paused',async({page})=>{
+ let files=0,writes=0;page.on('download',()=>files++);await page.route('**/api/service',route=>{if(route.request().method()==='GET')return route.fulfill({json:initial});writes++;return route.fulfill({json:{...archive,workspace:{...initial,ownerId:otherId}}});});
+ await openSettings(page);await exportButton(page).click();await expect(page.locator('.error')).toBeVisible();await expect(exportButton(page)).toBeDisabled();await expect(panel(page).getByRole('link')).toHaveCount(0);expect(files).toBe(0);expect(writes).toBe(1);
+});
+test('locale preserves the canonical confirmation and accurate disclosures without requests',async({page})=>{
+ let reads=0;const posts:unknown[]=[];await page.route('**/api/service',route=>{if(route.request().method()==='GET'){reads++;return route.fulfill({json:initial});}const body=route.request().postDataJSON();posts.push(body);return route.fulfill({json:body.action==='export'?archive:{ok:true}});});
+ await openSettings(page);await panel(page).locator('#settings-delete-confirm').fill('DELETE');await expect(panel(page).locator('#settings-delete')).toBeDisabled();await panel(page).locator('#settings-delete-confirm').fill('УДАЛИТЬ');await panel(page).locator('#settings-delete-confirm').evaluate((input:HTMLInputElement)=>{input.focus();input.setSelectionRange(2,5);});
+ await language(page,'en');await expect(panel(page).locator('#settings-delete-confirm')).toHaveValue('УДАЛИТЬ');expect(await panel(page).locator('#settings-delete-confirm').evaluate((input:HTMLInputElement)=>[input.selectionStart,input.selectionEnd])).toEqual([2,5]);
+ await expect(panel(page)).toContainText('This screen does not verify the actual region');await expect(panel(page)).toContainText('Real registration and recovery delivery');await expect(panel(page)).toContainText('five files are not one transactional snapshot');await expect(panel(page)).not.toContainText('Germany');expect(reads).toBe(1);expect(posts).toEqual([]);
+ expect(await personalFile(page)).toEqual(archive);expect(posts).toEqual([{action:'export',revision:7,expectedOwnerId:ownerId}]);await panel(page).locator('#settings-delete').click();await expect(panel(page)).toHaveCount(0);expect(posts).toEqual([{action:'export',revision:7,expectedOwnerId:ownerId},{action:'delete',revision:7,confirm:'УДАЛИТЬ',expectedOwnerId:ownerId}]);expect(reads).toBe(1);
+});
+test('unknown identity keeps actions and links inactive across locale changes',async({page})=>{
+ let writes=0;const {ownerId:ignored,...legacy}=initial;void ignored;await page.route('**/api/service',route=>{if(route.request().method()!=='GET')writes++;return route.fulfill({json:legacy});});await openSettings(page);await panel(page).locator('#settings-delete-confirm').fill('УДАЛИТЬ');await language(page,'en');
+ await expect(panel(page).getByRole('alert')).toContainText('profile owner is unknown');await expect(exportButton(page)).toBeDisabled();await expect(panel(page).locator('#settings-delete')).toBeDisabled();await expect(panel(page).getByRole('link')).toHaveCount(0);await expect(panel(page).locator('#settings-delete-confirm')).toHaveValue('УДАЛИТЬ');expect(writes).toBe(0);
+});
+test('one Root guard survives duplicate export clicks, locale and tab remount without replay',async({page})=>{
+ let reads=0,release!:()=>void;const held=new Promise<void>(resolve=>{release=resolve;}),posts:unknown[]=[];await page.route('**/api/service',async route=>{if(route.request().method()==='GET'){reads++;return route.fulfill({json:initial});}posts.push(route.request().postDataJSON());await held;return route.fulfill({json:archive});});
+ await openSettings(page);await panel(page).locator('#settings-delete-confirm').fill('УДАЛИТЬ');await exportButton(page).evaluate((button:HTMLButtonElement)=>{button.click();button.click();(document.querySelector('#settings-delete') as HTMLButtonElement).click();});await expect.poll(()=>posts.length).toBe(1);
+ await language(page,'en');await expect(exportButton(page)).toBeDisabled();await expect(panel(page).getByRole('link')).toHaveCount(0);await page.getByRole('navigation').getByRole('button',{name:'Overview',exact:true}).click();await page.getByRole('navigation').getByRole('button',{name:'Settings',exact:true}).click();await expect(exportButton(page)).toBeDisabled();await expect(panel(page).locator('#settings-delete-confirm')).toHaveValue('УДАЛИТЬ');
+ const pending=page.waitForEvent('download');release();await pending;await expect(exportButton(page)).toBeEnabled();expect(posts).toEqual([{action:'export',revision:7,expectedOwnerId:ownerId}]);expect(reads).toBe(1);
+});
+test('a pending synthetic deletion preserves its literal token and sends no second settings action',async({page})=>{
+ let release!:()=>void;const held=new Promise<void>(resolve=>{release=resolve;}),posts:unknown[]=[];await page.route('**/api/service',async route=>{if(route.request().method()==='GET')return route.fulfill({json:initial});posts.push(route.request().postDataJSON());await held;return route.fulfill({json:{ok:true}});});
+ await openSettings(page);await panel(page).locator('#settings-delete-confirm').fill('УДАЛИТЬ');await panel(page).locator('#settings-delete').evaluate((button:HTMLButtonElement)=>{button.click();button.click();(document.querySelector('#settings-export') as HTMLButtonElement).click();});await expect.poll(()=>posts.length).toBe(1);await language(page,'en');await expect(panel(page).locator('#settings-delete')).toBeDisabled();await expect(panel(page).getByRole('link')).toHaveCount(0);release();await expect(panel(page)).toHaveCount(0);expect(posts).toEqual([{action:'delete',revision:7,confirm:'УДАЛИТЬ',expectedOwnerId:ownerId}]);
+});
+test('a failed export requires deliberate current-data read before a new request',async({page})=>{
+ let valid=false,reads=0,writes=0;await page.route('**/api/service',route=>{if(route.request().method()==='GET'){reads++;return route.fulfill({json:initial});}writes++;return valid?route.fulfill({json:archive}):route.fulfill({status:503,json:{error:'PRIVATE EXPORT PATH'}});});
+ await openSettings(page);await exportButton(page).click();await expect(page.locator('.error')).toBeVisible();await language(page,'en');await expect(panel(page).getByRole('alert')).toContainText('Export and deletion are paused');await expect(exportButton(page)).toBeDisabled();expect(writes).toBe(1);expect(reads).toBe(1);valid=true;
+ await page.getByRole('button',{name:'Load current data',exact:true}).click();await expect(exportButton(page)).toBeEnabled();expect(reads).toBe(2);expect(await personalFile(page)).toEqual(archive);expect(writes).toBe(2);
+});
+test('all three current history links download owner-bound separate NDJSON files',async({page})=>{
+ const paths=['/api/fact-history','/api/letter-versions','/api/source-versions'],gets:string[]=[];let posts=0;await page.route('**/api/service',route=>{if(route.request().method()!=='GET')posts++;return route.fulfill({json:initial});});
+ await page.route(/\/api\/(?:fact-history|letter-versions|source-versions)\?/,route=>{const url=new URL(route.request().url());expect(route.request().method()).toBe('GET');expect([...url.searchParams]).toEqual([['export','1'],['expectedOwnerId',ownerId]]);gets.push(url.pathname);return route.fulfill({headers:{'Content-Type':'application/x-ndjson','Content-Disposition':'attachment; filename="synthetic.ndjson"'},body:'{"format":"synthetic-settings-fixture"}\n{"complete":true}\n'});});
+ await openSettings(page);await language(page,'en');const links=panel(page).getByRole('link');await expect(links).toHaveCount(3);
+ for(let i=0;i<paths.length;i++){await expect(links.nth(i)).toHaveAttribute('href',paths[i]+'?export=1&expectedOwnerId='+ownerId);const pending=page.waitForEvent('download');await links.nth(i).click();expect(await readFile((await (await pending).path())!,'utf8')).toBe('{"format":"synthetic-settings-fixture"}\n{"complete":true}\n');}
+ expect(gets).toEqual(paths);expect(posts).toBe(0);await expect(panel(page)).toContainText('Every NDJSON must end with a complete: true record');
+});
+test('failed personal-file click revokes the Blob URL, redacts the error and supports manual retry',async({page})=>{
+ let writes=0;await page.route('**/api/service',route=>{if(route.request().method()==='GET')return route.fulfill({json:initial});writes++;return route.fulfill({json:archive});});await openSettings(page);
+ await page.evaluate(()=>{const w=window as typeof window&{settingsClick?:typeof HTMLAnchorElement.prototype.click;settingsUrls?:string[];settingsRevoked?:string[]};w.settingsClick=HTMLAnchorElement.prototype.click;w.settingsUrls=[];w.settingsRevoked=[];const create=URL.createObjectURL.bind(URL),revoke=URL.revokeObjectURL.bind(URL);URL.createObjectURL=blob=>{const url=create(blob);w.settingsUrls!.push(url);return url;};URL.revokeObjectURL=url=>{w.settingsRevoked!.push(url);revoke(url);};HTMLAnchorElement.prototype.click=()=>{throw Error('PRIVATE EXPORT PATH');};});
+ await exportButton(page).click();await expect(page.locator('.error')).toBeVisible();await expect(page.locator('.error')).not.toContainText('PRIVATE');await expect.poll(()=>page.evaluate(()=>{const w=window as typeof window&{settingsUrls?:string[];settingsRevoked?:string[]};return w.settingsUrls?.length===1&&w.settingsRevoked?.[0]===w.settingsUrls?.[0];})).toBe(true);await language(page,'en');expect(writes).toBe(1);
+ await page.evaluate(()=>{HTMLAnchorElement.prototype.click=(window as typeof window&{settingsClick?:typeof HTMLAnchorElement.prototype.click}).settingsClick!;});expect(await personalFile(page)).toEqual(archive);expect(writes).toBe(2);
+});
+test('English mobile settings have no automated axe violations or horizontal overflow',async({page})=>{
+ await page.route('**/api/service',route=>route.fulfill({json:initial}));await page.setViewportSize({width:390,height:844});await openSettings(page);await language(page,'en');expect((await new AxeBuilder({page}).include('#workspace-settings').withTags(['wcag2a','wcag2aa','wcag21aa']).analyze()).violations).toEqual([]);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 });
