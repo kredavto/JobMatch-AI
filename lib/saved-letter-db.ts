@@ -19,3 +19,9 @@ export async function acceptSavedLetter(user:Identity,workspaceRevision:number,l
   return {state:result.state,record:row};
  }catch{throw new UserError('Ответ записи не прошёл проверку. Сначала перечитайте историю; не повторяйте запись автоматически.',502,'LETTER_WRITE_INVALID');}
 }
+
+/** Old schemas fail closed before English preview issuance; Russian readiness remains compatible. */
+export async function requireEnglishLetterSigningReady(user:Identity,keyId:string){
+ try{if(await supabase('/rest/v1/rpc/english_letter_signing_ready','POST',{p_key_id:keyId},user.token)!==true)throw Error('UNAVAILABLE');}
+ catch(error){if(error instanceof Error&&['AUTH','CONFLICT','RATE'].includes(error.message))throw error;throw new UserError('Серверное сохранение писем недоступно.',503,'LETTER_STORAGE_UNAVAILABLE');}
+}

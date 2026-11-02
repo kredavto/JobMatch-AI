@@ -1,6 +1,6 @@
 import {it,expect,vi,beforeEach} from 'vitest';
 const db=vi.hoisted(()=>({supabase:vi.fn()}));vi.mock('../lib/db',()=>db);
-import {readSavedLetters,readSavedLetter,acceptSavedLetter,requireLetterSigningReady} from '../lib/saved-letter-db';
+import {readSavedLetters,readSavedLetter,acceptSavedLetter,requireLetterSigningReady,requireEnglishLetterSigningReady} from '../lib/saved-letter-db';
 import {owner,other,savedFixture,emptyState} from './saved-letter-fixture';
 const user={id:owner,token:'user-jwt'};
 beforeEach(()=>vi.resetAllMocks());
@@ -9,3 +9,6 @@ it('uses user token and validates every write acknowledgement',async()=>{const f
 it.each(['AUTH','CONFLICT','RATE','SECRET NETWORK FAILURE'])('does not retry failed or unknown acceptance %s',async message=>{const f=await savedFixture();db.supabase.mockRejectedValue(Error(message));await expect(acceptSavedLetter(user,3,0,f.receipt)).rejects.toThrow(message.startsWith('SECRET')?'Результат сохранения неизвестен':message);expect(db.supabase).toHaveBeenCalledTimes(1);});
 it.each(['owner','revision','record','metadata'])('refuses false successful acknowledgement %s without retry',async kind=>{const f=await savedFixture();const receipt=structuredClone(f.receipt);if(kind==='owner')f.state.ownerId=other;if(kind==='revision')f.state.revision=0;if(kind==='record')f.record.receipt.signature='0'.repeat(64);if(kind==='metadata')f.state.items[0].workspaceRevision++;db.supabase.mockResolvedValue({state:f.state,record:f.record});await expect(acceptSavedLetter(user,3,0,receipt)).rejects.toMatchObject({status:502});expect(db.supabase).toHaveBeenCalledTimes(1);});
 it('requires exact true readiness without touching signing key',async()=>{db.supabase.mockResolvedValue('true');await expect(requireLetterSigningReady(user,'a'.repeat(64))).rejects.toMatchObject({status:503});});
+
+it('probes English capability with user token and fails closed on unavailable old schemas',async()=>{db.supabase.mockResolvedValueOnce(true);await expect(requireEnglishLetterSigningReady(user,'a'.repeat(64))).resolves.toBeUndefined();expect(db.supabase).toHaveBeenCalledExactlyOnceWith('/rest/v1/rpc/english_letter_signing_ready','POST',{p_key_id:'a'.repeat(64)},'user-jwt');for(const value of [false,null,{},'true']){db.supabase.mockResolvedValueOnce(value);await expect(requireEnglishLetterSigningReady(user,'a'.repeat(64))).rejects.toMatchObject({status:503,code:'LETTER_STORAGE_UNAVAILABLE'});}db.supabase.mockRejectedValueOnce(Error('PGRST202 missing function PRIVATE DETAILS'));await expect(requireEnglishLetterSigningReady(user,'a'.repeat(64))).rejects.toMatchObject({status:503});});
+it.each(['AUTH','CONFLICT','RATE'])('preserves guarded English readiness failure %s without fallback',async message=>{db.supabase.mockRejectedValueOnce(Error(message));await expect(requireEnglishLetterSigningReady(user,'a'.repeat(64))).rejects.toThrow(message);expect(db.supabase).toHaveBeenCalledTimes(1);});

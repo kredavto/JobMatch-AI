@@ -7,7 +7,7 @@ import {boundedBody} from '../../../lib/body';
 import {UserError} from '../../../lib/errors';
 import {LetterReceiptSchema} from '../../../lib/saved-letter';
 import {letterSigningConfig,issueLetterReceipt,verifyLetterReceipt} from '../../../lib/saved-letter-signing';
-import {readSavedLetters,readSavedLetter,acceptSavedLetter,requireLetterSigningReady} from '../../../lib/saved-letter-db';
+import {readSavedLetters,readSavedLetter,acceptSavedLetter,requireLetterSigningReady,requireEnglishLetterSigningReady} from '../../../lib/saved-letter-db';
 import {savedLetterStream} from '../../../lib/saved-letter-stream';
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
@@ -27,7 +27,7 @@ async function POSTHandler(req:NextRequest){try{
   if(verified.payload.source.workspaceRevision!==body.workspaceRevision||verified.payload.source.letterRevision!==body.letterRevision)throw Error('CONFLICT');
   return NextResponse.json(await acceptSavedLetter(user,body.workspaceRevision,body.letterRevision,verified.receipt),{headers:{'Cache-Control':'no-store'}});
  }
- await requireLetterSigningReady(user,config.keyId);
+ if(JSON.parse(body.snapshotJson)?.format==='jobmatch-english-letter-record-v1')await requireEnglishLetterSigningReady(user,config.keyId);else await requireLetterSigningReady(user,config.keyId);
  const [workspace,state]=await Promise.all([readWorkspace(user),readSavedLetters(user)]);
  if(workspace.revision!==body.workspaceRevision||state.revision!==body.letterRevision)throw Error('CONFLICT');
  const receipt=issueLetterReceipt(user.id,workspace,state.revision,body.snapshotJson,config);

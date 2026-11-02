@@ -223,6 +223,65 @@ def main():
             sql(source, 'delete from private.letter_signing_config;')
             verify_history(source, folder, receipt)
             sql(source, "insert into private.letter_signing_config(signing_key) values(decode('" + KEY.hex() + "','hex'));")
+
+            stage = 'english-populated-migration-and-rollback'
+            english_migration = ROOT / 'supabase/migrations/20261102082400_english_saved_letters.sql'
+            english_rollback = ROOT / 'supabase/rollback/20261102082400_english_saved_letters.sql'
+            english_workspace = sql(source, 'select public.read_workspace();', user=OWNER)
+            english_receipt = bridge(folder, 'issue', {'workspace': {**english_workspace, 'ownerId': OWNER}, 'letterRevision': 2, 'language': 'en', 'edited': True})
+            # Old DB has no English capability and must refuse even a correctly signed English receipt.
+            sql(source, 'select public.english_letter_signing_ready(' + literal(hashlib.sha256(KEY).hexdigest()) + ');', user=OWNER, failure='does not exist')
+            sql(source, accept_statement(english_receipt, letter_revision=2), user=OWNER, failure='INVALID_WRITE')
+            before_english = manifest(source, folder / 'before-english.json')
+            run(['psql', '-X', '-w', '-v', 'ON_ERROR_STOP=1', '-f', str(english_migration)], source)
+            if compare(before_english, manifest(source, folder / 'after-english.json')):
+                raise ValueError('English migration changed existing row fingerprints')
+            for target in (source, full):
+                if sql(target, 'select public.english_letter_signing_ready(' + literal(hashlib.sha256(KEY).hexdigest()) + ');', user=OWNER) is not True:
+                    raise ValueError('English readiness missing')
+                if sql(target, "select public.english_letter_signing_ready(repeat('0',64));", user=OWNER) is not False:
+                    raise ValueError('English readiness ignored wrong key')
+                sql(target, 'set role anon;select public.english_letter_signing_ready(' + literal(hashlib.sha256(KEY).hexdigest()) + ');', failure='permission denied')
+                for role in ('anon', 'service_role'):
+                    if sql(target, "select to_jsonb(has_function_privilege(" + literal(role) + ",'public.english_letter_signing_ready(text)','EXECUTE'));"):
+                        raise ValueError('Unexpected English readiness grant')
+            english_body = json.loads(english_receipt['payload'])
+            for field, value in (('documentLanguage', 'ru'), ('templateVersion', 'main-ru-letter-81cb1a6-v1'), ('format', 'jobmatch-local-letter-snapshot-v1'), ('semanticAssessment', 'verified'), ('modelVersion', 'accepted'), ('extra', True)):
+                changed = json.loads(english_receipt['payload'])
+                changed['snapshot'][field] = value
+                sql(source, accept_statement(sign(changed), letter_revision=2), user=OWNER, failure='INVALID_WRITE')
+            sql(source, accept_statement(english_receipt, letter_revision=2), user=OTHER, session=OTHER_SESSION, failure='INVALID_WRITE')
+            sql(source, accept_statement(english_receipt, letter_revision=2), user=OWNER, session=OTHER_SESSION, failure='AUTH')
+            sql(source, accept_statement(english_receipt, letter_revision=2, marker='yes'), user=OWNER, failure='INVALID_WRITE')
+            sql(source, accept_statement({**english_receipt, 'signature': '00' * 32}, letter_revision=2), user=OWNER, failure='INVALID_WRITE')
+            sql(source, "update public.profile_facts set verified=false where user_id='" + OWNER + "' and id='f1';")
+            sql(source, accept_statement(english_receipt, letter_revision=2), user=OWNER, failure='CONFLICT')
+            sql(source, "update public.profile_facts set verified=true where user_id='" + OWNER + "' and id='f1';")
+            english_statement = accept_statement(english_receipt, letter_revision=2)
+            def english_writer(_):
+                result = sql(source, english_statement, user=OWNER, allow_conflict=True)
+                return 'refusal' if result == 'CONFLICT' else 'commit'
+            with concurrent.futures.ThreadPoolExecutor(max_workers=20) as pool:
+                english_results = list(pool.map(english_writer, range(20)))
+            if english_results.count('commit') != 1 or english_results.count('refusal') != 19 or sql(source, 'select public.read_saved_letters();', user=OWNER)['revision'] != 3:
+                raise ValueError('English optimistic writer assertion failed')
+            verify_history(source, folder, english_receipt)
+            verify_history(source, folder, receipt)  # Existing Russian bytes still readable.
+            # Exercise English acceptance on the consolidated schema, but roll it back atomically.
+            full_english = bridge(folder, 'issue', {'workspace': {**sql(full, 'select public.read_workspace();', user=OWNER), 'ownerId': OWNER}, 'letterRevision': 1, 'language': 'en'})
+            run(['psql', '-X', '-q', '-w', '-v', 'ON_ERROR_STOP=1'], full,
+                ('begin;set local role authenticated;set local request.jwt.claims=' + literal(json.dumps({'sub': OWNER, 'session_id': SESSION})) + ';' + accept_statement(full_english, letter_revision=1) + 'rollback;').encode())
+            if sql(full, 'select public.read_saved_letters();', user=OWNER)['revision'] != 1:
+                raise ValueError('English rollback left a row')
+            english_saved = manifest(source, folder / 'english-saved.json')
+            run(['psql', '-X', '-w', '-v', 'ON_ERROR_STOP=1', '-f', str(english_rollback)], source)
+            if compare(english_saved, manifest(source, folder / 'english-rollback.json')):
+                raise ValueError('Capability rollback changed saved bytes')
+            verify_history(source, folder, english_receipt)
+            next_english = bridge(folder, 'issue', {'workspace': {**english_workspace, 'ownerId': OWNER}, 'letterRevision': 3, 'language': 'en'})
+            sql(source, accept_statement(next_english, letter_revision=3), user=OWNER, failure='INVALID_WRITE')
+            run(['psql', '-X', '-w', '-v', 'ON_ERROR_STOP=1', '-f', str(english_migration)], source)
+            verify_history(source, folder, english_receipt)
             stage = 'fifty-version-bound-and-cascade'
             # Full-schema fixture fills remaining slots through the real issuer/RPC.
             full_workspace = sql(full, 'select public.read_workspace();', user=OWNER)
@@ -244,6 +303,7 @@ def main():
             if compare(baseline, manifest(restored, folder / 'restored.json')):
                 raise ValueError('Restored fingerprints differ')
             verify_history(restored, folder, receipt)
+            verify_history(restored, folder, english_receipt)
             stage = 'intentional-key-and-signature-corruption-detection'
             sql(restored, "update private.letter_signing_config set signing_key=decode('" + 'cd' * 32 + "','hex');")
             if compare(baseline, manifest(restored, folder / 'changed-key.json')) != ['private.letter_signing_config']:
@@ -256,7 +316,7 @@ def main():
                 raise RuntimeError('Expected fixture MAC probe refusal')
             except ValueError:
                 pass
-            print('PASS: PG17 full + populated incremental schema; guarded issuer/RPC/history; 20 writers/1 commit/19 refusals; 50-version bound; account cascade; 15 populated table fingerprints after native dump/restore; key/receipt corruption detected. Synthetic Auth only, not provider restore or capacity acceptance.')
+            print('PASS: PG17 full + populated incremental schema; guarded issuer/RPC/history; 20 writers/1 commit/19 refusals; 50-version bound; account cascade; English old-schema refusal, populated migration, mixed RU/EN history, 20 English writers/1 commit/19 refusals, no-row-change capability rollback/reapply; 15 populated table fingerprints after native dump/restore; key/receipt corruption detected. Synthetic Auth only, not provider restore or capacity acceptance.')
     except (OSError, ValueError, RuntimeError, KeyError, subprocess.SubprocessError):
         print('FAIL: synthetic saved-letter drill at ' + stage + '; no credentials or row data printed.', file=sys.stderr)
         failed = True
