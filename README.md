@@ -140,3 +140,5 @@ Current application creation: [exact acknowledgements, a shared synchronous trac
 PR #105 source CI:1225unit/89files and333browserPASS/2liveSKIP, all15relevant workflows green. Exact manual-tracker creation ACKs preserve newer drafts; employer/provider/model and full operational acceptance remain open.
 
 Current application notes: [exact update acknowledgements, newer draft preservation and deliberate stale-base comparison](docs/CURRENT_APPLICATION_NOTES.md). Manual tracker records do not establish employer submissions or live operational acceptance.
+
+PR #106 corrected-source CI:1250unit/90files and344browserPASS/2liveSKIP; all15relevant workflows green. Exact tracker update ACKs preserve newer note context and require deliberate stale-base comparison. Initial failed test-wait evidence is retained; full live/provider/model acceptance remains open.
