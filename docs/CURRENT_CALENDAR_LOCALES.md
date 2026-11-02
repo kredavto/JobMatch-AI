@@ -1,0 +1,13 @@
+# Current ICS controls and explicit local time
+
+PR #108 layers on ready/unmerged #107. Default Russian and optional English presentation does not enable global English or a new document codec.
+
+The actual current workspace calendar composer accepts an explicit named IANA zone, initialized once from the device when available. The supported contract is local years 2000–2099 and modern whole-minute UTC offsets from −14 to +14 hours. Native Intl round-trips enumerate candidate instants independently of the process/device zone. Invalid local dates, unavailable zones and times with no supported candidate are refused. A repeated local time requires an explicit UTC-offset choice; there is no default occurrence. Changes to time or zone clear that choice. The selected UTC instant is displayed before download. This bounded contract does not claim all historical offsets, future political rule accuracy or calendar-provider delivery.
+
+Locale changes preserve application, canonical Russian event kind, local time, IANA zone, chosen occurrence, duration, description/caret, alarm and UID. Only business edits reset UID; a semantic basis also covers the selected title and resolved UTC instant. English labels retain the three Russian event-kind values. The existing ICS serializer, escaping, CRLF/folding, CLASS:PRIVATE and filename remain unchanged. Vacancy title/description are not translated; resumes and tracker notes are excluded. Russian event-kind framing in the file is explicitly disclosed. DTSTAMP is generated at each manual download; byte equality across locale is tested with a frozen clock.
+
+Errors use fixed semantic copy in the current language. Unknown exception messages are never rendered. No automatic retry occurs. Blob URL cleanup runs even if the anchor click throws; retry requires a user click. UI status says that a file is ready and must be imported/checked, not that an event or notification was created.
+
+No reminder DB/API, SEQUENCE contract, network write, calendar-provider import, email or notification delivery is introduced. Existing legacy localStart remains unchanged for compatibility; the UI uses the separate bounded resolver. Persistent reminders, real device/calendar import checks, global locale and English versioned documents remain open.
+
+Verification uses actual current-controller browser tests with an owned local auth fixture and native Intl unit cases in existing GitHub Actions. Route fixtures are not live accounts/provider acceptance. Runtime is unavailable; no local execution, manual screenshots or independently computed hashes are claimed. Source/final commits and exact checkout evidence are recorded in VERIFICATION.md/PR after CI completes.
