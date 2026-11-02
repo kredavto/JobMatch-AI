@@ -68,7 +68,9 @@ for(const endpoint of ['history','import'])test(endpoint+' expiration opens reco
  await page.route('**/api/service',r=>r.fulfill({json:initial}));
  await page.route('**/api/fact-history*',r=>r.fulfill({status:401,json:{error:'Сессия истекла'}}));
  await page.route('**/api/import',r=>r.fulfill({status:401,json:{error:'Сессия истекла'}}));
- await page.goto('/');await page.getByRole('navigation').getByRole('button',{name:'Мой профиль',exact:true}).click();
+ await page.goto('/');await page.getByRole('navigation').getByRole('button',{name:'Настройки',exact:true}).click();
+ await expect(page.getByRole('link',{name:'Скачать полную историю фактов (NDJSON)'})).toHaveAttribute('href','/api/fact-history?export=1&expectedOwnerId='+ownerId);
+ await page.getByRole('navigation').getByRole('button',{name:'Мой профиль',exact:true}).click();
  const draft=page.getByLabel('Проверьте текст после импорта');await draft.fill('Сохранить этот черновик');
  if(endpoint==='history')await page.getByRole('button',{name:'Обновить историю фактов'}).click();
  else await page.getByLabel('Загрузить TXT, DOCX, PDF · до 4 МБ').setInputFiles({name:'fixture.txt',mimeType:'text/plain',buffer:Buffer.from('SQL')});
@@ -87,5 +89,6 @@ for(const endpoint of ['history','import'])test(endpoint+' binds requests to the
  else await page.locator('input[type=file]').setInputFiles({name:'resume.txt',mimeType:'text/plain',buffer:Buffer.from('Новый текст')});
  await expect(page.getByRole('heading',{name:'Восстановить вход'})).toBeVisible();await expect(draft).toHaveValue('Личный черновик');expect(requests).toBe(1);
  await page.getByRole('navigation').getByRole('button',{name:'Настройки',exact:true}).click();
- await expect(page.getByRole('link',{name:'Скачать полную историю фактов (NDJSON)'})).toHaveAttribute('href','/api/fact-history?export=1&expectedOwnerId='+ownerId);
+ await expect(page.getByRole('link',{name:'Скачать полную историю фактов (NDJSON)'})).toHaveCount(0);
+ await expect(page.getByRole('button',{name:'Экспорт профиля, версий и откликов'})).toBeDisabled();
 });
