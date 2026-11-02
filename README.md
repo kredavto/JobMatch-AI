@@ -138,3 +138,5 @@ PR #104 source CI:1203unit/88files and323browserPASS/2liveSKIP; all15relevant wo
 Current application creation: [exact acknowledgements, a shared synchronous tracker guard and preservation of the next draft](docs/CURRENT_APPLICATION_CREATE.md). These are manual tracker records, not employer submissions; operational acceptance remains open.
 
 PR #105 source CI:1225unit/89files and333browserPASS/2liveSKIP, all15relevant workflows green. Exact manual-tracker creation ACKs preserve newer drafts; employer/provider/model and full operational acceptance remain open.
+
+Current application notes: [exact update acknowledgements, newer draft preservation and deliberate stale-base comparison](docs/CURRENT_APPLICATION_NOTES.md). Manual tracker records do not establish employer submissions or live operational acceptance.
