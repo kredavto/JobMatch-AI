@@ -144,3 +144,5 @@ Current application notes: [exact update acknowledgements, newer draft preservat
 PR #106 corrected-source CI:1250unit/90files and344browserPASS/2liveSKIP; all15relevant workflows green. Exact tracker update ACKs preserve newer note context and require deliberate stale-base comparison. Initial failed test-wait evidence is retained; full live/provider/model acceptance remains open.
 
 Current tracker controls: [optional RU/EN, canonical Russian status values, preserved editing context and recorded UTC/legacy dates](docs/CURRENT_TRACKER_LOCALES.md). Calendar/global locale and operational acceptance remain open.
+
+PR #107 source CI:1250unit/90files and356browserPASS/2liveSKIP; all15relevant workflows green. Localized tracker controls preserve canonical status/API values, draft context and raw recorded data. Calendar/global locale and live/provider/model acceptance remain open.
