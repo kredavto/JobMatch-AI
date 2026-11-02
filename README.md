@@ -147,4 +147,4 @@ Current tracker controls: [optional RU/EN, canonical Russian status values, pres
 
 PR #107 source CI:1250unit/90files and356browserPASS/2liveSKIP; all15relevant workflows green. Localized tracker controls preserve canonical status/API values, draft context and raw recorded data. Calendar/global locale and live/provider/model acceptance remain open.
 
-Current ICS composer: [explicit IANA time/occurrence choice, optional RU/EN, locale-stable draft/UID and fixed download failures](docs/CURRENT_CALENDAR_LOCALES.md). Local file export does not establish persistent reminders, created calendar events or delivered notifications. Source CI pending; global/live acceptance remains open.
+Current ICS composer: [explicit IANA time/occurrence choice, optional RU/EN, locale-stable draft/UID and fixed download failures](docs/CURRENT_CALENDAR_LOCALES.md). Local file export does not establish persistent reminders, created calendar events or delivered notifications. PR #108 source CI:1257unit/91files and367browserPASS/2liveSKIP; all15relevant workflows green. Global/live/provider/model acceptance remains open.
