@@ -136,3 +136,5 @@ Current career controls: [RU/EN advice display with literal evidence, persistent
 PR #104 source CI:1203unit/88files and323browserPASS/2liveSKIP; all15relevant workflows green. Career display translation preserves exact selected-group Russian TXT and literal evidence; global/operational acceptance remains open.
 
 Current application creation: [exact acknowledgements, a shared synchronous tracker guard and preservation of the next draft](docs/CURRENT_APPLICATION_CREATE.md). These are manual tracker records, not employer submissions; operational acceptance remains open.
+
+PR #105 source CI:1225unit/89files and333browserPASS/2liveSKIP, all15relevant workflows green. Exact manual-tracker creation ACKs preserve newer drafts; employer/provider/model and full operational acceptance remain open.
