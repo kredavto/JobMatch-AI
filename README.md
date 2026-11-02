@@ -124,3 +124,5 @@ Optional private document scan gate: [deployment/trust boundaries](docs/DOCUMENT
 
 
 Current saved-letter history and acceptance: [RU/EN, UTC, bounded transport and immutable receipt contract](docs/CURRENT_SAVED_LETTER_LOCALES.md). Optional presentation does not change the Russian v1 document or qualify a model; live/provider acceptance remains open.
+
+PR #102 source CI: 1201 unit / 87 files and 306 browser tests PASS (2 live SKIP); all 15 relevant workflows green. Presentation-only locale leaves signed RU v1 snapshots unchanged. Full provider/model/operational acceptance is still open.
