@@ -154,3 +154,8 @@ Current settings: [known-owner archive validation, synchronized export/deletion 
 Current analytics: [recorded-time cohorts independent of device zone, day-only CSV precision and optional RU/EN filters/feedback](docs/CURRENT_ANALYTICS_LOCALES.md). Unknown time is disclosed, source history remains literal, comparisons do not establish causality. Specialty/global/live acceptance remains open; PR #110 source CI:1279unit/93files and388browserPASS/2liveSKIP; all15relevant workflows green. Model/provider/global/live acceptance remains open.
 
 Current public locale candidate: [one explicit RU/EN preference across current screens and generic offline, with stable drafts, matching metadata/manifests and unchanged private cache boundaries](docs/CURRENT_PUBLIC_LOCALES.md). Frozen Russian v1 documents remain disclosed; English documents and live/provider/model/operational acceptance stay open. PR #111 source CI:1290unit/94files and402browserPASS/2liveSKIP; all15relevant workflows green. Initial selector failure and stale-database baseline refusal remain recorded; full translation/model/provider/live acceptance is still open.
+
+
+Candidate PR #112 adds [explicit document language](docs/CURRENT_DOCUMENT_FRAMING.md): frozen Russian-compatible output and local English letter/interview framing; English signed server storage remains unfinished. Main/production and full acceptance are unchanged.
+
+PR #112 source verification:1338 unit/95files and414 browser passed,2skipped,15 relevant workflows passed; see VERIFICATION.md for immutable source/tree evidence and remaining acceptance. The separate synthetic CPU diagnostic scored0/16 and remains NOT ACCEPTED.
