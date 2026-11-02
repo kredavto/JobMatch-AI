@@ -13,8 +13,6 @@ import {boundedBody} from '../lib/body';
 import {ImportDraftSchema,ImportOcrErrorSchema,documentExtension,MAX_PARSER_RESPONSE_BYTES} from '../lib/parser-contract';
 import {ExportSchema} from '../lib/export-schema';
 import {validateAnalysisResponse} from '../lib/analysis-response';
-import ResumeDownload from './resume-download';
-import MatchMetadataPanel from './match-metadata-panel';
 import CoverLetterPanel from './cover-letter-panel';
 import SavedLettersPanel from './saved-letters-panel';
 import CareerPanel from './career-panel';
@@ -26,7 +24,7 @@ import SourceProfilePanel from './source-profile-panel';
 import SourceVersionsPanel from './source-versions-panel';
 import StructuredFactPanel from './structured-fact-panel';
 import {addedClarification} from './structured-fact';
-import VersionComparison from './version-comparison';
+import OrdinaryVersionsPanel from './ordinary-versions-panel';
 import ApplicationList, {type NoteDrafts} from './application-list';
 import ApplicationReminder from './application-reminder';
 import AnalyticsPanel from './analytics-panel';
@@ -113,9 +111,8 @@ export default function WorkspacePage({locale='ru'}:{locale?:UiLocale}){
  {(['profile','versions'].includes(tab))&&<SourceVersionsPanel locale={language} ownerId={state.ownerId} revision={state.revision} original={state.original} factIds={state.facts.map(f=>f.id)} disabled={busy||needsReload||resume!==state.original} allowPrepare={tab==='profile'} onBoundaryError={status=>{if(status===401)setSessionExpired(true);setNeedsReload(true);}}/>}
 
  {tab==='editor'&&<CoverLetterPanel key={state.ownerId} ownerId={state.ownerId} revision={state.revision} profileOriginal={state.original} facts={state.facts} vacancy={state.vacancy} sourceDirty={resume!==state.original||vacancy!==state.vacancy||goal!==state.goal} disabled={busy||needsReload} onBoundaryError={status=>{if(status===401)setSessionExpired(true);setNeedsReload(true);}}/>}
- {tab==='versions'&&<VersionComparison versions={state.versions}/>}
  {tab==='versions'&&<SavedLettersPanel ownerId={state.ownerId} workspaceRevision={state.revision} disabled={busy||needsReload} onBoundaryError={status=>{if(status===401)setSessionExpired(true);setNeedsReload(true);}}/>}
- {tab==='versions'&&<section className="card"><h2>История резюме</h2>{!state.versions.length&&<p>Сохраненные версии появятся после анализа и подтверждения правок.</p>}{state.versions.slice().reverse().map((v,i)=><details key={v.id} open={i===0}><summary>Версия {state.versions.length-i} · {new Date(v.created).toLocaleString('ru-RU')} · {v.score}/100</summary><pre>{v.text}</pre><small>Ревизия профиля: {v.profile_revision??"не сохранена (старая версия)"} · Движок: {v.engine_version??"не сохранен"}</small><MatchMetadataPanel metadata={v.match_metadata}/>{v.evidence_snapshot&&<details><summary>Подтвержденные факты этой версии</summary>{v.evidence_snapshot.map(f=><p key={f.id}>{f.text}<small>{f.id} · {f.source}</small></p>)}</details>}<small>Evidence: {v.evidence_ids.join(', ')||'Оригинал'}</small><div className="actions"><button onClick={()=>download('jobmatch-resume.txt',v.text)}>Скачать TXT</button><ResumeDownload id={v.id} ownerId={state.ownerId}/><button onClick={()=>download('jobmatch-version.json',JSON.stringify(v,null,2),'application/json')}>Скачать JSON + evidence</button><button onClick={async()=>{try{await navigator.clipboard.writeText(v.text);setNotice({key:'copied'});}catch{setError(new WorkspaceRequestError('clipboardFailed'));}}}>Скопировать для hh.ru</button><button disabled={busy} onClick={()=>act('restore',{id:v.id})}>Восстановить как новую версию</button></div></details>)}<h3>Перенос на hh.ru</h3><ol><li>Откройте <a href="https://hh.ru/applicant/resumes" target="_blank" rel="noreferrer">список своих резюме</a>.</li><li>Выберите резюме и откройте редактирование.</li><li>Перенесите выбранные фрагменты в соответствующие поля.</li><li>Проверьте даты, работодателей, образование и подтвердите сохранение на hh.ru.</li></ol></section>}
+ {tab==='versions'&&<OrdinaryVersionsPanel key={state.ownerId} locale={language} ownerId={state.ownerId} versions={state.versions} busy={busy||needsReload} onRestore={id=>act('restore',{id})} onDownload={download} onCopy={async text=>{try{await navigator.clipboard.writeText(text);setNotice({key:'copied'});}catch{setError(new WorkspaceRequestError('clipboardFailed'));}}}/>}
  {tab==='applications'&&<ApplicationReminder applications={state.applications}/>}
  {tab==='applications'&&<section className="card"><h2>Движение к следующей работе</h2><p>Статусы обновляются вручную. Приложение не отправляет отклики.</p><label>Вакансия / компания<input value={application} onChange={e=>setApplication(e.target.value)}/></label><label>Версия резюме для отклика<select value={resumeVersionId} onChange={e=>setResumeVersionId(e.target.value)}><option value="">Без привязки</option>{state.versions.map((v,i)=><option key={v.id} value={v.id}>Версия {i+1} · {new Date(v.created).toLocaleDateString("ru-RU")}</option>)}</select></label><button disabled={busy||!application.trim()} onClick={async()=>{if(await act('application',{title:application,status:'Планируется',resumeVersionId:resumeVersionId||null}))setApplication('');}}>Добавить в трекер</button><ApplicationList applications={state.applications} versions={state.versions} busy={busy} drafts={noteDrafts} onDraft={(id,value)=>setNoteDrafts(previous=>{const next={...previous};if(value)next[id]=value;else delete next[id];return next;})} onUpdate={update=>act('application',update)}/></section>}
  {tab==='analytics'&&<AnalyticsPanel applications={state.applications} versions={state.versions}/>}

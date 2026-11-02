@@ -31,3 +31,11 @@ known rule reasons/category labels are translated; raw evidence/quotes and the
 Russian v1 document remain literal. UI language preserves selection and undo;
 dirty/paused/stale saved context blocks actions. Global selector remains OFF.
 See docs/CURRENT_EDITOR_CONTEXT_LOCALES.md for limits and immutable CI evidence.
+
+The current saved-version history, comparison, historical metadata and DOCX panel
+have optional/default-RU presentation in OrdinaryVersionsPanel and its children.
+Explicit instants display in UTC; date-only/naive legacy precision is preserved
+with fixed qualifications. Locale preserves comparison selections and pending
+DOCX identity; owner/version changes reset download state. Raw exports, rules,
+text/evidence and request IDs stay literal. See docs/CURRENT_VERSION_HISTORY_LOCALES.md.
+Global language selection remains OFF; this is not full-English acceptance.
