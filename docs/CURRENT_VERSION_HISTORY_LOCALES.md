@@ -78,3 +78,6 @@ SQL/RLS/GRANT/flags/auth/lockfile/document renderer changes or production migrat
 actual SMTP, paid infrastructure, user LLM traffic, HH write, main merge or release.
 SMTP/recovery/provider-copy restore/RPO/RTO/operator PD/model/full acceptance stay
 OPEN. Historic #1/#2 approval applies only to those merges.
+
+
+Первый CI исправления `08bef91b707364e3eaceea49ec515061415be228` / tree `4d8ec299ddcf4117b4207af9955ff977bab416c6`, checkout `0a32bf6cc4a7e007d6e37ffdbbd2ea381de96cb6`: [App](https://github.com/kredavto/JobMatch-AI/actions/runs/41365656329/job/125025157218)1185unit85files/274browserPASS/5newfixture-labelFAIL/2liveSKIP,lint/types/build PASS. Даты/history/exports/restore и все старые сценарии PASS. Пять DOCX-сценариев не прошли точный getByLabel: implicit label тестовой страницы включал тексты options. Fixture исправлен на явные htmlFor/id; production code и assertions не меняются, повторный полный CI pending.
