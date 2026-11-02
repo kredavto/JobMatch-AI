@@ -1242,3 +1242,6 @@ AZ source861f0a17b659724b45e51f61d29c9bcf08c37c5c: saved-letter native4141473692
 
 
 AZ migration/rollback are now explicitly transactional (BEGIN/COMMIT), rather than relying on migration-runner wrapping. Extended native checks inject a late DDL exception in each and require unchanged complete public/private function definitions+ACLs and all15row fingerprints before continuing normal migration/rollback/reapply. Existing predecessor SHA pins remain unchanged; fixture suffixes read exactly the same migration bytes as schema.sql. Full source CI pending.
+
+
+AZ exact-suffix coverage also required source_profile_drill.py's separate ordered additional_paths list (source-profile41415330600/job125177673767 refused at guard before SQL); added the same exact known English migration without changing its15-table predecessor SHA. Earlier logical-backup41415330419/job125177672756 stopped during PostgreSQL key download with curl56 receive failure, before database tests; this is a transport failure, not a protocol result or relaxed signature/fingerprint policy. Complete updated source CI pending.
