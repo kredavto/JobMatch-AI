@@ -160,4 +160,6 @@ Candidate PR #112 adds [explicit document language](docs/CURRENT_DOCUMENT_FRAMIN
 
 PR #112 source verification:1338 unit/95files and414 browser passed,2skipped,15 relevant workflows passed; see VERIFICATION.md for immutable source/tree evidence and remaining acceptance. The separate synthetic CPU diagnostic scored0/16 and remains NOT ACCEPTED.
 
-Candidate PR#113 adds [English signed letter acceptance](docs/CURRENT_ENGLISH_SAVED_LETTERS.md) with separate migration readiness; existing storage remains default-off and no production schema/flag is activated. Source CI pending.
+Candidate PR#113 adds [English signed letter acceptance](docs/CURRENT_ENGLISH_SAVED_LETTERS.md) with separate migration readiness; existing storage remains default-off and no production schema/flag is activated. Source verification is recorded in VERIFICATION.md.
+
+PR#113 candidate verification:1364unit/96files,106Python,421browserPASS/2liveSKIP;17relevantworkflowsPASS including populated atomic migration/rollback/native restore. English server storage described as unfinished in prior#112entries is implemented in this unmerged/default-off candidate. No live provider migration/restore or full project acceptance; actual pinned synthetic CPU still0/16,NOT ACCEPTED.
