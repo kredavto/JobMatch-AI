@@ -39,3 +39,11 @@ with fixed qualifications. Locale preserves comparison selections and pending
 DOCX identity; owner/version changes reset download state. Raw exports, rules,
 text/evidence and request IDs stay literal. See docs/CURRENT_VERSION_HISTORY_LOCALES.md.
 Global language selection remains OFF; this is not full-English acceptance.
+
+Current experimental AI-review/adaptation panels accept optional/default-RU UI
+locale with closed feedback keys. Locale preserves same-context request/consent/
+selection/literal draft; source/readiness changes revoke ephemeral model state.
+Successful JSON is bounded to2MiB with strict UTF-8; current context401/409 pauses
+Root writes without automatic reload. APIs/provenance/literal rendering/default
+OFF flags/model nonacceptance are unchanged. Global language stays OFF; see
+docs/CURRENT_AI_CONTEXT_LOCALES.md for exact boundaries and immutable CI facts.
