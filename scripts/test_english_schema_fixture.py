@@ -9,6 +9,6 @@ class EnglishAdditiveFixtureTests(unittest.TestCase):
         predecessor = b'PINNED PREDECESSOR BYTES\n'
         with patch('pathlib.Path.read_bytes', return_value=addon):
             self.assertEqual(english_schema_predecessor(predecessor + b'\n' + addon), predecessor)
-            for changed in (predecessor, predecessor + addon, predecessor + b'\n' + addon + b'unknown', predecessor + b'\n' + addon + b'\n' + addon, predecessor + b'\n' + addon.replace(b'true', b'false')):
+            for changed in (predecessor, predecessor.rstrip(b'\n') + addon, predecessor + b'\n' + addon + b'unknown', predecessor + b'\n' + addon + b'\n' + addon, predecessor + b'\n' + addon.replace(b'true', b'false')):
                 with self.assertRaisesRegex(ValueError, 'Unexpected English additive migration suffix'):
                     english_schema_predecessor(changed)
