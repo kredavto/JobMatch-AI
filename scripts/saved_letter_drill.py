@@ -241,9 +241,9 @@ def main():
                 raise ValueError('English migration changed existing row fingerprints')
             stage = 'english-capability-readiness-and-grants'
             for target in (source, full):
-                if sql(target, 'select public.english_letter_signing_ready(' + literal(hashlib.sha256(KEY).hexdigest()) + ');', user=OWNER) is not True:
+                if sql(target, 'select to_jsonb(public.english_letter_signing_ready(' + literal(hashlib.sha256(KEY).hexdigest()) + '));', user=OWNER) is not True:
                     raise ValueError('English readiness missing')
-                if sql(target, "select public.english_letter_signing_ready(repeat('0',64));", user=OWNER) is not False:
+                if sql(target, "select to_jsonb(public.english_letter_signing_ready(repeat('0',64)));", user=OWNER) is not False:
                     raise ValueError('English readiness ignored wrong key')
                 sql(target, 'set role anon;select public.english_letter_signing_ready(' + literal(hashlib.sha256(KEY).hexdigest()) + ');', failure='permission denied')
                 for role in ('anon', 'service_role'):

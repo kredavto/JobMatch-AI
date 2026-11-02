@@ -1233,3 +1233,6 @@ AZ first implementation529c1bf170fce5e2a4489f4ef71f6153eddf11e2/tree021427b0322c
 
 
 AZ source3743fa31fb14bc10c8ddffe0cf8b2d9af66a0f1d: native41413909937/job125173035834 failed at English populated migration/rollback phase after expected old-schema capability/RPC refusals. Added bounded stage labels and fixed allowlisted failure categories (no raw SQL/stderr/rows/credentials) to locate the failing operation. No product gate or SQL check relaxed; native acceptance is still unverified pending corrected evidence.
+
+
+AZ diagnostic2fdc7b9357c0f17793d51c3caf24ccede599b6bd native41414302284/job125174300814 located the failure at english-capability-readiness-and-grants: JSONDecodeError. Native PostgreSQL returns bare t/f for direct boolean SELECT, while the existing sql() helper requires JSON. Wrapped the two positive/negative capability assertions in to_jsonb, preserving the native true/false checks and all product/RLS/MAC/source gates. The populated migration and row-fingerprint check had already completed before this failure; later concurrency/rollback/restore were not reached. Subsequent full CI pending.
