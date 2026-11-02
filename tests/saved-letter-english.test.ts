@@ -1,0 +1,11 @@
+import {it,expect} from 'vitest';
+import {composeDocumentLetter} from '../lib/document-letter';
+import {createEnglishLetterRecordJson} from '../lib/english-letter-record';
+import {issueLetterReceipt,verifyLetterReceipt} from '../lib/saved-letter-signing';
+import {decodeLetterReceipt,SavedLettersStateSchema} from '../lib/saved-letter';
+import {owner,config,workspace} from './saved-letter-fixture';
+const generated=composeDocumentLetter(workspace.facts,workspace.vacancy,['edit-f1'],'professional','en').text;
+const snapshotJson=createEnglishLetterRecordJson({facts:workspace.facts,vacancy:workspace.vacancy,selection:['edit-f1'],style:'professional',generated,text:generated,reviewedIssueIds:[],wholeLetter:true});
+it('issues and verifies an explicitly English source-bound receipt through the actual server signer',()=>{const receipt=issueLetterReceipt(owner,workspace,0,snapshotJson,config);expect(verifyLetterReceipt(receipt,owner,config).payload.snapshot.templateVersion).toBe('main-en-letter-v1');});
+it('decodes English structural history without calling a current composer',()=>{const receipt={payload:JSON.stringify({format:'jobmatch-letter-receipt-v1',id:owner,issuerKeyId:config.keyId,issuedAt:1,expiresAt:601,source:{ownerId:owner,workspaceRevision:3,letterRevision:0,originalSha256:'a'.repeat(64)},snapshot:JSON.parse(snapshotJson)}),signature:'0'.repeat(64)};expect(decodeLetterReceipt(receipt).snapshot.templateVersion).toBe('main-en-letter-v1');});
+it('accepts an explicitly English history summary while retaining contiguous version checks',()=>{expect(SavedLettersStateSchema.parse({format:'jobmatch-saved-letters-state-v1',ownerId:owner,revision:1,items:[{id:owner,version:1,created:'2026-11-02T08:00:00Z',workspaceRevision:3,templateVersion:'main-en-letter-v1',style:'professional',edited:false,payloadSha256:'0'.repeat(64)}]}).revision).toBe(1);});
