@@ -1,0 +1,26 @@
+import {careerPlanText,type CoachItem} from './career-coach';
+import type {DocumentLanguage} from './document-letter';
+export const ENGLISH_INTERVIEW_TEMPLATE_VERSION='main-en-interview-plan-v1';
+/** Frozen v1 dictionary. Future UI-copy edits must not change an existing document codec. */
+const advice:Readonly<Record<string,string>>={
+ "На открытом или синтетическом наборе данных составьте запросы с JOIN, группировкой и оконной функцией. Сохраните запросы и объясните проверки результата.": "Use an open or synthetic dataset to write queries with a JOIN, grouping and a window function. Save the queries and explain how you checked the results.",
+ "Создайте небольшой скрипт обработки синтетических данных: проверка входа, преобразование, отчет и тесты. Сохраните код и инструкцию запуска.": "Build a small script to process synthetic data: input validation, transformation, reporting and tests. Save the code and instructions.",
+ "На синтетических данных подготовьте таблицу с формулами, сводным отчетом и проверкой ошибок. Объясните, какое решение поддерживает отчет.": "Use synthetic data to create a spreadsheet with formulas, a summary report and error checks. Explain which decision the report supports.",
+ "Если доступен учебный стенд Битрикс24, настройте демонстрационную воронку и опишите этапы и правила переходов. Не используйте реальные клиентские данные.": "If a Bitrix24 training environment is available, configure a demo pipeline and describe its stages and transition rules. Do not use real customer data.",
+ "В учебной CRM опишите демонстрационную воронку, поля карточки и правила качества данных. Укажите, какую именно систему использовали.": "In a training CRM, describe a demo pipeline, record fields and data-quality rules. Name the system you used.",
+ "Подготовьте учебный кейс корпоративной продажи: профиль компании, вопросы для выявления потребностей и предложение. Отделите учебный сценарий от реальных сделок.": "Prepare a practice B2B sales case: company profile, discovery questions and a proposal. Separate the exercise from real deals.",
+ "Разберите реальную или учебную командную задачу: роли, план, риски и обратную связь. Явно укажите, был ли у вас опыт руководства людьми.": "Review a real or practice team task: roles, plan, risks and feedback. State explicitly whether you managed people.",
+ "Подготовьте краткий рассказ о своем проекте на английском и запишите ответы на вопросы о вашей роли. Самопроверка не подтверждает уровень по CEFR.": "Prepare a short account of your project in English and record answers about your role. Self-assessment does not establish a CEFR level.",
+ "Выберите подтвержденный пример и подготовьте рассказ: задача, ваша роль, действия и известный результат. Не добавляйте отсутствующие цифры.": "Choose a confirmed example and prepare an account of the task, your role, actions and known result. Do not add missing numbers.",
+ "Сначала проверьте, есть ли такой опыт. Если есть — добавьте точное уточнение в профиль и подтвердите его отдельно.": "First check whether you have this experience. If so, add a precise clarification to your profile and confirm it separately.",
+ "Если опыта нет, сформулируйте небольшой учебный проект по этому требованию с проверяемым результатом. Отметьте его как учебный.": "If you lack the experience, define a small practice project for this requirement with a checkable result. Label it as practice.",
+ "Пометьте учебный проект как учебный. Сохраните артефакт: код, отчет, описание проекта или отзыв. Не добавляйте навык в резюме до реального выполнения и проверки результата.": "Label the project as practice. Keep an artifact: code, report, project description or feedback. Do not add the skill to your resume before completing the work and checking its result.",
+ "Какую задачу вы решали, какую часть выполнили лично и чем подтверждается результат?": "What task did you solve, which part did you do personally, and what supports the result?",
+ "Есть ли у вас реальный пример по этому требованию? Если нет — как честно объяснить текущий уровень и план обучения?": "Do you have a real example for this requirement? If not, how can you explain your current level and learning plan honestly?",
+ "Какие ограничения и ошибки возникли? Как вы проверяли качество своей работы?": "What limitations and errors arose? How did you check your work?"
+};
+export function interviewDocumentText(items:CoachItem[],language:DocumentLanguage='ru'){
+ if(language==='ru')return careerPlanText(items);if(language!=='en')throw Error('UNSUPPORTED_DOCUMENT_LANGUAGE');
+ const display=(value:string)=>Object.hasOwn(advice,value)?advice[value]:value;
+ return ['INTERVIEW PREPARATION PLAN','Rules-generated guidance, not proof of qualification. Vacancy quotes are untrusted source text.','Template: '+ENGLISH_INTERVIEW_TEMPLATE_VERSION+'; document language: en; model: none. Quotes and facts remain as recorded.',...items.flatMap(item=>['','Requirement: '+item.quote,(item.must?'Mandatory · ':'')+(item.status==='supported'?'Supported under the rules':'Unconfirmed'),...item.evidence.map(f=>'User-confirmed fact ['+f.id+']: '+f.text),...item.steps.map(value=>'Step: '+display(value)),...item.questions.map(value=>'Question: '+display(value))])].join('\n');
+}
