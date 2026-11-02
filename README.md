@@ -121,3 +121,6 @@ The parser candidate can route imports to an owned HTTPS gateway and a disposabl
 [SCANNED_PDF_OCR.md](docs/SCANNED_PDF_OCR.md) describes separately enabled Poppler/Tesseract OCR inside the isolated parser, with three OCR pages maximum, strict transient metadata, no partial-success import and manual review of names/dates/numbers. OCR remains OFF. Current bilingual/native Docker evidence must pass; representative consented-document accuracy, antivirus/quarantine and real hosted acceptance remain open.
 
 Optional private document scan gate: [deployment/trust boundaries](docs/DOCUMENT_SCANNING.md); disabled until operator-approved setup and real-engine acceptance.
+
+
+Current saved-letter history and acceptance: [RU/EN, UTC, bounded transport and immutable receipt contract](docs/CURRENT_SAVED_LETTER_LOCALES.md). Optional presentation does not change the Russian v1 document or qualify a model; live/provider acceptance remains open.

@@ -1,3 +1,4 @@
+import {boundedBody} from './body';
 import {z} from 'zod';
 import {LetterSnapshotSchemaV1} from './letter-snapshot-schema-v1';
 import {LetterReceiptSchema,SavedLettersStateSchema,decodeLetterReceipt,letterPayloadSha256,validateSavedLetterVersion,type SavedLettersState,type SavedLetterVersion,type LetterReceipt} from './saved-letter';
@@ -31,10 +32,13 @@ export async function findLetterAttempt(state:SavedLettersState,receipt:LetterRe
 }
 export function requireAttemptReceipt(row:SavedLetterVersion,receipt:LetterReceipt){if(row.receipt.payload!==receipt.payload||row.receipt.signature!==receipt.signature)throw Error('INVALID_LETTER_ATTEMPT');}
 export class LetterClientError extends Error{constructor(public status:number){super('LETTER_REQUEST_FAILED');}}
-/** Explicit UI actions only; bounded response, fixed errors, no automatic retry. */
+export const LETTER_CLIENT_RESPONSE_BYTES=2100000,LETTER_CLIENT_TIMEOUT_MS=20000;
+/** Explicit actions, bounded full response, fixed errors; cancellation never waits on a hook. */
 export async function letterRequest(url:string,ownerId:string,signal:AbortSignal,body?:unknown):Promise<unknown>{
- let response:Response;try{response=await fetch(url,{method:body===undefined?'GET':'POST',cache:'no-store',signal:AbortSignal.any([signal,AbortSignal.timeout(20000)]),headers:{'x-jobmatch-owner':ownerId,...(body===undefined?{}:{'Content-Type':'application/json'})},...(body===undefined?{}:{body:JSON.stringify(body)})});}catch{throw new LetterClientError(0);}
- if(!response.ok){try{await response.body?.cancel();}catch{}throw new LetterClientError(response.status);}
- const reader=response.body?.getReader();if(!reader)throw new LetterClientError(502);let size=0;
- try{const chunks:Uint8Array[]=[];for(;;){const {done,value}=await reader.read();if(done)break;size+=value.byteLength;if(size>2100000)throw Error();chunks.push(value);}const bytes=new Uint8Array(size);let offset=0;for(const c of chunks){bytes.set(c,offset);offset+=c.byteLength;}return JSON.parse(new TextDecoder('utf8',{fatal:true}).decode(bytes));}catch{try{await reader.cancel();}catch{}throw new LetterClientError(502);}finally{reader.releaseLock();}
+ let response:Response,requestSignal:AbortSignal;
+ try{requestSignal=AbortSignal.any([signal,AbortSignal.timeout(LETTER_CLIENT_TIMEOUT_MS)]);response=await fetch(url,{method:body===undefined?'GET':'POST',cache:'no-store',signal:requestSignal,headers:{'x-jobmatch-owner':ownerId,...(body===undefined?{}:{'Content-Type':'application/json'})},...(body===undefined?{}:{body:JSON.stringify(body)})});}catch{throw new LetterClientError(0);}
+ const discard=()=>{try{if(response.body)void response.body.cancel().catch(()=>{});}catch{}};
+ if(!response.ok){discard();throw new LetterClientError(response.status);}
+ try{const bytes=await boundedBody({headers:response.headers,body:response.body,signal:requestSignal},LETTER_CLIENT_RESPONSE_BYTES,LETTER_CLIENT_TIMEOUT_MS);return JSON.parse(new TextDecoder('utf8',{fatal:true}).decode(bytes));}
+ catch{discard();throw new LetterClientError(502);}
 }
