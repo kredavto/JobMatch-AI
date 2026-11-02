@@ -1,4 +1,6 @@
-# Explicit document language on the current branch (AY / PR #112)
+# Explicit document language (historical AY / PR #112 contract)
+
+Current candidate PR#113 adds explicit English signed server acceptance with separate migration readiness; see [current English storage contract](CURRENT_ENGLISH_SAVED_LETTERS.md). The local-only server limitation below records the original#112scope and is superseded in#113. Both PRs remain unmerged and storage is default-off; no live migration/key/flag activation.
 
 The interface locale and document language are separate. Russian remains the initial document choice. A letter language choice applies to the next explicit Generate; the current draft, review, approval and exported bytes remain tied to the language/version captured at generation. Changing interface locale preserves the draft, acknowledgements, consent and next-language choice. Changing selected evidence or style clears the draft as before.
 

@@ -3,7 +3,9 @@
 const fs=require('node:fs'),ts=require('typescript'),crypto=require('node:crypto');
 require.extensions['.ts']=(module,file)=>module._compile(ts.transpileModule(fs.readFileSync(file,'utf8'),{fileName:file,compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2023,esModuleInterop:true}}).outputText,file);
 const {issueLetterReceipt,verifyLetterReceipt}=require('../../lib/saved-letter-signing.ts');
-const {composeLetter}=require('../../lib/cover-letter.ts');
+const {composeDocumentLetter}=require('../../lib/document-letter.ts');
+const {createEnglishLetterRecordJson}=require('../../lib/english-letter-record.ts');
+const {reviewLetterEdit}=require('../../lib/letter-edit-review.ts');
 const {createLetterSnapshotJson}=require('../../lib/letter-snapshot.ts');
 const {validateSavedLetterVersion,SavedLettersStateSchema}=require('../../lib/saved-letter.ts');
 async function main(){
@@ -11,8 +13,9 @@ async function main(){
  const key=Buffer.from('ab'.repeat(32),'hex'),config={key,keyId:crypto.createHash('sha256').update(key).digest('hex')};
  let result;
  if(mode==='issue'){
-  const workspace=data.workspace,selection=workspace.facts.filter(f=>f.verified).slice(0,1).map(f=>'edit-'+f.id),generated=composeLetter(workspace.facts,workspace.vacancy,selection,'professional').text;
-  const snapshotJson=createLetterSnapshotJson({facts:workspace.facts,vacancy:workspace.vacancy,selection,style:'professional',generated,text:generated,reviewedIssueIds:[],wholeLetter:true});
+  const workspace=data.workspace,selection=workspace.facts.filter(f=>f.verified).slice(0,1).map(f=>'edit-'+f.id),generated=composeDocumentLetter(workspace.facts,workspace.vacancy,selection,'professional',data.language==='en'?'en':'ru').text;
+  const text=data.edited?generated+' Never used Python 99%.':generated;
+  const snapshotJson=(data.language==='en'?createEnglishLetterRecordJson:createLetterSnapshotJson)({facts:workspace.facts,vacancy:workspace.vacancy,selection,style:'professional',generated,text,reviewedIssueIds:reviewLetterEdit(generated,text).issues.map(i=>i.id),wholeLetter:true});
   result=issueLetterReceipt(workspace.ownerId,workspace,data.letterRevision,snapshotJson,config);verifyLetterReceipt(result,workspace.ownerId,config);
  }else if(mode==='validate'){
   const record=await validateSavedLetterVersion(data.record,data.ownerId),state=SavedLettersStateSchema.parse(data.state);

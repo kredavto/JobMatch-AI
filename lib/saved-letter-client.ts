@@ -1,11 +1,11 @@
 import {boundedBody} from './body';
 import {z} from 'zod';
-import {LetterSnapshotSchemaV1} from './letter-snapshot-schema-v1';
+import {LetterDocumentSchema} from './letter-document-schema';
 import {LetterReceiptSchema,SavedLettersStateSchema,decodeLetterReceipt,letterPayloadSha256,validateSavedLetterVersion,type SavedLettersState,type SavedLetterVersion,type LetterReceipt} from './saved-letter';
 export type LetterPreviewBasis={ownerId:string;workspaceRevision:number;letterRevision:number;original:string;snapshotJson:string};
 const envelope=z.strictObject({format:z.literal('jobmatch-letter-preview-v1'),ownerId:z.uuid(),workspaceRevision:z.number().int().nonnegative(),letterRevision:z.number().int().min(0).max(49),receipt:LetterReceiptSchema,semanticAssessment:z.literal('not-performed'),modelVersion:z.null()});
 export async function validateLetterPreview(value:unknown,basis:LetterPreviewBasis,wall=Date.now(),monotonic=performance.now()){
- const result=envelope.parse(value),payload=decodeLetterReceipt(result.receipt),snapshot=LetterSnapshotSchemaV1.parse(JSON.parse(basis.snapshotJson));
+ const result=envelope.parse(value),payload=decodeLetterReceipt(result.receipt),snapshot=LetterDocumentSchema.parse(JSON.parse(basis.snapshotJson));
  if(result.ownerId!==basis.ownerId||result.workspaceRevision!==basis.workspaceRevision||result.letterRevision!==basis.letterRevision||payload.source.ownerId!==basis.ownerId||payload.source.workspaceRevision!==basis.workspaceRevision||payload.source.letterRevision!==basis.letterRevision||payload.source.originalSha256!==await letterPayloadSha256(basis.original)||JSON.stringify(payload.snapshot)!==JSON.stringify(snapshot)||payload.issuedAt*1000>wall+5000||payload.expiresAt*1000<=wall)throw Error('INVALID_LETTER_PREVIEW');
  return {receipt:result.receipt,payload,basis,receivedWall:wall,receivedMonotonic:monotonic,deadline:monotonic+Math.min(600000,payload.expiresAt*1000-wall)};
 }

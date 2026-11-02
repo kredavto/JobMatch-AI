@@ -1,7 +1,8 @@
 import {createHash,createHmac,randomUUID,timingSafeEqual} from 'node:crypto';
 import {UserError} from './errors';
 import type {Workspace} from './db';
-import {composeLetter} from './cover-letter';
+import {composeDocumentLetter} from './document-letter';
+import {validateEnglishLetterRecordJson} from './english-letter-record';
 import {validateLetterSnapshotJson} from './letter-snapshot';
 import {LetterReceiptSchema,decodeLetterReceipt,LETTER_RECEIPT_TTL,LETTER_RECEIPT_BYTES,type LetterReceipt} from './saved-letter';
 export type LetterSigningConfig={key:Buffer;keyId:string};
@@ -12,10 +13,10 @@ export function letterSigningConfig():LetterSigningConfig{
  const bytes=Buffer.from(key,'hex');return {key:bytes,keyId:createHash('sha256').update(bytes).digest('hex')};
 }
 export function issueLetterReceipt(ownerId:string,workspace:Workspace,letterRevision:number,snapshotJson:string,config:LetterSigningConfig):LetterReceipt{
- const parsed=validateLetterSnapshotJson(snapshotJson);if(!parsed.ok)throw new UserError('Снимок письма не прошёл проверку.',400,'LETTER_SNAPSHOT_INVALID');
- const snapshot=parsed.snapshot;if(workspace.ownerId!==undefined&&workspace.ownerId!==ownerId)throw Error('CONFLICT');
+ const ru=validateLetterSnapshotJson(snapshotJson),en=ru.ok?null:validateEnglishLetterRecordJson(snapshotJson);if(!ru.ok&&!en?.ok)throw new UserError('Снимок письма не прошёл проверку.',400,'LETTER_SNAPSHOT_INVALID');
+ const snapshot=ru.ok?ru.snapshot:en&&en.ok?en.record:null;if(!snapshot)throw Error('INVALID_LETTER_SNAPSHOT');if(workspace.ownerId!==undefined&&workspace.ownerId!==ownerId)throw Error('CONFLICT');
  const same=(a:{id:string;text:string;source:string;verified:boolean},b:typeof a)=>a.id===b.id&&a.text===b.text&&a.source===b.source&&a.verified===b.verified;
- try{if(workspace.vacancy!==snapshot.source.vacancy||snapshot.source.facts.some(f=>!workspace.facts.some(current=>same(current,f)))||composeLetter(workspace.facts,workspace.vacancy,snapshot.selection,snapshot.style).text!==snapshot.generated)throw Error();}catch{throw Error('CONFLICT');}
+ try{if(workspace.vacancy!==snapshot.source.vacancy||snapshot.source.facts.some(f=>!workspace.facts.some(current=>same(current,f)))||composeDocumentLetter(workspace.facts,workspace.vacancy,snapshot.selection,snapshot.style,'documentLanguage' in snapshot?snapshot.documentLanguage:'ru').text!==snapshot.generated)throw Error();}catch{throw Error('CONFLICT');}
  const issuedAt=Math.floor(Date.now()/1000),payload=JSON.stringify({format:'jobmatch-letter-receipt-v1',id:randomUUID(),issuerKeyId:config.keyId,issuedAt,expiresAt:issuedAt+LETTER_RECEIPT_TTL,source:{ownerId,workspaceRevision:workspace.revision,letterRevision,originalSha256:createHash('sha256').update(workspace.original).digest('hex')},snapshot:{...snapshot,approval:{...snapshot.approval,reviewedIssueIds:[...snapshot.approval.reviewedIssueIds].sort()}}});
  if(Buffer.byteLength(payload)>LETTER_RECEIPT_BYTES)throw new UserError('Снимок слишком велик для серверной версии.',413,'LETTER_SNAPSHOT_TOO_LARGE');
  const receipt={payload,signature:createHmac('sha256',config.key).update(DOMAIN+payload).digest('hex')};decodeLetterReceipt(receipt);return receipt;

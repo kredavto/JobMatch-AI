@@ -55,3 +55,11 @@ def preserved_migration(before, after, scalars_before, environment):
         report = sql(environment, 'select private.workspace_projection_report();')
         if report['format'] != 'jobmatch-workspace-storage-v2' or not report['ok']:
             raise ValueError('Workspace difference is not a healthy compact transition')
+
+
+def english_schema_predecessor(consolidated):
+    """Remove exactly the known English additive migration before checking older pinned fixtures."""
+    addon = (ROOT / 'supabase/migrations/20261102082400_english_saved_letters.sql').read_bytes()
+    if consolidated.count(addon) != 1 or not consolidated.endswith(b'\n' + addon):
+        raise ValueError('Unexpected English additive migration suffix')
+    return consolidated[:-len(addon)-1]

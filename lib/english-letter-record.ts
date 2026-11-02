@@ -2,20 +2,10 @@ import {z} from 'zod';
 import type {Fact} from './engine';
 import type {LetterStyle} from './cover-letter';
 import {composeDocumentLetter,ENGLISH_LETTER_TEMPLATE_VERSION} from './document-letter';
+import {EnglishLetterRecordSchemaV1 as schema,ENGLISH_LETTER_RECORD_FORMAT,ENGLISH_LETTER_RECORD_MAX_BYTES} from './english-letter-record-schema-v1';
+export {ENGLISH_LETTER_RECORD_FORMAT,ENGLISH_LETTER_RECORD_MAX_BYTES} from './english-letter-record-schema-v1';
 import {reviewLetterEdit} from './letter-edit-review';
 import {LetterSnapshotReviewSchemaV1 as reviewSchema} from './letter-snapshot-schema-v1';
-export const ENGLISH_LETTER_RECORD_FORMAT='jobmatch-english-letter-record-v1';
-export const ENGLISH_LETTER_RECORD_MAX_BYTES=1_000_000;
-const text=(max:number)=>z.string().min(1).max(max).refine(value=>value.isWellFormed()&&!!value.trim()&&!value.includes('\0'));
-const schema=z.strictObject({
- format:z.literal(ENGLISH_LETTER_RECORD_FORMAT),trust:z.literal('unsigned-editable-local-snapshot'),
- documentLanguage:z.literal('en'),templateVersion:z.literal(ENGLISH_LETTER_TEMPLATE_VERSION),
- contentReview:z.literal('reported-user-review'),semanticAssessment:z.literal('not-performed'),modelVersion:z.null(),
- source:z.strictObject({facts:z.array(z.strictObject({id:text(200),text:text(2000),source:text(2000),verified:z.boolean()})).min(1).max(5),vacancy:text(30000)}),
- selection:z.array(text(205)).min(1).max(5),style:z.enum(['professional','brief','confident','executive']),
- generated:text(15000),text:text(15000),review:reviewSchema,
- approval:z.strictObject({wholeLetter:z.literal(true),reviewedIssueIds:z.array(text(100)).max(257)})
-});
 export type EnglishLetterRecord=z.infer<typeof schema>;
 function checked(input:unknown):EnglishLetterRecord{
  const record=schema.parse(input),{source,selection,style,generated,text:approved,review,approval}=record;

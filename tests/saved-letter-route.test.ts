@@ -1,7 +1,7 @@
 import {it,expect,vi,beforeEach,afterEach} from 'vitest';
 import {NextRequest} from 'next/server';
 const db=vi.hoisted(()=>({identity:vi.fn(),consumeQuota:vi.fn(),readWorkspace:vi.fn()}));
-const letters=vi.hoisted(()=>({readSavedLetters:vi.fn(),readSavedLetter:vi.fn(),acceptSavedLetter:vi.fn(),requireLetterSigningReady:vi.fn()}));
+const letters=vi.hoisted(()=>({readSavedLetters:vi.fn(),readSavedLetter:vi.fn(),acceptSavedLetter:vi.fn(),requireLetterSigningReady:vi.fn(),requireEnglishLetterSigningReady:vi.fn()}));
 vi.mock('../lib/db',()=>db);vi.mock('../lib/saved-letter-db',()=>letters);
 import {GET,POST} from '../app/api/letter-versions/route';
 import {owner,other,workspace,snapshotJson,savedFixture,emptyState,config} from './saved-letter-fixture';
@@ -25,3 +25,10 @@ it.each(['?export=0','?export=1&export=1','?id='+other+'&export=1','?bad=1','?id
 it('exports history through owner checked record reads, with terminal completeness',async()=>{const f=await savedFixture();letters.readSavedLetters.mockResolvedValue(f.state);letters.readSavedLetter.mockResolvedValue(f.record);const response=await GET(new NextRequest('https://app.test/api/letter-versions?export=1'));expect(response.headers.get('content-type')).toContain('application/x-ndjson');expect(await response.text()).toContain('"complete":true,"count":1');});
 
 it('rejects malformed UTF8 body with fixed 400 and no source/write',async()=>{const req=new NextRequest('https://app.test/api/letter-versions',{method:'POST',headers:{origin:'https://app.test'},body:new Uint8Array([0xff,0xff])});expect((await POST(req)).status).toBe(400);expect(db.readWorkspace).not.toHaveBeenCalled();expect(letters.acceptSavedLetter).not.toHaveBeenCalled();});
+
+import {composeDocumentLetter} from '../lib/document-letter';
+import {createEnglishLetterRecordJson} from '../lib/english-letter-record';
+function englishBody(){const generated=composeDocumentLetter(workspace.facts,workspace.vacancy,['edit-f1'],'professional','en').text;return{...body,snapshotJson:createEnglishLetterRecordJson({facts:workspace.facts,vacancy:workspace.vacancy,selection:['edit-f1'],style:'professional',generated,text:generated,reviewedIssueIds:[],wholeLetter:true})};}
+it('checks English migration/key readiness separately before issuing a source-bound preview',async()=>{const response=await POST(request(englishBody()));expect(response.status).toBe(200);expect(letters.requireEnglishLetterSigningReady).toHaveBeenCalledExactlyOnceWith({id:owner,token:'user-jwt'},config.keyId);expect(letters.requireLetterSigningReady).not.toHaveBeenCalled();const value=await response.json();expect(JSON.parse(value.receipt.payload).snapshot.documentLanguage).toBe('en');expect(letters.acceptSavedLetter).not.toHaveBeenCalled();});
+it('refuses English preview on old/missing migration without reading source or writing',async()=>{letters.requireEnglishLetterSigningReady.mockRejectedValue(new UserError('unavailable',503,'LETTER_STORAGE_UNAVAILABLE'));expect((await POST(request(englishBody()))).status).toBe(503);expect(db.readWorkspace).not.toHaveBeenCalled();expect(letters.acceptSavedLetter).not.toHaveBeenCalled();});
+it('requires current sources and reviewed English text even after capability is ready',async()=>{const b=englishBody(),snapshot=JSON.parse(b.snapshotJson);snapshot.text+=' 99';expect((await POST(request({...b,snapshotJson:JSON.stringify(snapshot)}))).status).toBe(400);expect(letters.acceptSavedLetter).not.toHaveBeenCalled();});

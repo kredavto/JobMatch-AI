@@ -10,6 +10,7 @@ import subprocess
 import sys
 import tempfile
 import uuid
+from storage_fixture import english_schema_predecessor
 from backup_manifest import snapshot, compare
 from saved_letter_drill import ROOT, OWNER, OTHER, SESSION, KEY, literal, run, bridge, accept_statement, verify_history
 from source_profile_drill import read, context, codec as profile_codec
@@ -156,7 +157,7 @@ def main():
     try:
         with tempfile.TemporaryDirectory(prefix='jobmatch-source-versions-owned-') as temp:
             folder=Path(temp)
-            migration=(ROOT/MIGRATION).read_bytes();full=(ROOT/'supabase/schema.sql').read_bytes()
+            migration=(ROOT/MIGRATION).read_bytes();full=english_schema_predecessor((ROOT/'supabase/schema.sql').read_bytes())
             if full.count(migration)!=1 or not full.endswith(b'\n'+migration):raise ValueError('Unexpected source-version suffix')
             predecessor=full[:-len(migration)-1]
             if hashlib.sha256(predecessor).hexdigest()!=BASE_SHA256:raise ValueError('Not exact current compact/source/letter/quota predecessor')
@@ -190,7 +191,7 @@ def main():
             if catalog(source)!=defs or compare(baseline,capture(source,folder/'late17.json',full=False)) or sql(source,"select to_jsonb(to_regclass('public.source_profile_versions') is not null);"):
                 raise ValueError('Late migration failure changed data/definitions')
             stage='successful additive migration'
-            install(source,[ROOT/MIGRATION])
+            install(source,[ROOT/MIGRATION,ROOT/'supabase/migrations/20261102082400_english_saved_letters.sql'])
             if compare(baseline,capture(source,folder/'after17.json',full=False)) or sql(source,'select to_jsonb(public.source_version_storage_ready());',user=OWNER):raise ValueError('Upgrade changed core or enabled storage')
             stage='clean full bootstrap'
             install(clean,[ROOT/'scripts/restore_fixture.sql',ROOT/'supabase/schema.sql',ROOT/'scripts/restore_seed.sql'])
