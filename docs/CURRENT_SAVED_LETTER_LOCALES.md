@@ -1,6 +1,6 @@
 # Current saved-letter presentation
 
-Default Russian and optional English presentation cover the current SavedLettersPanel in the editor and versions view. Root locale reaches this panel without changing its owner key, save-form context key, preview lifetime or acknowledgement. The local CoverLetterPanel composer and lexical review remain Russian (explicit lang=ru); career UI and global English activation are separate work.
+Default Russian and optional English presentation cover the current SavedLettersPanel in the editor and versions view. Root locale reaches this panel without changing its owner key, save-form context key, preview lifetime or acknowledgement. Composer and lexical-review controls are covered separately in [the current local-letter contract](CURRENT_LOCAL_LETTER_LOCALES.md); the document remains Russian v1. Career UI and global English activation are separate work.
 
 ## Data and consent
 
