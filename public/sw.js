@@ -1,5 +1,5 @@
 /* Only public, fixed assets enter Cache Storage. No API, document or draft caching. */
-const CACHE = 'jobmatch-public-v1';
+const CACHE = 'jobmatch-public-v2';
 const ASSETS = ['/offline.html', '/icon.svg', '/icon-192.png', '/icon-512.png'];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(ASSETS.map(path => new Request(path, {credentials: 'omit', cache: 'reload'})))).then(() => self.skipWaiting()));
@@ -20,7 +20,7 @@ self.addEventListener('fetch', event => {
     event.respondWith(fetch(request, {cache: 'no-store'}).catch(async () => {
       let cached;
       try { cached = await (await caches.open(CACHE)).match('/offline.html'); } catch { /* Storage may have been evicted or disabled. */ }
-      return cached || new Response('Нет подключения. Подключитесь к интернету и повторите загрузку.', {status: 503, headers: {'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store'}});
+      return cached || new Response('Нет подключения / Offline. Подключитесь к интернету и повторите загрузку. Connect to the internet and reload.', {status: 503, headers: {'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store'}});
     }));
   }
 });

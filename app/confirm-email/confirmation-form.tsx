@@ -5,8 +5,10 @@ import {requestJson,RequestError,validatedAuthAck} from '../../lib/client-api';
 import {mailFailure} from '../../lib/mail-feedback';
 import {mailCopy} from '../../lib/i18n/mail';
 import {normalizeLocale,type UiLocale} from '../../lib/i18n/locale';
-export default function ConfirmationForm({locale:requestedLocale='ru'}:{locale?:UiLocale}){
- const locale=normalizeLocale(requestedLocale),t=mailCopy[locale].confirmation;
+import {useGlobalLocale} from '../locale-context';
+export default function ConfirmationForm({locale:requestedLocale}:{locale?:UiLocale}){
+ const globalLocale=useGlobalLocale();
+ const locale=normalizeLocale(requestedLocale??globalLocale?.locale),t=mailCopy[locale].confirmation;
  const [email,setEmail]=useState(''),[busy,setBusy]=useState(false),[cooldown,setCooldown]=useState(false),[error,setError]=useState<number|null>(null),[notice,setNotice]=useState(false);
  const timer=useRef<ReturnType<typeof setTimeout>|null>(null),pending=useRef(false),active=useRef(true);
  useEffect(()=>{active.current=true;return()=>{active.current=false;if(timer.current)clearTimeout(timer.current);};},[]);

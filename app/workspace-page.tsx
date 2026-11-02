@@ -1,5 +1,6 @@
 'use client';
 import AuthPanel from './auth-panel';
+import {useGlobalLocale} from './locale-context';
 import OverviewPanel from './overview-panel';
 import ResumeEditorPanel from './resume-editor-panel';
 import {validatedProfileWrite} from '../lib/profile-write-response';
@@ -41,8 +42,9 @@ import type {Workspace} from '../lib/db';
 type Analysis=ReturnType<typeof match>;
 const tabs=tabIds;
 function download(name:string,text:string,type='text/plain;charset=utf-8'){const url=URL.createObjectURL(new Blob([text],{type}));try{const a=document.createElement('a');a.href=url;a.download=name;a.click();}finally{setTimeout(()=>URL.revokeObjectURL(url),1000);}}
-export default function WorkspacePage({locale='ru'}:{locale?:UiLocale}){
- const language=normalizeLocale(locale),ui=language==='en'?en:ru,copy=(key:keyof typeof workspaceShell)=>workspaceShell[key][language];
+export default function WorkspacePage({locale}:{locale?:UiLocale}){
+ const globalLocale=useGlobalLocale();
+ const language=normalizeLocale(locale??globalLocale?.locale),ui=language==='en'?en:ru,copy=(key:keyof typeof workspaceShell)=>workspaceShell[key][language];
  const tracker=applicationsCopy[language];
  const [state,setState]=useState<Workspace|null>(null),[ready,setReady]=useState(false),[tab,setTab]=useState<TabId>('overview'),[error,setError]=useState<RequestError|null>(null),[notice,setNotice]=useState<WorkspaceNotice|null>(null),[busy,setBusy]=useState(false),[register,setRegister]=useState(true);
  const [email,setEmail]=useState(''),[password,setPassword]=useState(''),[consent,setConsent]=useState(false),[resume,setResume]=useState(''),[vacancy,setVacancy]=useState(''),[goal,setGoal]=useState(''),[fact,setFact]=useState(''),[analysis,setAnalysis]=useState<Analysis|null>(null),[edits,setEdits]=useState<Edit[]>([]),[selected,setSelected]=useState<string[]>([]),[history,setHistory]=useState<string[][]>([]),[application,setApplication]=useState(''),[deleteWord,setDeleteWord]=useState(''),[resumeVersionId,setResumeVersionId]=useState('');

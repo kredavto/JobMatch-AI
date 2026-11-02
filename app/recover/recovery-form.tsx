@@ -5,10 +5,12 @@ import {requestJson,RequestError} from '../../lib/client-api';
 import {mailFailure,type MailStage} from '../../lib/mail-feedback';
 import {mailCopy} from '../../lib/i18n/mail';
 import {normalizeLocale,type UiLocale} from '../../lib/i18n/locale';
+import {useGlobalLocale} from '../locale-context';
 import {z} from 'zod';
 type RecoveryError={key:'invalidLink'|'mismatch'}|{status:number;stage:MailStage};
-export default function RecoveryForm({initialCode,invalid,locale:requestedLocale='ru'}:{initialCode:string;invalid:boolean;locale?:UiLocale}){
- const locale=normalizeLocale(requestedLocale),t=mailCopy[locale].recovery;
+export default function RecoveryForm({initialCode,invalid,locale:requestedLocale}:{initialCode:string;invalid:boolean;locale?:UiLocale}){
+ const globalLocale=useGlobalLocale();
+ const locale=normalizeLocale(requestedLocale??globalLocale?.locale),t=mailCopy[locale].recovery;
  const [code,setCode]=useState(initialCode),[stage,setStage]=useState<MailStage|'done'>(initialCode?'exchange':'request');
  const [email,setEmail]=useState(''),[password,setPassword]=useState(''),[repeat,setRepeat]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState<RecoveryError|null>(invalid?{key:'invalidLink'}:null),[notice,setNotice]=useState<'requested'|'updated'|'sessionsUnknown'|null>(null);
  const pending=useRef(false),active=useRef(true);

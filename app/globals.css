@@ -15,3 +15,6 @@ mark{background:#d9f2e8;color:#174b3f;padding:2px 0}
 
 /* Keep analytics row headers readable inside their own horizontal scroll regions. */
 .analytics-panel .table-wrap table{min-width:680px}.analytics-panel .table-wrap th{overflow-wrap:normal;word-break:normal;min-width:130px}.analytics-panel .table-wrap th[scope=row]{min-width:180px}
+
+/* One global language control, outside all submit forms. */
+.locale-control{display:flex;justify-content:flex-end;align-items:center;flex-wrap:wrap;gap:8px;padding:8px 16px;background:#f4f7fb}.locale-choice{display:flex;align-items:center;gap:8px;margin:0;font-size:13px}.locale-choice select{width:auto;max-width:180px;margin:0;min-height:44px}.locale-control .muted{margin:0;font-size:12px;max-width:560px}
