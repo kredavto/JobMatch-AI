@@ -1,11 +1,11 @@
 import type {Application} from './db';
-import {firstSentDate,summarize} from './analytics';
+import {firstSentDate,summarize,validRecordedEventDate} from './analytics';
 /** Cohorts by first recorded non-planned event; outcomes use full recorded history. */
 export function monthlyResults(applications:Application[]){
  const groups=new Map<string,Application[]>();
  for(const application of applications){const date=firstSentDate(application);if(!date)continue;const month=date.slice(0,7);const group=groups.get(month)||[];group.push(application);groups.set(month,group);}
  return [...groups].sort(([a],[b])=>a.localeCompare(b)).map(([month,rows])=>{
-  const count=(status:string)=>rows.filter(a=>a.events.some(e=>e.status===status&&Number.isFinite(Date.parse(e.date)))).length;
+  const count=(status:string)=>rows.filter(a=>a.events.some(e=>e.status===status&&validRecordedEventDate(e.date))).length;
   return {month,...summarize(rows),viewed:count('Просмотрено'),invited:count('Приглашение'),offers:count('Оффер')};
  });
 }
