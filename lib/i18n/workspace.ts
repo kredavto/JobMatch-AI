@@ -1,6 +1,7 @@
 import {normalizeLocale,type UiLocale} from './locale';
 /** UI copy only. Evidence, request bodies, revisions and authorization never depend on these strings. */
 export const workspaceErrors={
+ "applicationCreateInvalid":{"ru":"Ответ не подтверждает создание именно этого отклика. Черновик оставлен. Запись могла завершиться; загрузите актуальные данные. Автоматического повтора нет.","en":"The response does not confirm creation of this exact application. The draft is preserved. The write may have completed; load current data. There is no automatic retry."},
  "writeResponseContextInvalid":{"ru":"Ответ записи не соответствует исходному аккаунту или следующей ревизии. Черновики оставлены. Загрузите актуальные данные; автоматического повтора нет.","en":"The write response does not match the original account or next revision. Drafts are preserved. Load current data; there is no automatic retry."},
  "demoUnavailable":{"ru":"Демо отключено: сохранённый профиль или несохранённые поля нельзя заменить. Сначала проверьте и сохраните либо вручную восстановите черновики.","en":"The demo is disabled: saved profile data or unsaved fields cannot be replaced. Review and save or manually restore your drafts first."},
  "profileWriteContextInvalid":{"ru":"Ответ сохранения профиля не соответствует исходному аккаунту или следующей ревизии. Черновики оставлены. Загрузите актуальные данные; автоматического повтора нет.","en":"The profile save response does not match the original account or next revision. Drafts are preserved. Load current data; there is no automatic retry."},
@@ -94,6 +95,7 @@ export const workspaceErrors={
  }
 } as const;
 export const workspaceNotices={
+ "applicationSavedDraftPreserved":{"ru":"Отклик сохранён. Новый или отредактированный во время запроса черновик оставлен; он не отправлялся.","en":"Application saved. The new or edited draft is preserved; it was not submitted."},
  "profileSavedDraftPreserved":{"ru":"Данные сохранены на сервере. Несохранённый или отредактированный во время запроса текст оставлен в полях. Сравните черновики с серверной версией перед следующей записью.","en":"Data saved on the server. Unsaved text or edits made during the request remain in the fields. Compare your drafts with the server version before the next write."},
  "reloaded": {
   "ru": "Актуальные данные загружены. Ваш текст резюме, вакансии и цели оставлен в полях. Сравните его с серверной версией перед сохранением. Анализ нужно выполнить заново.",
