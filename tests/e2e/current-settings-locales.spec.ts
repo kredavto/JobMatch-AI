@@ -6,7 +6,7 @@ import {resolve} from 'node:path';
 let child:ChildProcess,origin:string;
 test.describe.configure({timeout:60000});
 test.beforeAll(async()=>{
- const env:NodeJS.ProcessEnv={NODE_ENV:'test',JOBMATCH_LOCAL_SOURCE_LOCALES:'1'};
+ const env:NodeJS.ProcessEnv={NODE_ENV:'test',JOBMATCH_LOCAL_SOURCE_LOCALES:'1',JOBMATCH_LOCAL_SETTINGS_EXPORT_FIXTURE:'1'};
  for(const key of ['PATH','TMPDIR','NODE_EXTRA_CA_CERTS','SSL_CERT_FILE','SSL_CERT_DIR','HTTP_PROXY','HTTPS_PROXY','ALL_PROXY','NO_PROXY','http_proxy','https_proxy','all_proxy','no_proxy'])if(process.env[key])env[key]=process.env[key];
  child=fork(resolve(__dirname,'../fixtures/source-locale-server.mjs'),[],{execArgv:[],env,stdio:['ignore','ignore','ignore','ipc']});
  origin=await new Promise<string>((done,fail)=>{const timer=setTimeout(()=>{child.kill();fail(Error('Owned auth fixture startup timed out'));},20000);child.once('error',()=>{clearTimeout(timer);fail(Error('Owned auth fixture failed'));});child.once('exit',()=>{clearTimeout(timer);fail(Error('Owned auth fixture exited'));});child.once('message',value=>{clearTimeout(timer);const port=(value as {port?:unknown})?.port;if(!Number.isInteger(port)||Number(port)<1024||Number(port)>65535){child.kill();fail(Error('Owned auth fixture refused'));return;}done('http://127.0.0.1:'+port);});});
@@ -64,9 +64,9 @@ test('a failed export requires deliberate current-data read before a new request
 });
 test('all three current history links download owner-bound separate NDJSON files',async({page})=>{
  const paths=['/api/fact-history','/api/letter-versions','/api/source-versions'],gets:string[]=[];let posts=0;await page.route('**/api/service',route=>{if(route.request().method()!=='GET')posts++;return route.fulfill({json:initial});});
- await page.route(/\/api\/(?:fact-history|letter-versions|source-versions)\?/,route=>{const url=new URL(route.request().url());expect(route.request().method()).toBe('GET');expect([...url.searchParams]).toEqual([['export','1'],['expectedOwnerId',ownerId]]);gets.push(url.pathname);return route.fulfill({headers:{'Content-Type':'application/x-ndjson','Content-Disposition':'attachment; filename="synthetic.ndjson"'},body:'{"format":"synthetic-settings-fixture"}\n{"complete":true}\n'});});
+ page.on('request',request=>{const url=new URL(request.url());if(!paths.includes(url.pathname))return;expect(request.method()).toBe('GET');expect([...url.searchParams]).toEqual([['export','1'],['expectedOwnerId',ownerId]]);gets.push(url.pathname);});
  await openSettings(page);await language(page,'en');const links=panel(page).getByRole('link');await expect(links).toHaveCount(3);
- for(let i=0;i<paths.length;i++){await expect(links.nth(i)).toHaveAttribute('href',paths[i]+'?export=1&expectedOwnerId='+ownerId);const pending=page.waitForEvent('download');await links.nth(i).click();expect(await readFile((await (await pending).path())!,'utf8')).toBe('{"format":"synthetic-settings-fixture"}\n{"complete":true}\n');}
+ for(let i=0;i<paths.length;i++){await expect(links.nth(i)).toHaveAttribute('href',paths[i]+'?export=1&expectedOwnerId='+ownerId);const pending=page.waitForEvent('download');await links.nth(i).click();const file=await pending;expect(file.suggestedFilename()).toBe('synthetic-settings.ndjson');expect(await readFile((await file.path())!,'utf8')).toBe(JSON.stringify({format:'synthetic-settings-fixture',path:paths[i],ownerId})+'\n'+JSON.stringify({complete:true})+'\n');}
  expect(gets).toEqual(paths);expect(posts).toBe(0);await expect(panel(page)).toContainText('Every NDJSON must end with a complete: true record');
 });
 test('failed personal-file click revokes the Blob URL, redacts the error and supports manual retry',async({page})=>{
