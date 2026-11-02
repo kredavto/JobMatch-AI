@@ -1,7 +1,7 @@
 import {z} from 'zod';
 import type {Fact} from './engine';
 import type {LetterStyle} from './cover-letter';
-import {composeDocumentLetter} from './document-letter';
+import {composeDocumentLetter,ENGLISH_LETTER_TEMPLATE_VERSION} from './document-letter';
 import {EnglishLetterRecordSchemaV1 as schema,ENGLISH_LETTER_RECORD_FORMAT,ENGLISH_LETTER_RECORD_MAX_BYTES} from './english-letter-record-schema-v1';
 export {ENGLISH_LETTER_RECORD_FORMAT,ENGLISH_LETTER_RECORD_MAX_BYTES} from './english-letter-record-schema-v1';
 import {reviewLetterEdit} from './letter-edit-review';
