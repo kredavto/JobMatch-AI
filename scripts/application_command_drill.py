@@ -53,7 +53,7 @@ def main():
             if full_sql.count(migration) != 1:
                 raise ValueError('Consolidated command migration differs')
             prefix, suffix = full_sql.split(migration)
-            extras = [ROOT / 'supabase/migrations' / name for name in ('20261028110002_profile_import_commands.sql', '20261028110003_version_commands.sql', '20261028110004_projection_parity.sql', '20261028110005_canonical_workspace_reads.sql', '20261028110006_explicit_workspace_writes.sql', '20261028120140_workspace_entity_snapshot.sql', '20261028120214_compact_workspace_storage.sql', '20261101171000_source_versions.sql', '20261102082400_english_saved_letters.sql')]
+            extras = [ROOT / 'supabase/migrations' / name for name in ('20261028110002_profile_import_commands.sql', '20261028110003_version_commands.sql', '20261028110004_projection_parity.sql', '20261028110005_canonical_workspace_reads.sql', '20261028110006_explicit_workspace_writes.sql', '20261028120140_workspace_entity_snapshot.sql', '20261028120214_compact_workspace_storage.sql', '20261101171000_source_versions.sql', '20261102082400_english_saved_letters.sql', '20261104074700_current_specialty_commands.sql')]
             if suffix != b''.join(b'\n' + p.read_bytes() for p in extras):
                 raise ValueError('Unexpected post-application definitions')
             predecessor = prefix[:-1]
@@ -77,6 +77,7 @@ def main():
             for target in (source, full):
                 stage = 'actual-application-SQL-suite-both-paths'
                 run(['psql', '-X', '-w', '-v', 'ON_ERROR_STOP=1', '-f', str(ROOT / 'supabase/tests/application_commands.sql')], target)
+                run(['psql', '-X', '-w', '-v', 'ON_ERROR_STOP=1', '-f', str(ROOT / 'supabase/tests/current_specialty_commands.sql')], target)
                 stage = 'source-profile-and-letter-provenance'
                 sql(target, "set request.jwt.claims=" + literal(json.dumps({'sub': OWNER, 'session_id': '44444444-4444-4444-8444-444444444444'})) + ";update public.workspaces set payload=jsonb_set(payload,'{original}',to_jsonb(" + literal(TEXT) + "::text)) where user_id=" + literal(OWNER) + ';')
                 sql(target, 'grant execute on function private.source_profile_storage_permission() to authenticated;')
@@ -93,6 +94,11 @@ def main():
                 state = apply(target, folder, state, {'action': 'application', 'id': aid, 'status': 'Интервью', 'note': 'Own note'})
                 if state['applications'][-1]['resumeVersionId'] != 'v1' or len(state['applications'][-1]['events']) != 2:
                     raise ValueError('Application association/event preservation')
+                before_label = state['applications'][-1]
+                for label in ('Data 🧑‍💻', '', 'QA'):
+                    state = apply(target, folder, state, {'action':'application','id':aid,'status':before_label['status'],'note':before_label['note'],'specialty':label})
+                    if state['applications'][-1] != {**before_label,'specialty':label}:
+                        raise ValueError('Label write changed unrelated application data')
                 after = read(target)
                 if {k: v for k, v in p.items() if k != 'workspace_revision'} != {k: v for k, v in after.items() if k != 'workspace_revision'}:
                     raise ValueError('Application changed source profile provenance')
@@ -114,6 +120,37 @@ def main():
             after = sql(source, 'select public.read_workspace();', user=OWNER)
             if len(after['applications']) != len(w['applications']) + 1 or after['revision'] != w['revision'] + 1:
                 raise ValueError('Concurrent duplicate/lost application')
+            stage = 'twenty-specialty-writers-and-row-preserving-rollback'
+            w = sql(source, 'select public.read_workspace();', user=OWNER)
+            row = w['applications'][-1]
+            cmd = {'action':'application','id':row['id'],'status':row['status'],'note':row['note'],'specialty':'Concurrent specialty'}
+            with concurrent.futures.ThreadPoolExecutor(max_workers=20) as pool:
+                values = list(pool.map(lambda _: sql(source, statement(w['revision'],cmd),user=OWNER,allow_conflict=True),range(20)))
+            if sum(isinstance(v,dict) for v in values)!=1 or values.count('CONFLICT')!=19:
+                raise ValueError('Expected one specialty commit/nineteen conflicts')
+            saved = manifest(source,folder/'specialty-saved.json')
+            def catalog():
+                return sql(source,"select coalesce(jsonb_agg(jsonb_build_array(p.oid::regprocedure::text,pg_get_functiondef(p.oid),p.proacl::text) order by p.oid::regprocedure::text),'[]') from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname in('public','private') and p.prokind='f';")
+            definitions = catalog()
+            rollback = (ROOT/'supabase/rollback/20261104074700_current_specialty_commands.sql').read_text()
+            late = rollback.rsplit('commit;',1)[0]+"do $begin raise exception 'QA_LABEL_ROLLBACK';end;$;commit;"
+            sql(source,late,failure='QA_LABEL_ROLLBACK')
+            if catalog()!=definitions or compare(saved,manifest(source,folder/'label-failed-rollback.json')):
+                raise ValueError('Late rollback changed definitions/grants/rows')
+            run(['psql','-X','-w','-v','ON_ERROR_STOP=1','-f',str(ROOT/'supabase/rollback/20261104074700_current_specialty_commands.sql')],source)
+            if compare(saved,manifest(source,folder/'label-rollback.json')):
+                raise ValueError('Rollback changed label/provenance rows')
+            current=sql(source,'select public.read_workspace();',user=OWNER)
+            sql(source,statement(current['revision'],cmd),user=OWNER,failure='INVALID_WRITE')
+            old_definitions=catalog()
+            forward=(ROOT/'supabase/migrations/20261104074700_current_specialty_commands.sql').read_text()
+            late=forward.rsplit('commit;',1)[0]+"do $begin raise exception 'QA_LABEL_MIGRATION';end;$;commit;"
+            sql(source,late,failure='QA_LABEL_MIGRATION')
+            if catalog()!=old_definitions or compare(saved,manifest(source,folder/'label-failed-forward.json')):
+                raise ValueError('Late migration changed definitions/grants/rows')
+            run(['psql','-X','-w','-v','ON_ERROR_STOP=1','-f',str(ROOT/'supabase/migrations/20261104074700_current_specialty_commands.sql')],source)
+            if catalog()!=definitions or compare(saved,manifest(source,folder/'label-reapplied.json')):
+                raise ValueError('Reapply changed definitions/grants/rows')
             stage = 'seventeen-populated-tables-native-restore-and-corruption'
             baseline = manifest(source, folder / 'baseline.json')
             if len(baseline['tables']) != 17 or not all(t['rows'] > 0 for t in baseline['tables'].values()):
@@ -127,7 +164,7 @@ def main():
             sql(restored, "update public.applications set note='Corrupted synthetic note' where id='a1';")
             if not compare(baseline, manifest(restored, folder / 'corrupted.json')):
                 raise ValueError('Intentional application corruption not detected')
-            print('PASS: PG17 exact current populated upgrade/full schema; application SQL suite/Unicode/legacy rollback; actual production command wire+ack; confirmed source profile and immutable letters preserved, stale receipt refused/new-context receipt accepted;20 writers/1 commit/19 conflicts;17 populated native dump/restore and application corruption detection. Synthetic Auth/transport, not provider restore/PostgREST/SMTP.')
+            print('PASS: PG17 exact current populated upgrade/full schema; application SQL suite/Unicode/legacy rollback; actual production command wire+ack; confirmed source profile and immutable letters preserved, stale receipt refused/new-context receipt accepted;20 application writers and20specialty writers each1commit/19conflicts;label SQL/Unicode/omission/clear/drop/owner/session and actual TS wire;atomic late-fault rollback/migration and row-preserving reapply;17 populated native dump/restore and application corruption detection. Synthetic Auth/transport, not provider restore/PostgREST/SMTP.')
     except Exception:
         failed = True
         print('FAIL: owned application protocol at ' + stage + '; no DB diagnostics/rows/keys emitted.', file=sys.stderr)

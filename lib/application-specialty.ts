@@ -1,3 +1,4 @@
+import {z} from 'zod';
 import type {Application} from './db';
 
 /** User-entered labels only. No title/goal inference, case folding or Unicode normalization. */
@@ -18,3 +19,6 @@ export function specialtyOptions(applications:Application[]) {
  for(const application of applications){const label=specialtyLabel(application);if(label===null)unclassified=true;else labels.add(label);}
  return {labels:[...labels].sort((a,b)=>a<b?-1:a>b?1:0),unclassified};
 }
+
+/** Write validation only: no coercion, trimming or inferred classification. */
+export const SpecialtySchema=z.string().refine(validSpecialty,'Invalid specialty label');

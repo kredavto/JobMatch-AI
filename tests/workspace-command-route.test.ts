@@ -71,3 +71,6 @@ it('rejects malformed UTF8 before identity or command without replacing source b
  const response=await POST(new NextRequest('https://app.test/api/service',{method:'POST',headers:{origin:'https://app.test'},body:Buffer.concat([prefix,Buffer.from([255]),suffix])}));
  expect(response.status).toBe(400);expect(db.identity).not.toHaveBeenCalled();expect(db.applyWorkspaceCommand).not.toHaveBeenCalled();expect(db.saveWorkspace).not.toHaveBeenCalled();
 });
+
+it.each(['Data 🧑‍💻',''])('forwards exactly one explicit label intent with owner and no snapshot fallback: %j',async specialty=>{const command={action:'application',id:'a1',status:'Планируется',note:'keep',specialty};expect((await call(command)).status).toBe(200);expect(db.applyWorkspaceCommand).toHaveBeenCalledExactlyOnceWith({id:owner,token:'fixture'},2,command);expect(db.readWorkspace).not.toHaveBeenCalled();expect(db.saveWorkspace).not.toHaveBeenCalled();});
+it.each([null,3,{},' leading','x'.repeat(121)])('refuses invalid label before RPC %j',async specialty=>{expect((await call({action:'application',id:'a1',status:'Планируется',note:'keep',specialty})).status).toBe(400);expect(db.applyWorkspaceCommand).not.toHaveBeenCalled();});
