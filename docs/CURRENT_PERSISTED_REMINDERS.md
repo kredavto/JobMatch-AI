@@ -63,8 +63,7 @@ The disposable CI drill does not prove actual Supabase-copy recovery or operatio
 
 Fresh local1496unit/101files,112Python,lint/types/build pass. Native full/populated upgrade,
 actual production TS wire/ACK, direct ACL/RLS/session tests, lifecycle/cap/concurrency,
-transactional late-fault rollback/forward and20table synthetic restore are authored but
-await GitHub CI. Results are recorded in VERIFICATION.md after execution.
+transactional late-fault rollback/forward and20table synthetic restore PASS in GitHub run41995350450/job127137064661. All19source workflows succeeded, including439browserPASS/2liveSKIP. Exact immutable source/tree and complete results are recorded in [VERIFICATION_PERSISTED_REMINDERS_20261105](VERIFICATION_PERSISTED_REMINDERS_20261105.md).
 The CLI-created empty migration file was edited directly after automatic review rejected
 further CLI session use over possible PostHog telemetry; no CLI repeat/advisor/live-query claim.
 
