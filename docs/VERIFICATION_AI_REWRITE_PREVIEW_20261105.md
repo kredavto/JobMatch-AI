@@ -46,3 +46,10 @@ POST-only set lacked the newly monitored `ai-rewrites`, so it sent GET and saw
 the correct405. The fixture now exercises POST with the same unauthenticated
 guard expectations and prints actual exercised route counts. No application
 guard or event/privacy check was weakened. Full replacement CI is pending.
+
+While repairing the shared route inventory, the existing `reminders` observer
+label was also found missing from the operator report's allowlist. It is now
+accepted, filtered and alerted on like the other static labels. A new Python
+test exercises503 alerts for both rewrite/reminder events; the real Next smoke
+now includes all14registered labels and19GET/POST handlers. These remain guard
+checks, not actual reminder delivery. Local Python total becomes119PASS.

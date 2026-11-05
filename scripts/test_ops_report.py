@@ -96,6 +96,17 @@ class OpsReportTests(unittest.TestCase):
         self.assertEqual(report['verdict'], 'observed-alert')
         self.assertEqual(set(report['breaches']), {'unhandled', 'observed-response-5xx', 'observed-response-ge2s'})
 
+    def test_rewrite_and_reminder_events_remain_reportable_alerts(self):
+        for route in ('ai-rewrites', 'reminders'):
+            with self.subTest(route=route):
+                row = ops.parse_event(line(event(route=route, handler='POST', status=503)).rstrip('\n'))
+                report = self.summary([row], route=route)
+                checked, code = ops.check_report(report, min_responses=1, max_5xx=0,
+                                                max_ge2s=0, max_unhandled=0, max_age=120)
+                self.assertEqual(code, 1)
+                self.assertEqual(checked['verdict'], 'observed-alert')
+                self.assertEqual(checked['collectionCompleteness'], 'not-established')
+
     def test_caps_unknown_measurements_future_and_insufficient_data_never_pass(self):
         for rows in [[event(), capped()], [event(status=None)], [event(duration='unknown')],
                      [event(minute='2026-10-30T13:01:00Z')], []]:
