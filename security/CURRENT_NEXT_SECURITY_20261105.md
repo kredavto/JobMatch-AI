@@ -68,13 +68,25 @@ existing ESLint9 is not renamed supported merely because lint and audit pass.
 No paid extended support was purchased. Publisher compatibility updates or a
 separately verified migration retaining the rules are still needed.
 
-## Candidate verification
+## Verified source
 
-Local:1,615unit/108files,118Python,29security tests, types, lint(six existing warnings)
-and production build on Next16.4.5 passed. Actual normal graph passed and actual
-ESLint10 graph failed. Before/after full/runtime audits reported0catalog findings.
-Hosted browser/native PostgreSQL/parser/current API execution is **pending**.
-No local browser/native/manual or exploit-reproduction acceptance is claimed.
+Accepted `24d0492ceb8f330871006aacf159a50dd37fc22b`, tree
+`76900306ed8b2edb70a6243fb1c59097ba134f6e`; all19sourceworkflows SUCCESS,
+with hosted application/native checkout tree verified at its immutable SHA.
+[Complete journal](VERIFICATION_CURRENT_NEXT_20261105.md).
+
+Application1,615unit/108files,487browserPASS/2liveSKIP,types/lint/build passed on
+Next16.4.5. Audit job29security tests and actual installed graph passed
+(1,083nodes/122empty slots/0optional artifacts/0problem signals); runtime and
+enforced full gates both0catalog findings. Native118Python and full current
+write/source/version/restore/owner/default/rollback/TLS parser regressions passed.
+Real fresh signed scanner28174 passed the unchanged24hgate. Actual CPU16synthetic
+responses/1074tokens/0gold remainsNOT ACCEPTED, not a model qualification pass.
+
+Local metrics and actual rejected ESLint10 graph are retained separately; optional
+platform inventories need not have identical node counts. These are synthetic
+fixtures, not provider-copy restore, real Auth/mail, model quality or independent
+security acceptance. No local browser/native/manual or exploit-reproduction pass.
 
 Full project remains incomplete. Qualified model/semantic/held-out evaluation,
 real SMTP/recovery with an agreed recipient and permission, provider-copy restore,
