@@ -146,16 +146,29 @@ def main():
                 if len(capped['versions'])!=100 or current(target)!=capped:raise ValueError('Stored cap failed atomically')
                 sql(target,'delete from public.resume_versions where user_id='+literal(OWNER)+' and position>'+str(count)+';')
                 if current(target)!=after:raise ValueError('Owned cap fixture cleanup differs')
-                stage='closed-rollback-exact-restore-and-reapply'
+                stage='closed-permission-rollback'
                 english=after['versions'][-1]
                 sql(target,(ROOT/'supabase/rollback/20261105111200_current_ordinary_english.sql').read_text())
+                stage='closed-English-exact-restore'
                 copied=sql(target,statement(after['revision'],dict(action='restore',id=english['id'])),user=OWNER)
                 if {k:v for k,v in copied['versions'][-1].items() if k not in ('id','created','restored_from')}!={k:v for k,v in english.items() if k not in ('id','created','restored_from')}:
                     raise ValueError('Disabled English exact restore changed immutable fields')
+                stage='reapply-checkpoint'
                 checkpoint=manifest(target,folder/'reapply-before.json');defs=definitions(target)
+                stage='reapply-SQL'
                 sql(target,addon.decode())
-                if definitions(target)!=defs or compare(checkpoint,manifest(target,folder/'reapply-after.json')):
-                    raise ValueError('Reapply changed data or stable definitions/grants')
+                stage='reapply-definition-ACL-parity'
+                final_defs=definitions(target)
+                if final_defs!=defs:
+                    prior_defs={row['name']:row for row in defs};next_defs={row['name']:row for row in final_defs}
+                    changed=[dict(routine=name,fields=[key for key in ('definition','acl') if prior_defs.get(name,{}).get(key)!=next_defs.get(name,{}).get(key)]) for name in sorted(set(prior_defs)|set(next_defs)) if prior_defs.get(name)!=next_defs.get(name)]
+                    print('Ordinary reapply definition diagnostics: '+json.dumps(changed))
+                    raise ValueError('Reapply definition/ACL mismatch')
+                stage='reapply-row-parity'
+                differences=compare(checkpoint,manifest(target,folder/'reapply-after.json'))
+                if differences:
+                    print('Ordinary reapply changed relations: '+','.join(differences))
+                    raise ValueError('Reapply row mismatch')
             stage='native-twenty-table-dump-restore-and-extra-corruption'
             reference=manifest(upgrade,folder/'source.json');dump=folder/'fixture.dump'
             run(['pg_dump','--format=custom','--no-owner','--file',str(dump)],upgrade)
@@ -171,8 +184,10 @@ def main():
                 raise ValueError('English tag corruption was not detected')
             print('PASS: current PG17 populated/full additive English framing; closed default, actual service/RPC/exact ACK/DOCX;64native Unicode parity cases; real false/lost committed replies and explicit reconciliation without replay;20writers1commit19conflicts per schema; owner/session/100record cap/invalid-tag guards; closed rollback/exact restore/reapply;20table synthetic dump/restore and tag corruption. No provider/model/production acceptance.')
         return 0
-    except Exception:
-        print('FAIL: ordinary English native drill at '+stage+'; no database rows or diagnostics emitted.',file=sys.stderr)
+    except Exception as error:
+        known={'Disabled English exact restore changed immutable fields','Reapply definition/ACL mismatch','Reapply row mismatch','Native SQL failed','Synthetic subprocess failed'}
+        reason=str(error) if str(error) in known else type(error).__name__
+        print('FAIL: ordinary English native drill at '+stage+'; '+reason+'; no database rows or raw provider diagnostics emitted.',file=sys.stderr)
         return 1
     finally:
         for name in reversed(created):
