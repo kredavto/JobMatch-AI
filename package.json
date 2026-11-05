@@ -14,13 +14,14 @@
     "audit:dependencies": "node scripts/dependency_audit.mjs",
     "audit:dependencies:all": "node scripts/dependency_audit.mjs --require-all",
     "build:parser-worker": "tsc -p worker/tsconfig.json",
-    "test:parser-worker": "npm run build:parser-worker && node --test worker/tests/*.test.mjs"
+    "test:parser-worker": "npm run build:parser-worker && node --test worker/tests/*.test.mjs",
+    "audit:dependency-graph": "node scripts/dependency_graph.mjs"
   },
   "dependencies": {
     "@napi-rs/canvas": "0.1.80",
     "jszip": "3.10.2",
     "mammoth": "^1.11.0",
-    "next": "16.4.3",
+    "next": "16.4.5",
     "pdfjs-dist": "6.2.108",
     "react": "19.2.4",
     "react-dom": "19.2.4",
@@ -36,7 +37,7 @@
     "@types/react-dom": "^19.2.0",
     "@types/yauzl": "2.10.3",
     "eslint": "^9.0.0",
-    "eslint-config-next": "16.4.3",
+    "eslint-config-next": "16.4.5",
     "typescript": "^5.9.3",
     "vitest": "^4.0.0"
   },

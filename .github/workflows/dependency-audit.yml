@@ -1,10 +1,11 @@
-name: Runtime dependency audit and full inventory
+name: Runtime and full dependency audit gates
 on:
   pull_request:
     paths:
       - package.json
       - package-lock.json
       - scripts/dependency_audit.mjs
+      - scripts/dependency_graph.mjs
       - security/tests/**
       - .github/workflows/dependency-audit.yml
   workflow_dispatch:
@@ -24,12 +25,13 @@ jobs:
           node-version: '24'
           cache: npm
       - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npm run audit:dependency-graph
       - run: npm run test:security
       - name: Fail on any runtime finding or unavailable report
         run: npm run audit:dependencies
-      # The strict full command must still return 1 while dev findings remain.
-      # Reporting that result is inventory, not an advisory waiver or release acceptance.
-      - name: Execute and expose strict full gate result
+      # Keep the inventory visible, and fail on every remaining development finding.
+      # Passing a catalog snapshot is still not independent security acceptance.
+      - name: Execute and enforce strict full gate result
         run: |
           set +e
           npm run audit:dependencies:all --silent > "$RUNNER_TEMP/jobmatch-full-audit.json"
@@ -44,4 +46,5 @@ jobs:
           if(![0,1].includes(status)||status!==auditExit(report,true))throw Error('Full audit unavailable or inconsistent');
           console.log(JSON.stringify({strictFullGateExit:status,assessment:report}));
           console.log(status===1?'FULL_DEPENDENCY_GATE_FAILED: findings remain; full security acceptance is OPEN.':'FULL_DEPENDENCY_GATE_PASSED: catalog snapshot only; independent security review remains separate.');
+          process.exitCode=status;
           JS
