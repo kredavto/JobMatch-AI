@@ -25,7 +25,7 @@ it.each([undefined,'','legacy','x&expectedOwnerId=other','../other'])('unknown o
 it.each([{complete:false},{audit:null},{format:'other'},{workspace:{...workspace,revision:-1}}])('rejects incomplete or malformed archives %#',patch=>{
  expect(status(()=>validatedPersonalExport({...archive,...patch},{ownerId,currentOwnerId:ownerId}))).toBe(502);
 });
-it('binds exactly the three current same-origin history routes without obsolete reminder endpoints',()=>{
- expect(SETTINGS_EXPORT_PATHS).toEqual({facts:'/api/fact-history',letters:'/api/letter-versions',sources:'/api/source-versions'});
+it('binds current history and saved-reminder downloads to the exact known owner',()=>{
+ expect(SETTINGS_EXPORT_PATHS).toEqual({facts:'/api/fact-history',letters:'/api/letter-versions',sources:'/api/source-versions',reminders:'/api/reminders'});
  for(const kind of Object.keys(SETTINGS_EXPORT_PATHS) as (keyof typeof SETTINGS_EXPORT_PATHS)[]){const url=new URL(settingsExportHref(kind,ownerId)!,'https://fixture.test');expect(url.origin).toBe('https://fixture.test');expect(url.pathname).toBe(SETTINGS_EXPORT_PATHS[kind]);expect([...url.searchParams]).toEqual([['export','1'],['expectedOwnerId',ownerId]]);}
 });
