@@ -84,3 +84,10 @@ def ordinary_english_schema_predecessor(consolidated):
     if consolidated.count(addon) != 1 or not consolidated.endswith(b'\n' + addon):
         raise ValueError('Unexpected ordinary English additive migration suffix')
     return consolidated[:-len(addon)-1]
+
+
+def source_english_schema_predecessor(consolidated):
+    addon = (ROOT / 'supabase/migrations/20261105130000_current_source_english.sql').read_bytes()
+    if consolidated.count(addon) != 1 or not consolidated.endswith(b'\n' + addon):
+        raise ValueError('Unexpected source English additive migration suffix')
+    return consolidated[:-len(addon)-1]

@@ -1,7 +1,7 @@
 import {observeStream} from './ops-telemetry';
 import {supabase,type Identity} from './db';
 import {UserError} from './errors';
-import {VersionRequestSchema,VersionListSchema,validateSourcePreview,validateSourceVersion,validateSourceVersionList,type SourceVersion} from './source-version';
+import {TEMPLATE_VERSION,ENGLISH_TEMPLATE_VERSION,VersionRequestSchema,VersionListSchema,validateSourcePreview,validateSourceVersion,validateSourceVersionList,type SourceVersion} from './source-version';
 import type {z} from 'zod';
 
 export async function sourceVersionStorageAvailable(user:Identity){
@@ -12,17 +12,24 @@ export async function sourceVersionStorageAvailable(user:Identity){
 }
 export async function sourceVersionCommand(user:Identity,input:z.infer<typeof VersionRequestSchema>){
  if(input.action==='save'&&!await sourceVersionStorageAvailable(user))throw new UserError('Сохранение структурированных версий недоступно.',503,'SOURCE_VERSION_STORAGE_UNAVAILABLE');
+ const template=input.templateVersion??TEMPLATE_VERSION;
+ if(template===ENGLISH_TEMPLATE_VERSION){
+  if(process.env.JOBMATCH_SOURCE_ENGLISH_ENABLED!=='true')throw new UserError('Английские структурированные версии недоступны.',503,'SOURCE_VERSION_STORAGE_UNAVAILABLE');
+  const ready=await supabase('/rest/v1/rpc/source_version_english_ready','POST',{},user.token);
+  if(ready!==true)throw new UserError('Английские структурированные версии недоступны.',typeof ready==='boolean'?503:502,typeof ready==='boolean'?'SOURCE_VERSION_STORAGE_UNAVAILABLE':'SOURCE_VERSION_CONFIG_INVALID');
+ }
+ const suffix=template===ENGLISH_TEMPLATE_VERSION?'_english':'';
  const params={p_workspace_revision:input.workspaceRevision,p_profile_revision:input.profileRevision,p_entry_ids:input.entryIds};
  let value:unknown;
- try{value=await supabase('/rest/v1/rpc/'+(input.action==='save'?'save_source_version':'preview_source_version'),'POST',input.action==='save'?{...params,p_preview_hash:input.previewHash,p_accept:input.accept}:params,user.token);}
+ try{value=await supabase('/rest/v1/rpc/'+(input.action==='save'?'save_source_version':'preview_source_version')+suffix,'POST',input.action==='save'?{...params,p_preview_hash:input.previewHash,p_accept:input.accept}:params,user.token);}
  catch(error){
   if(input.action==='preview'||error instanceof Error&&['AUTH','CONFLICT','RATE'].includes(error.message)||error instanceof UserError&&error.status<500)throw error;
   throw new UserError('Результат сохранения неизвестен. Прочитайте историю без автоматического повтора.',502,'SOURCE_VERSION_SAVE_UNKNOWN');
  }
  try{
-  if(input.action==='preview')return await validateSourcePreview(value,user.id,input.workspaceRevision,input.profileRevision,input.entryIds);
+  if(input.action==='preview')return await validateSourcePreview(value,user.id,input.workspaceRevision,input.profileRevision,input.entryIds,template);
   const version=await validateSourceVersion(value,user.id);
-  if(version.preview_hash!==input.previewHash||version.snapshot.workspace_revision!==input.workspaceRevision||version.snapshot.revision!==input.profileRevision||version.snapshot.entries.length!==input.entryIds.length||version.snapshot.entries.some(e=>!input.entryIds.includes(e.id)))throw Error();
+  if(version.template_version!==template||version.preview_hash!==input.previewHash||version.snapshot.workspace_revision!==input.workspaceRevision||version.snapshot.revision!==input.profileRevision||version.snapshot.entries.length!==input.entryIds.length||version.snapshot.entries.some(e=>!input.entryIds.includes(e.id)))throw Error();
   return version;
  }catch{throw new UserError('Ответ версии не прошёл проверку. Прочитайте историю и профиль без повтора записи.',502,'SOURCE_VERSION_WRITE_INVALID');}
 }

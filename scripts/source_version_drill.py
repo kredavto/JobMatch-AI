@@ -10,7 +10,7 @@ import subprocess
 import sys
 import tempfile
 import uuid
-from storage_fixture import english_schema_predecessor, specialty_schema_predecessor, reminder_schema_predecessor, ordinary_english_schema_predecessor
+from storage_fixture import source_english_schema_predecessor, english_schema_predecessor, specialty_schema_predecessor, reminder_schema_predecessor, ordinary_english_schema_predecessor
 from backup_manifest import snapshot, compare
 from saved_letter_drill import ROOT, OWNER, OTHER, SESSION, KEY, literal, run, bridge, accept_statement, verify_history
 from source_profile_drill import read, context, codec as profile_codec
@@ -109,9 +109,10 @@ def seed_core(target,folder):
     return receipt
 
 
-def revoke_waiters(target):
+def revoke_waiters(target,english=False):
     if not database_allowed(target):
         raise ValueError('Owned revocation target required')
+    suffix='_english' if english else ''
     probe=Probe(target)
     try:
         probe.query("insert into auth.users values('"+probe.a+"'),('"+probe.b+"');insert into auth.sessions values('"+probe.sa+"','"+probe.a+"'),('"+probe.sb+"','"+probe.b+"');")
@@ -120,9 +121,9 @@ def revoke_waiters(target):
             sql(target,"select public.apply_workspace_command(0,'{\"action\":\"import\",\"text\":\"SQL\\nOwned QA source\"}');",user=uid,session=session)
             p=sql(target,"select public.command_source_profile(1,0,'{\"action\":\"add\",\"kind\":\"employment\",\"fields\":{\"title\":{\"quote\":\"SQL\",\"start\":0,\"end\":3}}}','STORE_REVIEWED_SOURCE_PROFILE');",user=uid,session=session)
             p=sql(target,"select public.command_source_profile(1,1,jsonb_build_object('action','confirm','id',"+literal(p['entries'][0]['id'])+"::uuid,'confirmed',true),'STORE_REVIEWED_SOURCE_PROFILE');",user=uid,session=session)
-            expression='public.preview_source_version(1,2,ARRAY['+literal(p['entries'][0]['id'])+']::uuid[])'
+            expression='public.preview_source_version'+suffix+'(1,2,ARRAY['+literal(p['entries'][0]['id'])+']::uuid[])'
             value=sql(target,'select '+expression+';',user=uid,session=session)
-            statement="public.save_source_version(1,2,ARRAY["+literal(p['entries'][0]['id'])+']::uuid[],'+literal(value['preview_hash'])+",'SAVE_LITERAL_SOURCE_VERSION')"
+            statement="public.save_source_version"+suffix+"(1,2,ARRAY["+literal(p['entries'][0]['id'])+']::uuid[],'+literal(value['preview_hash'])+",'SAVE_LITERAL_SOURCE_VERSION')"
             sql(target,'select '+statement+';',user=uid,session=session)
             state=sql(target,'select public.list_source_versions();',user=uid,session=session)
             prepared[uid]=(expression,statement,state)
@@ -157,7 +158,7 @@ def main():
     try:
         with tempfile.TemporaryDirectory(prefix='jobmatch-source-versions-owned-') as temp:
             folder=Path(temp)
-            migration=(ROOT/MIGRATION).read_bytes();full=english_schema_predecessor(specialty_schema_predecessor(reminder_schema_predecessor(ordinary_english_schema_predecessor((ROOT/'supabase/schema.sql').read_bytes()))))
+            migration=(ROOT/MIGRATION).read_bytes();full=english_schema_predecessor(specialty_schema_predecessor(reminder_schema_predecessor(ordinary_english_schema_predecessor(source_english_schema_predecessor((ROOT/'supabase/schema.sql').read_bytes())))))
             if full.count(migration)!=1 or not full.endswith(b'\n'+migration):raise ValueError('Unexpected source-version suffix')
             predecessor=full[:-len(migration)-1]
             if hashlib.sha256(predecessor).hexdigest()!=BASE_SHA256:raise ValueError('Not exact current compact/source/letter/quota predecessor')
@@ -191,7 +192,7 @@ def main():
             if catalog(source)!=defs or compare(baseline,capture(source,folder/'late17.json',full=False)) or sql(source,"select to_jsonb(to_regclass('public.source_profile_versions') is not null);"):
                 raise ValueError('Late migration failure changed data/definitions')
             stage='successful additive migration'
-            install(source,[ROOT/MIGRATION,ROOT/'supabase/migrations/20261102082400_english_saved_letters.sql',ROOT/'supabase/migrations/20261104074700_current_specialty_commands.sql',ROOT/'supabase/migrations/20261105080950_current_persisted_reminders.sql',ROOT/'supabase/migrations/20261105111200_current_ordinary_english.sql'])
+            install(source,[ROOT/MIGRATION,ROOT/'supabase/migrations/20261102082400_english_saved_letters.sql',ROOT/'supabase/migrations/20261104074700_current_specialty_commands.sql',ROOT/'supabase/migrations/20261105080950_current_persisted_reminders.sql',ROOT/'supabase/migrations/20261105111200_current_ordinary_english.sql',ROOT/'supabase/migrations/20261105130000_current_source_english.sql'])
             if compare(baseline,capture(source,folder/'after17.json',full=False)) or sql(source,'select to_jsonb(public.source_version_storage_ready());',user=OWNER):raise ValueError('Upgrade changed core or enabled storage')
             stage='clean full bootstrap'
             install(clean,[ROOT/'scripts/restore_fixture.sql',ROOT/'supabase/schema.sql',ROOT/'scripts/restore_seed.sql'])

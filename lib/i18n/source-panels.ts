@@ -1,6 +1,10 @@
 import {normalizeLocale,type UiLocale} from './locale';
 /** Explicit UI message keys only. Never pass source quotes, user data or document text. */
 export const sourceEnglish={
+ "Выбор языка подписей относится только к новой версии. Цитаты не переводятся; язык интерфейса и сохранённые версии не меняются.":"Heading language applies only to a new version. Quotes are not translated; interface language and saved versions do not change.",
+ "Язык подписей новой структурированной версии":"Heading language for a new structured version",
+ "Русские подписи":"Russian headings",
+ "Английские подписи":"English headings",
  "Результат записи неизвестен. Перечитайте профиль перед новым действием. ":"The write outcome is unknown. Read the profile before a new action. ",
  "Восстановите вход в исходный аккаунт.":"Sign in again to the original account.",
  "Данные изменились. Загрузите актуальный мастер-профиль.":"Data changed. Load the current master profile.",
