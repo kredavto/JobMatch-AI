@@ -5,7 +5,7 @@ import {settingsExportHref,knownSettingsOwner,type SettingsExport} from '../lib/
 type Props={ownerId?:string;busy:boolean;paused:boolean;deleteWord:string;onDeleteWord:(value:string)=>void;onExport:()=>unknown;onDelete:(confirm:string)=>unknown;locale?:UiLocale};
 export default function SettingsPanel({ownerId,busy,paused,deleteWord,onDeleteWord,onExport,onDelete,locale:requestedLocale='ru'}:Props){
  const locale=normalizeLocale(requestedLocale),t=settingsCopy[locale],known=knownSettingsOwner(ownerId),disabled=busy||paused||!known;
- function link(kind:SettingsExport,label:string){const href=disabled?null:settingsExportHref(kind,ownerId);return href?<a href={href} download>{label}</a>:<span aria-disabled="true">{label}</span>;}
+ function link(kind:SettingsExport,label:string){const href=disabled?null:settingsExportHref(kind,ownerId);return href?<a href={href} download={kind==='reminders'?'jobmatch-reminders.json':true}>{label}</a>:<span aria-disabled="true">{label}</span>;}
  return <div id="workspace-settings" role="region" lang={locale} aria-label={t.region}>
   <section className="card"><h2>{t.device}</h2><p>{t.install}</p><p>{t.offline}</p></section>
   <section className="card"><h2>{t.data}</h2><p>{t.hosting}</p><p>{t.capabilities}</p><p>{t.mail}</p>{!known&&<p role="alert">{t.ownerUnknown}</p>}{paused&&<p role="alert">{t.paused}</p>}

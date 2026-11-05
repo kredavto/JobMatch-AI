@@ -1,3 +1,4 @@
+import {reminderExportFixture} from '../fixtures/reminder-export-fixture.mjs';
 import {test,expect,type Page} from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import {readFile} from 'node:fs/promises';
@@ -62,10 +63,10 @@ test('a failed export requires deliberate current-data read before a new request
  await openSettings(page);await exportButton(page).click();await expect(page.locator('.error')).toBeVisible();await language(page,'en');await expect(panel(page).getByRole('alert')).toContainText('Export and deletion are paused');await expect(exportButton(page)).toBeDisabled();expect(writes).toBe(1);expect(reads).toBe(1);valid=true;
  await page.getByRole('button',{name:'Load current data',exact:true}).click();await expect(exportButton(page)).toBeEnabled();expect(reads).toBe(2);expect(await personalFile(page)).toEqual(archive);expect(writes).toBe(2);
 });
-test('all three current history links download owner-bound separate NDJSON files',async({page})=>{
- const paths=['/api/fact-history','/api/letter-versions','/api/source-versions'],gets:string[]=[];let posts=0;await page.route('**/api/service',route=>{if(route.request().method()!=='GET')posts++;return route.fulfill({json:initial});});
- await openSettings(page);await language(page,'en');const links=panel(page).getByRole('link');await expect(links).toHaveCount(3);
- for(let i=0;i<paths.length;i++){await expect(links.nth(i)).toHaveAttribute('href',paths[i]+'?export=1&expectedOwnerId='+ownerId);const pending=page.waitForEvent('download');await links.nth(i).click();const file=await pending;expect(file.suggestedFilename()).toBe('synthetic-settings.ndjson');const text=await readFile((await file.path())!,'utf8');expect(text).toBe(JSON.stringify({format:'synthetic-settings-fixture',path:paths[i],ownerId,method:'GET',query:[['export','1'],['expectedOwnerId',ownerId]]})+'\n'+JSON.stringify({complete:true})+'\n');gets.push(JSON.parse(text.split('\n')[0]).path);}
+test('all current history and reminder links download owner-bound separate files',async({page})=>{
+ const paths=['/api/fact-history','/api/letter-versions','/api/source-versions','/api/reminders'],gets:string[]=[];let posts=0;await page.route('**/api/service',route=>{if(route.request().method()!=='GET')posts++;return route.fulfill({json:initial});});
+ await openSettings(page);await language(page,'en');const links=panel(page).getByRole('link');await expect(links).toHaveCount(4);
+ for(let i=0;i<paths.length;i++){await expect(links.nth(i)).toHaveAttribute('href',paths[i]+'?export=1&expectedOwnerId='+ownerId);const pending=page.waitForEvent('download');await links.nth(i).click();const file=await pending;const text=await readFile((await file.path())!,'utf8');if(paths[i]==='/api/reminders'){expect(file.suggestedFilename()).toBe('jobmatch-reminders.json');expect(JSON.parse(text)).toEqual(reminderExportFixture);gets.push(paths[i]);continue;}expect(file.suggestedFilename()).toBe('synthetic-settings.ndjson');expect(text).toBe(JSON.stringify({format:'synthetic-settings-fixture',path:paths[i],ownerId,method:'GET',query:[['export','1'],['expectedOwnerId',ownerId]]})+'\n'+JSON.stringify({complete:true})+'\n');gets.push(JSON.parse(text.split('\n')[0]).path);}
  expect(gets).toEqual(paths);expect(posts).toBe(0);await expect(panel(page)).toContainText('Every NDJSON must end with a complete: true record');
 });
 test('failed personal-file click revokes the Blob URL, redacts the error and supports manual retry',async({page})=>{
