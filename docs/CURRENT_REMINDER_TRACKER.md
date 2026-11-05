@@ -36,7 +36,7 @@ and delivery are still separate unfinished work; live/manual/physical-device acc
 and provider operational gates remain open.
 
 Fresh local1511unit/102files,lint/types/build and20security pass.16new actual-Root browser
-scenarios plus11existing settings scenarios await hosted CI. New unit cases verify draft
+scenarios plus11existing settings scenarios PASS in hosted CI. Accepted source0c8b6d60 passed455browser/2liveSKIP and all17relevant workflows; the initial3failures and correction are preserved in [VERIFICATION_REMINDER_TRACKER_20261105](VERIFICATION_REMINDER_TRACKER_20261105.md). New unit cases verify draft
 basis, explicit time selection, stale source/row, late typing/consent, ABA and cancellation.
 HTTP browser transport is synthetic; native #117 SQL evidence is separate. Local Chromium
 was unavailable (missing/truncated official install; packaged extraction EINVAL/chown),
