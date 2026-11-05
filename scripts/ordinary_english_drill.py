@@ -154,7 +154,7 @@ def main():
                 if {k:v for k,v in copied['versions'][-1].items() if k not in ('id','created','restored_from')}!={k:v for k,v in english.items() if k not in ('id','created','restored_from')}:
                     raise ValueError('Disabled English exact restore changed immutable fields')
                 stage='reapply-checkpoint'
-                checkpoint=manifest(target,folder/'reapply-before.json');defs=definitions(target)
+                checkpoint=manifest(target,folder/(target['PGDATABASE']+'-reapply-before.json'));defs=definitions(target)
                 stage='reapply-SQL'
                 sql(target,addon.decode())
                 stage='reapply-definition-ACL-parity'
@@ -165,7 +165,7 @@ def main():
                     print('Ordinary reapply definition diagnostics: '+json.dumps(changed))
                     raise ValueError('Reapply definition/ACL mismatch')
                 stage='reapply-row-parity'
-                differences=compare(checkpoint,manifest(target,folder/'reapply-after.json'))
+                differences=compare(checkpoint,manifest(target,folder/(target['PGDATABASE']+'-reapply-after.json')))
                 if differences:
                     print('Ordinary reapply changed relations: '+','.join(differences))
                     raise ValueError('Reapply row mismatch')
