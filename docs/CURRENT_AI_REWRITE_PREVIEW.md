@@ -95,3 +95,10 @@ checks. The old actual CPU model diagnostic remains 0/16 gold and NOT ACCEPTED;
 this new prompt has not been run against a model or held-out semantic corpus.
 External model resources/permissions and operator personal-data decisions remain
 open, as do agreed SMTP/recovery, provider-copy restore, HH and final live gates.
+
+
+Verification: [PR#123 journal](VERIFICATION_AI_REWRITE_PREVIEW_20261105.md) records
+all19successful exact-source workflows,69new production-code tests against an
+owned synthetic HTTP server, retained initial smoke failure, full immutable file
+readback and unchanged old AI benchmark rejection. This verifies the bounded
+preview path and regressions, not the model, human review, save endpoint or UI.

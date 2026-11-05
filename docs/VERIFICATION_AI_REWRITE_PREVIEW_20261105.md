@@ -53,3 +53,56 @@ accepted, filtered and alerted on like the other static labels. A new Python
 test exercises503 alerts for both rewrite/reminder events; the real Next smoke
 now includes all14registered labels and19GET/POST handlers. These remain guard
 checks, not actual reminder delivery. Local Python total becomes119PASS.
+
+
+## Accepted source and exact hosted checks
+
+Accepted source `360010c7ce9f915386b6aba3bcb7145d275fb61c`, tree `3b1919827f7e1e7d0027b8784ab7b6c12e0ef3b0`;
+local `2c041d920775e50b33f88dcfd2f0990111245072` has the identical tree. Hosted checkout
+`0a20c16fcf8857d6292468fa25635e61586a2eaf` was independently resolved to that exact tree.
+**All nineteen triggered source workflows completed SUCCESS.**
+
+| Evidence | Observed result |
+| --- | --- |
+| [Application42053458246/job127335399206](https://github.com/kredavto/JobMatch-AI/actions/runs/42053458246/job/127335399206) | 1,684 unit / 110 files, including all69new tests; types/lint/build PASS;487browser PASS /2live SKIP. These existing browser regressions do not test a new rewrite UI, which does not exist yet. Installed graph1083nodes/122empty/0optional artifacts/0signals valid. |
+| [Operations42053458492/job127335400311](https://github.com/kredavto/JobMatch-AI/actions/runs/42053458492/job/127335400311) | 41observer tests,27Python report tests, production Next build and actual loopback process;14static labels/19GET-POST handlers, unchanged unauthenticated guards, private-canary refusal, alert and capped/inconclusive operator verdicts PASS. No provider request or delivery. |
+| [Source protocol42053458640/job127335400837](https://github.com/kredavto/JobMatch-AI/actions/runs/42053458640/job/127335400837) |119Python tests; existing RU/EN source SQL/API/codec/export lifecycle, default-off gates, concurrent writers, unknown committed replies/manual reconciliation, revoked sessions, rollback/reapply,20table synthetic native PG17 restore/RLS/default/corruption PASS. This does not establish AI-rewrite storage, which is absent, liveAuth or provider-copy restore. |
+| [Scanner42053458502/job127335400912](https://github.com/kredavto/JobMatch-AI/actions/runs/42053458502/job/127335400912) | Clam1.4.6 with refreshed signed28174 dated06:26:24Z, observed15:18:56.643Z inside unchanged24h gate; archive boundaries/reload/refusal and parser regressions PASS. |
+| [CPU42053458407/job127335399607](https://github.com/kredavto/JobMatch-AI/actions/runs/42053458407/job/127335399607) | Unchanged older literal-selection experiment:16actual synthetic responses,1,074tokens,0gold;14provenance failures/2mismatches,NOT ACCEPTED. Model/deployment identity, semantic and held-out assessment unverified/not performed. The new rewrite prompt was not executed. |
+
+Complete triggered source run inventory:
+
+- [Current application commands PostgreSQL protocol — 42053458348](https://github.com/kredavto/JobMatch-AI/actions/runs/42053458348): SUCCESS.
+- [Mirror rollback compatibility — Current logical backup PostgreSQL protocol — 42053458215](https://github.com/kredavto/JobMatch-AI/actions/runs/42053458215): SUCCESS.
+- [Mirror rollback compatibility — Current canonical reads PostgreSQL protocol — 42053458234](https://github.com/kredavto/JobMatch-AI/actions/runs/42053458234): SUCCESS.
+- [Mirror rollback compatibility — Current explicit writes PostgreSQL protocol — 42053458117](https://github.com/kredavto/JobMatch-AI/actions/runs/42053458117): SUCCESS.
+- [Current persisted reminder PostgreSQL protocol — 42053458061](https://github.com/kredavto/JobMatch-AI/actions/runs/42053458061): SUCCESS.
+- [Mirror rollback compatibility — Current projection parity PostgreSQL preflight — 42053458377](https://github.com/kredavto/JobMatch-AI/actions/runs/42053458377): SUCCESS.
+- [Synthetic source-profile PostgreSQL protocol — 42053458384](https://github.com/kredavto/JobMatch-AI/actions/runs/42053458384): SUCCESS.
+- [Operational telemetry (synthetic Next) — 42053458492](https://github.com/kredavto/JobMatch-AI/actions/runs/42053458492): SUCCESS.
+- [Current profile commands PostgreSQL protocol — 42053458331](https://github.com/kredavto/JobMatch-AI/actions/runs/42053458331): SUCCESS.
+- [Mirror rollback compatibility — Synthetic PostgreSQL restore — 42053458893](https://github.com/kredavto/JobMatch-AI/actions/runs/42053458893): SUCCESS.
+- [Current compact storage PostgreSQL protocol — 42053458319](https://github.com/kredavto/JobMatch-AI/actions/runs/42053458319): SUCCESS.
+- [Synthetic saved-letter PostgreSQL protocol — 42053458389](https://github.com/kredavto/JobMatch-AI/actions/runs/42053458389): SUCCESS.
+- [Current literal source versions PostgreSQL protocol — 42053458640](https://github.com/kredavto/JobMatch-AI/actions/runs/42053458640): SUCCESS.
+- [Parser TLS API compact PostgreSQL integration — 42053458722](https://github.com/kredavto/JobMatch-AI/actions/runs/42053458722): SUCCESS.
+- [Central pre-auth quota (synthetic PostgreSQL) — 42053458675](https://github.com/kredavto/JobMatch-AI/actions/runs/42053458675): SUCCESS.
+- [Current version commands PostgreSQL protocol — 42053458460](https://github.com/kredavto/JobMatch-AI/actions/runs/42053458460): SUCCESS.
+- [Isolated document parser — 42053458502](https://github.com/kredavto/JobMatch-AI/actions/runs/42053458502): SUCCESS.
+- [Exact-main adaptation CPU diagnostic (synthetic only) — 42053458407](https://github.com/kredavto/JobMatch-AI/actions/runs/42053458407): SUCCESS.
+- [Application checks — 42053458246](https://github.com/kredavto/JobMatch-AI/actions/runs/42053458246): SUCCESS.
+
+All19changed source files were fully reread at the immutable commit and matched
+local content/blob IDs. The full untruncated tree confirms682prior blobs unchanged,
+no unrelated path and no deletion. Old AI prompt/provider/corpus/model pin,
+SQL migrations, dependencies and version remain unchanged. The subsequent evidence
+commit changes six Markdown files only; its immutable readback/code parity and
+own CI status are tracked in PR#123. Accepted executable evidence is the exact
+source above, not an inference from a documentation-only check.
+
+PR#123 stays unmerged; no release/deployment or production operation. Next is
+human review/edit decisions plus normalized immutable storage and database
+forgery defenses with native lifecycle tests, then UI. Model qualification,
+agreed mail/recovery, provider-copy restore, personal-data location/retention,
+HH permissions and final live/security/device gates remain open. Internal work
+remains and the existing automation continues; the full project is incomplete.
