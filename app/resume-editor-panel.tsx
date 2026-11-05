@@ -1,4 +1,6 @@
 'use client';
+import {ORDINARY_TEMPLATE,ORDINARY_ENGLISH_TEMPLATE,OrdinaryTemplateSchema,type OrdinaryTemplate} from '../lib/ordinary-template';
+import {ordinaryVersionCopy} from '../lib/i18n/ordinary-version';
 import {normalizeLocale,type UiLocale} from '../lib/i18n/locale';
 import {editorCopy,ruleReason} from '../lib/i18n/editor';
 import {ru,en} from '../lib/i18n';
@@ -7,10 +9,10 @@ import {evidenceIssue} from '../lib/evidence-review';
 import type {match,Edit,Fact} from '../lib/engine';
 type Analysis=ReturnType<typeof match>;
 export type EditorSource={original:string;vacancy:string;facts:Fact[]};
-type Props={locale?:UiLocale;analysis:Analysis|null;edits:Edit[];selected:string[];source:EditorSource;preview:string;canUndo:boolean;locked:boolean;busy:boolean;dirty:boolean;paused:boolean;stale:boolean;onChoose:(ids:string[])=>void;onUndo:()=>void;onSave:()=>void;onProfile:()=>void;onVacancy:()=>void};
+type Props={locale?:UiLocale;template?:OrdinaryTemplate;onTemplate?:(template:OrdinaryTemplate)=>void;analysis:Analysis|null;edits:Edit[];selected:string[];source:EditorSource;preview:string;canUndo:boolean;locked:boolean;busy:boolean;dirty:boolean;paused:boolean;stale:boolean;onChoose:(ids:string[])=>void;onUndo:()=>void;onSave:()=>void;onProfile:()=>void;onVacancy:()=>void};
 /** Presentation only. Root owns selection/history, source identity and every request guard. */
-export default function ResumeEditorPanel({locale='ru',analysis,edits,selected,source,preview,canUndo,locked,busy,dirty,paused,stale,onChoose,onUndo,onSave,onProfile,onVacancy}:Props){
- const language=normalizeLocale(locale),t=editorCopy[language],labels=(language==='en'?en:ru).match;
+export default function ResumeEditorPanel({locale='ru',template=ORDINARY_TEMPLATE,onTemplate,analysis,edits,selected,source,preview,canUndo,locked,busy,dirty,paused,stale,onChoose,onUndo,onSave,onProfile,onVacancy}:Props){
+ const language=normalizeLocale(locale),t=editorCopy[language],framing=ordinaryVersionCopy[language],labels=(language==='en'?en:ru).match;
  const reason=(value:string)=>{const r=ruleReason(value,language);return <span lang={r.catalogued?language:''}>{r.text}</span>;};
  if(!analysis)return <section className="card empty" lang={language}><h2>{t.emptyTitle}</h2><p>{t.emptyHelp}</p><button onClick={onVacancy}>{t.toVacancy}</button></section>;
  return <section lang={language} aria-label={t.region} id="resume-editor">
@@ -20,7 +22,7 @@ export default function ResumeEditorPanel({locale='ru',analysis,edits,selected,s
  <details><summary>{t.formulaTitle}</summary><p>{t.rulesRevision}: {RULES_REVISION}</p><p>{t.formula}</p>{analysis.parts.map(p=><p key={p.category}>{t.categories[p.category]}: {t.weight} {p.weight}%, {t.count} {p.count}, {t.result} {p.value===null?t.unassessed:Math.round(p.value*100)+'%'}</p>)}</details></section>
  {source.facts.some(f=>f.verified&&evidenceIssue(f.text))&&<section className="card" aria-label={t.riskRegion}><h2>{t.riskTitle}</h2><p>{t.riskHelp}</p>{source.facts.filter(f=>f.verified&&evidenceIssue(f.text)).map(f=><details key={f.id}><summary lang="">{f.text}</summary><p>{reason(evidenceIssue(f.text)!)}</p><small>Evidence: {f.id} · <span lang="">{f.source}</span></small></details>)}<p>{t.riskCaveat}</p><button onClick={onProfile}>{t.clarify}</button></section>}
  <section className="card"><h2>{t.edits}</h2><p>{t.editsHelp}</p>{edits.map(e=><label className="fact" key={e.id}><input type="checkbox" disabled={locked} checked={selected.includes(e.id)} onChange={event=>{if(!locked)onChoose(event.target.checked?[...selected,e.id]:selected.filter(id=>id!==e.id));}}/><span><span lang="">{e.text}</span><small>{reason(e.reason)} · {e.evidence_ids.join(', ')}</small></span></label>)}{!edits.length&&<p>{t.noEdits}</p>}<div className="actions"><button disabled={locked} onClick={()=>{if(!locked)onChoose(edits.map(e=>e.id));}}>{t.acceptAll}</button><button disabled={locked} onClick={()=>{if(!locked)onChoose([]);}}>{t.original}</button><button disabled={locked||!canUndo} onClick={()=>{if(!locked)onUndo();}}>{t.undo}</button></div></section>
- <p className="muted">{t.template}</p><div className="compare"><section className="card"><h2>{t.originalResume}</h2><pre lang="">{source.original}</pre></section><section className="card"><h2>{t.newVersion}</h2>{selected.length>0&&<div className="notice">{t.promoted(selected.length)}</div>}<pre lang="ru" id="editor-preview">{preview.split("\n").map((line,i)=><span key={i}>{edits.some(e=>selected.includes(e.id)&&e.text===line)?<mark>{line}</mark>:line}{"\n"}</span>)}</pre></section></div>
+ <section className="card"><label htmlFor="ordinary-template">{framing.label}</label><select id="ordinary-template" value={template} disabled={dirty||paused||stale} onChange={event=>{if(dirty||paused||stale)return;const parsed=OrdinaryTemplateSchema.safeParse(event.target.value);if(parsed.success)onTemplate?.(parsed.data);}}><option value={ORDINARY_TEMPLATE}>{framing.russian}</option><option value={ORDINARY_ENGLISH_TEMPLATE}>{framing.english}</option></select><p>{framing.help}</p><p className="muted">{template===ORDINARY_ENGLISH_TEMPLATE?framing.englishHelp:t.template}</p></section><div className="compare"><section className="card"><h2>{t.originalResume}</h2><pre lang="">{source.original}</pre></section><section className="card"><h2>{t.newVersion}</h2>{selected.length>0&&<div className="notice">{t.promoted(selected.length)}</div>}<pre lang={template===ORDINARY_ENGLISH_TEMPLATE?'':'ru'} id="editor-preview">{preview.split("\n").map((line,i)=><span key={i}>{edits.some(e=>selected.includes(e.id)&&e.text===line)?<mark>{line}</mark>:line}{"\n"}</span>)}</pre></section></div>
  <section className="card"><h2>{t.saveTitle}</h2><p>{t.saveHelp}</p><button id="editor-save" className="primary" disabled={locked} onClick={()=>{if(!locked)onSave();}}>{busy?t.saving:t.save}</button></section>
  </section>;
 }

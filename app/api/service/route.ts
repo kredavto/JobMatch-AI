@@ -2,6 +2,9 @@ import {observeRoute} from '../../../lib/ops-telemetry';
 import {consumeAuthQuota,localAuthKey} from '../../../lib/auth-quota';
 import {WorkspaceCommandSchema} from '../../../lib/workspace-command';
 import {prepareVersionCommand} from '../../../lib/version-command';
+import {ORDINARY_ENGLISH_TEMPLATE} from '../../../lib/ordinary-template';
+import {validateOrdinaryVersionResult} from '../../../lib/ordinary-version-result';
+import {requireOrdinaryEnglishReady} from '../../../lib/ordinary-version-db';
 import {parseProviderAuth} from '../../../lib/auth-contract';
 import {personalExport} from '../../../lib/personal-export';
 import {boundedBody} from '../../../lib/body';import {UserError} from '../../../lib/errors';
@@ -29,7 +32,12 @@ async function POSTHandler(req:NextRequest){try{sameOrigin(req);rateLimit('globa
  if(action==='goal'||action==='vacancy'||action==='verify'){const command=action==='verify'?{action,ids:b.ids,verified:b.verified}:{action,text:b.text};return ok({...await applyWorkspaceCommand(user,rev,WorkspaceCommandSchema.parse(command)),ownerId:user.id});}
  const state=await readWorkspace(user);if(rev!==state.revision)throw new Error('CONFLICT');
  if(action==='analyze'){if(!state.original||!state.vacancy)throw new UserError('Добавьте резюме и текст вакансии',400,'PROFILE_INPUT_REQUIRED');return ok({analysis:match(state.facts,parseVacancy(state.vacancy)),edits:propose(state.facts,parseVacancy(state.vacancy))});}
- if(action==='version')return ok({...await applyWorkspaceCommand(user,rev,prepareVersionCommand(state,b.ids)),ownerId:user.id});
+ if(action==='version'){
+  const command=prepareVersionCommand(state,b.ids,b.template_version),english=command.template_version===ORDINARY_ENGLISH_TEMPLATE;
+  if(english){if(process.env.JOBMATCH_ORDINARY_ENGLISH_ENABLED!=='true')throw new UserError('Английское оформление пока недоступно для сохранения.',503,'UPSTREAM_UNAVAILABLE');await requireOrdinaryEnglishReady(user);}
+  const after={...await applyWorkspaceCommand(user,rev,command),ownerId:user.id};
+  try{return ok(validateOrdinaryVersionResult(after,{...state,ownerId:user.id},b.ids,user.id,english?ORDINARY_ENGLISH_TEMPLATE:undefined));}catch{throw new UserError('Ответ сохранения версии не прошёл проверку. Сначала перечитайте данные.',502,'WORKSPACE_WRITE_INVALID');}
+ }
  throw new UserError('Неизвестная операция',400,'OPERATION_UNSUPPORTED');
  }catch(e){return failure(e);}}
 

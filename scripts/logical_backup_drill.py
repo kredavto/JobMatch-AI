@@ -59,7 +59,7 @@ def main():
             if full_sql.count(migration) != 1:
                 raise ValueError('Consolidated helper migration differs')
             prefix, suffix = full_sql.split(migration)
-            extras = [ROOT / 'supabase/migrations' / name for name in ('20261028120214_compact_workspace_storage.sql','20261101171000_source_versions.sql', '20261102082400_english_saved_letters.sql', '20261104074700_current_specialty_commands.sql', '20261105080950_current_persisted_reminders.sql')]
+            extras = [ROOT / 'supabase/migrations' / name for name in ('20261028120214_compact_workspace_storage.sql','20261101171000_source_versions.sql', '20261102082400_english_saved_letters.sql', '20261104074700_current_specialty_commands.sql', '20261105080950_current_persisted_reminders.sql', '20261105111200_current_ordinary_english.sql')]
             if suffix != b''.join(b'\n'+extra.read_bytes() for extra in extras):
                 raise ValueError('Unexpected post-helper definitions')
             predecessor = prefix[:-1]
