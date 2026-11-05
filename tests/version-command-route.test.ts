@@ -1,5 +1,7 @@
 import {beforeEach,expect,it,vi} from 'vitest';
 import {NextRequest} from 'next/server';
+import {ordinaryResult} from './fixtures/ordinary-version';
+import {ORDINARY_TEMPLATE} from '../lib/ordinary-template';
 import type {Workspace} from '../lib/db';
 const db=vi.hoisted(()=>({identity:vi.fn(),consumeQuota:vi.fn(),applyWorkspaceCommand:vi.fn(),readWorkspace:vi.fn(),saveWorkspace:vi.fn(),supabase:vi.fn()}));
 vi.mock('../lib/db',()=>db);
@@ -15,6 +17,7 @@ it('restores by ID only, ignoring forged history/lifecycle fields, with no snaps
  expect(db.readWorkspace).not.toHaveBeenCalled();expect(db.saveWorkspace).not.toHaveBeenCalled();
 });
 it('evaluates one snapshot, binds it to its revision and sends no client-provided version',async()=>{
+ db.applyWorkspaceCommand.mockResolvedValue(ordinaryResult(workspace,['edit-f1'],ORDINARY_TEMPLATE));
  const r=await call({action:'version',ids:['edit-f1'],text:'forged',score:0,evidence_ids:['foreign'],match_metadata:{rules_revision:'forged'},versions:[{}]});
  expect(r.status).toBe(200);expect(db.readWorkspace).toHaveBeenCalledTimes(1);
  expect(db.applyWorkspaceCommand).toHaveBeenCalledWith({id:owner,token:'fixture'},2,{action:'version',evidence_ids:['f1'],score:100,match_metadata:{rules_revision:'rules-2026-10-25.1',weights:{mandatory:35,experience:25,skills:20,context:10,clarity:10},contributions:{matched:1,partial:0.5,missing:0,unknown:0},requirements:1,outcomes:{matched:1,partial:0,missing:0,unknown:0}}});

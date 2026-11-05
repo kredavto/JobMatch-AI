@@ -29,10 +29,10 @@ function assertOps(start,route,handler,status){
  assert.ok(!JSON.stringify(rows).includes(owner));assert.ok(!JSON.stringify(rows).includes('synthetic-session'));assert.ok(!JSON.stringify(rows).includes('private-owner-resume'));
 }
 
-const literal=v=>"'"+String(v).replaceAll("'","''")+"'",traces=[];let concurrentGoal=false;
+const literal=v=>"'"+String(v).replaceAll("'","''")+"'",traces=[];let concurrentGoal=false,versionAckFault=null;
 function pg(statement){return new Promise((resolve,reject)=>{
  const child=execFile('psql',['-X','-qAt','-w','-v','ON_ERROR_STOP=1'],{timeout:8000,maxBuffer:2000000},(error,out,stderr)=>{
-  if(error){const code=['CONFLICT','INVALID_WRITE','PROJECTION_CONFLICT','AUTH'].find(c=>new RegExp('ERROR:\\s+'+c+'(?:\\s|$)').test(stderr));reject(Error(code??'FIXTURE_REFUSED'));return;}
+  if(error){const code=['CONFLICT','INVALID_WRITE','PROJECTION_CONFLICT','AUTH','ORDINARY_ENGLISH_UNAVAILABLE'].find(c=>new RegExp('ERROR:\\s+'+c+'(?:\\s|$)').test(stderr));reject(Error(code??'FIXTURE_REFUSED'));return;}
   try{resolve(JSON.parse(out.trim()));}catch{reject(Error('FIXTURE_PROTOCOL'));}
  });
  child.stdin.end('set role authenticated;set request.jwt.claims='+literal(JSON.stringify({sub:owner,session_id:session}))+';'+statement);
@@ -47,6 +47,7 @@ const server=http.createServer(async(req,res)=>{
    let statement;
    if(req.url==='/rest/v1/rpc/session_is_active'){assert.deepEqual(b,{});statement='select to_jsonb(public.session_is_active());';}
    else if(req.url==='/rest/v1/rpc/consume_quota'){assert.deepEqual(Object.keys(b),['p_bucket']);assert.ok(['service','analysis','import'].includes(b.p_bucket));statement='select to_jsonb(public.consume_quota('+literal(b.p_bucket)+'));';}
+   else if(req.url==='/rest/v1/rpc/ordinary_english_ready'){assert.deepEqual(b,{});statement='select to_jsonb(public.ordinary_english_ready());';}
    else if(req.url==='/rest/v1/rpc/read_workspace'){assert.deepEqual(b,{});statement='select public.read_workspace();';}
    else if(req.url==='/rest/v1/rpc/apply_workspace_command'){
     assert.deepEqual(Object.keys(b).sort(),['p_command','p_revision']);assert.ok(Number.isSafeInteger(b.p_revision)&&b.p_revision>=0);
@@ -57,8 +58,10 @@ const server=http.createServer(async(req,res)=>{
     statement='select to_jsonb(public.save_workspace('+b.p_revision+','+literal(JSON.stringify(b.p_payload))+'::jsonb,'+literal(b.p_action)+'));';
    }else throw Error('FIXTURE_ROUTE');
    value=await pg(statement);
+   if(req.url==='/rest/v1/rpc/apply_workspace_command'&&versionAckFault){const fault=versionAckFault;versionAckFault=null;if(fault==='lost'){req.socket.destroy();return;}value.versions.at(-1).text+='PRIVATE_WRONG_ACK';}
+
   }
- }catch(error){status=error.message==='AUTH'?401:['CONFLICT','INVALID_WRITE','PROJECTION_CONFLICT'].includes(error.message)?400:503;value={message:['AUTH','CONFLICT','INVALID_WRITE','PROJECTION_CONFLICT'].includes(error.message)?error.message:'FIXTURE_REFUSED'};}
+ }catch(error){status=error.message==='AUTH'?401:['CONFLICT','INVALID_WRITE','PROJECTION_CONFLICT','ORDINARY_ENGLISH_UNAVAILABLE'].includes(error.message)?400:503;value={message:['AUTH','CONFLICT','INVALID_WRITE','PROJECTION_CONFLICT','ORDINARY_ENGLISH_UNAVAILABLE'].includes(error.message)?error.message:'FIXTURE_REFUSED'};}
  res.writeHead(status,{'content-type':'application/json','connection':'close'});res.end(JSON.stringify(value));
 });
 server.requestTimeout=10000;server.maxConnections=8;
@@ -97,7 +100,16 @@ async function waitOwnedGateway(){
  const request=(method,body)=>new NextRequest('https://application-fixture.test/api/service',{method,headers:{origin:'https://application-fixture.test',cookie:'jm_access=synthetic-session'},...(body?{body:JSON.stringify(body)}:{})});
  fixtureStage='initial-read';const first=await GET(request('GET'));fixtureStatus=first.status;assert.equal(first.status,200);assertOps(0,'service','GET',200);let state=await first.json(),analysis,lastExtracted;const results=[];
  for(const operation of operations){
-  const {expectedStatus=200,selectAllEdits,selectFactContaining,restoreLatest,injectConcurrentGoal,uploadFixture,uploadOwner,useExtractedText,...intent}=operation;
+  const {expectedStatus=200,selectAllEdits,selectFactContaining,restoreLatest,injectConcurrentGoal,uploadFixture,uploadOwner,useExtractedText,injectVersionAckFault,exportLatestDocx,...intent}=operation;
+  if(exportLatestDocx){
+   assert.ok(ownedVersion&&process.env.JOBMATCH_LOCAL_ORDINARY_ENGLISH==='1');const latest=state.versions.at(-1);assert.ok(latest);const start=traces.length;
+   const {GET:exportResume}=require('../../app/api/resume-export/route.ts');
+   const response=await exportResume(new NextRequest('https://application-fixture.test/api/resume-export?id='+encodeURIComponent(latest.id)+'&expectedOwnerId='+owner,{headers:{cookie:'jm_access=synthetic-session'}}));
+   assert.equal(response.status,200);assert.equal(response.headers.get('cache-control'),'private, no-store');
+   const JSZip=require('jszip'),mammoth=require('mammoth'),bytes=Buffer.from(await response.arrayBuffer()),zip=await JSZip.loadAsync(bytes),xml=await zip.file('word/document.xml').async('string');
+   if(latest.template_version==='ordinary-literal-en-v1'){assert.equal((xml.match(/w:lang w:val="en-US"/g)||[]).length,latest.evidence_ids.length?2:0);assert.ok(!xml.includes('ru-RU'));}
+   const text=(await mammoth.extractRawText({buffer:bytes})).value;assert.ok(!traces.slice(start).some(t=>t.path.includes('apply_workspace_command')||t.path.includes('save_workspace')));results.push({action:'export-docx',status:200,text,trace:traces.slice(start)});continue;
+  }
   if(uploadFixture){
    assert.ok(ownedParserCore);assert.ok(['txt','docx','pdf','bad-txt'].includes(uploadFixture));lastExtracted=undefined;
    fixtureStage='extract-'+uploadFixture+'-readiness';if(expectedStatus!==503&&(!uploadOwner||uploadOwner===owner))await waitOwnedGateway();
@@ -117,6 +129,7 @@ async function waitOwnedGateway(){
   if(selectFactContaining){const found=state.facts.find(f=>f.text.includes(selectFactContaining));assert.ok(found);intent.ids=[found.id];}
   if(restoreLatest){assert.ok(state.versions.length);intent.id=state.versions.at(-1).id;}
   if(injectConcurrentGoal){assert.equal(intent.action,'version');concurrentGoal=true;}
+  if(injectVersionAckFault){assert.ok(ownedVersion&&process.env.JOBMATCH_LOCAL_ORDINARY_ENGLISH==='1');assert.equal(intent.action,'version');assert.ok(['alter','lost'].includes(injectVersionAckFault));versionAckFault=injectVersionAckFault;}
   fixtureStage='service-'+intent.action;const start=traces.length,opsStart=ops.length,response=await POST(request('POST',{revision:state.revision,expectedOwnerId:owner,...intent}));assert.equal(response.status,expectedStatus);assertOps(opsStart,'service','POST',expectedStatus);
   const body=await response.json(),trace=traces.slice(start);
   if(expectedStatus===200&&intent.action==='analyze')analysis=body;
@@ -129,5 +142,5 @@ async function waitOwnedGateway(){
   results.push({action:intent.action,status:response.status,state,trace});
  }
  assert.equal(proxyLeak,false);fs.writeFileSync(output,JSON.stringify({state,results,...(ownedParserCore?{gatewayRequests}:{} ),...(nativeOps?{ops}:{})}));
-}catch{failed=true;if(ownedParserCore){const output=process.argv[3];if(output)fs.writeFileSync(output,JSON.stringify({fixtureFailure:{stage:fixtureStage,status:fixtureStatus,gatewayRequests,proxyLeak}}));}process.stderr.write('FAIL: actual service/native SQL fixture; no request/DB diagnostics/rows/keys printed.\n');}
+}catch{failed=true;if(ownedParserCore||ownedVersion&&process.env.JOBMATCH_LOCAL_ORDINARY_ENGLISH==='1'){const output=process.argv[3];if(output)fs.writeFileSync(output,JSON.stringify({fixtureFailure:{stage:fixtureStage,status:fixtureStatus,gatewayRequests,proxyLeak}}));}process.stderr.write('FAIL: actual service/native SQL fixture; no request/DB diagnostics/rows/keys printed.\n');}
 finally{console.info=originalInfo;if(gatewayProxy){gatewayProxy.closeAllConnections();if(gatewayProxy.listening)await new Promise(r=>gatewayProxy.close(r));}server.closeAllConnections();if(server.listening)await new Promise(r=>server.close(r));process.exitCode=failed?1:0;}})();

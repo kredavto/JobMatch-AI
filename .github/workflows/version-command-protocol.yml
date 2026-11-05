@@ -34,6 +34,7 @@ jobs:
       PGUSER: postgres
       PGPASSWORD: public-local-letter-fixture
       JOBMATCH_LOCAL_VERSION_COMMANDS: '1'
+      JOBMATCH_LOCAL_ORDINARY_ENGLISH: '1'
       NEXT_TELEMETRY_DISABLED: '1'
     steps:
       - uses: actions/checkout@v4
@@ -62,3 +63,6 @@ jobs:
       - run: python3 -m unittest discover -s scripts -p 'test_*.py'
       - name: Actual service, current renderer parity, evaluation race and native restore
         run: python3 scripts/version_command_drill.py
+
+      - name: Current English literal framing, actual route acknowledgements and native restore
+        run: python3 scripts/ordinary_english_drill.py
