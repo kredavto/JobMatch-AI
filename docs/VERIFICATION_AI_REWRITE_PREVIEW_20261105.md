@@ -34,3 +34,15 @@ No old AI evaluation source/prompt/corpus/pin, database migration, table,
 dependency, application version or existing acceptance verdict changes. The old
 CPU experiment's 0/16 result remains NOT ACCEPTED. This new prompt has no actual
 model or independent semantic/held-out acceptance. Saving and UI remain open.
+
+## First hosted attempt — retained failure
+
+Source `28cbcacd1638efed8be87084b4a8aba82f70b205`, tree
+`2338f124294a33ba85a908d75282e7303b830c72`, all17changed files fully read back
+by immutable content/blob;684prior blobs unchanged, complete tree/no deletion.
+[Operational run42052678632/job127332646721](https://github.com/kredavto/JobMatch-AI/actions/runs/42052678632/job/127332646721)
+passed41observer tests/26Python tests/build, then failed at `routes`: the smoke
+POST-only set lacked the newly monitored `ai-rewrites`, so it sent GET and saw
+the correct405. The fixture now exercises POST with the same unauthenticated
+guard expectations and prints actual exercised route counts. No application
+guard or event/privacy check was weakened. Full replacement CI is pending.
