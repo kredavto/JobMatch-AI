@@ -1,6 +1,6 @@
 import unittest
 from unittest.mock import patch
-from storage_fixture import specialty_schema_predecessor
+from storage_fixture import specialty_schema_predecessor, reminder_schema_predecessor
 
 class SpecialtyAddonTests(unittest.TestCase):
     def test_exact_single_terminal_known_suffix_only(self):
@@ -9,3 +9,11 @@ class SpecialtyAddonTests(unittest.TestCase):
             self.assertEqual(specialty_schema_predecessor(prefix+b'\n'+addon),prefix)
             for invalid in (prefix,prefix.rstrip(b'\n')+addon,prefix+b'\n'+addon+b'unknown',prefix+b'\n'+addon+b'\n'+addon,prefix+b'\n'+addon.replace(b'true',b'false')):
                 with self.assertRaises(ValueError):specialty_schema_predecessor(invalid)
+
+class ReminderAddonTests(unittest.TestCase):
+    def test_exact_reminder_suffix(self):
+        addon=b'-- reminder\nselect false;\n';prefix=b'PINNED PREFIX\n'
+        with patch('pathlib.Path.read_bytes',return_value=addon):
+            self.assertEqual(reminder_schema_predecessor(prefix+b'\n'+addon),prefix)
+            for invalid in (prefix,prefix.rstrip(b'\n')+addon,prefix+b'\n'+addon+b'unknown',prefix+b'\n'+addon+b'\n'+addon):
+                with self.assertRaises(ValueError):reminder_schema_predecessor(invalid)

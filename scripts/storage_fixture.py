@@ -70,3 +70,10 @@ def specialty_schema_predecessor(consolidated):
     if consolidated.count(addon) != 1 or not consolidated.endswith(b'\n' + addon):
         raise ValueError('Unexpected specialty additive migration suffix')
     return consolidated[:-len(addon)-1]
+
+
+def reminder_schema_predecessor(consolidated):
+    addon = (ROOT / 'supabase/migrations/20261105080950_current_persisted_reminders.sql').read_bytes()
+    if consolidated.count(addon) != 1 or not consolidated.endswith(b'\n' + addon):
+        raise ValueError('Unexpected reminder additive migration suffix')
+    return consolidated[:-len(addon)-1]
