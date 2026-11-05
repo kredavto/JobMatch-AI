@@ -1,7 +1,7 @@
 -- Additive English literal framing for the current source-profile archive. No model.
 begin;
 do $$begin
- if to_regclass('public.reminder_state') is null or to_regprocedure('public.ordinary_english_ready()') is null
+ if to_regclass('private.reminder_state') is null or to_regprocedure('public.ordinary_english_ready()') is null
   or (select md5(prosrc) from pg_proc where oid=to_regprocedure('private.source_version_preview(integer,integer,uuid[])')) is distinct from '9ba4ccd648b8ef7fd21c4b2e1c91e06d'
   or (select md5(prosrc) from pg_proc where oid=to_regprocedure('public.save_source_version(integer,integer,uuid[],text,text)')) is distinct from 'e4168ec677e78c86ab47eaeff7a16203' then
   raise exception 'SOURCE_ENGLISH_PREDECESSOR_REQUIRED';
