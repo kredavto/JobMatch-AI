@@ -79,7 +79,7 @@ def main():
             if full_sql.count(migration) != 1:
                 raise ValueError('Consolidated version migration differs')
             prefix, suffix = full_sql.split(migration)
-            extras = [ROOT / 'supabase/migrations' / name for name in ('20261028110004_projection_parity.sql','20261028110005_canonical_workspace_reads.sql', '20261028110006_explicit_workspace_writes.sql', '20261028120140_workspace_entity_snapshot.sql', '20261028120214_compact_workspace_storage.sql', '20261101171000_source_versions.sql', '20261102082400_english_saved_letters.sql', '20261104074700_current_specialty_commands.sql', '20261105080950_current_persisted_reminders.sql', '20261105111200_current_ordinary_english.sql')]
+            extras = [ROOT / 'supabase/migrations' / name for name in ('20261028110004_projection_parity.sql','20261028110005_canonical_workspace_reads.sql', '20261028110006_explicit_workspace_writes.sql', '20261028120140_workspace_entity_snapshot.sql', '20261028120214_compact_workspace_storage.sql', '20261101171000_source_versions.sql', '20261102082400_english_saved_letters.sql', '20261104074700_current_specialty_commands.sql', '20261105080950_current_persisted_reminders.sql', '20261105111200_current_ordinary_english.sql', '20261105130000_current_source_english.sql')]
             if suffix != b''.join(b'\n' + p.read_bytes() for p in extras):
                 raise ValueError('Unexpected post-version-command definitions')
             predecessor = prefix[:-1]

@@ -13,7 +13,7 @@ from profile_command_drill import service, statement
 from version_command_drill import parity_cases
 from reminder_drill import manifest
 from backup_manifest import compare
-from storage_fixture import ordinary_english_schema_predecessor
+from storage_fixture import source_english_schema_predecessor, ordinary_english_schema_predecessor
 
 MIGRATION = 'supabase/migrations/20261105111200_current_ordinary_english.sql'
 BASE_SHA256 = '6e399e07754fae887266db2f68623c0453ffa63c543815a5e5cbff57aca53f0a'
@@ -71,7 +71,7 @@ def main():
         with tempfile.TemporaryDirectory(prefix='jobmatch-ordinary-') as directory:
             folder = Path(directory)
             addon = (ROOT/MIGRATION).read_bytes()
-            prefix = ordinary_english_schema_predecessor((ROOT/'supabase/schema.sql').read_bytes())
+            prefix = ordinary_english_schema_predecessor(source_english_schema_predecessor((ROOT/'supabase/schema.sql').read_bytes()))
             if hashlib.sha256(prefix).hexdigest() != BASE_SHA256:
                 raise ValueError('Current predecessor changed')
             base = folder/'base.sql';base.write_bytes(prefix)
@@ -92,6 +92,7 @@ def main():
                 raise ValueError('Failed additive migration left changes')
             stage = 'populated-upgrade-and-closed-default'
             sql(upgrade,addon.decode())
+            sql(upgrade,(ROOT/'supabase/migrations/20261105130000_current_source_english.sql').read_text())
             if before!=current(upgrade) or compare(snapshot,manifest(upgrade,folder/'upgraded.json')):
                 raise ValueError('Migration rewrote stored Russian/history data')
             for target in (upgrade,clean):

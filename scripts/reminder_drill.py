@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Disposable PG17 owner reminder lifecycle and restore. Never a provider restore."""
-from storage_fixture import ordinary_english_schema_predecessor
+from storage_fixture import source_english_schema_predecessor, ordinary_english_schema_predecessor
 import concurrent.futures
 import hashlib
 import json
@@ -69,7 +69,7 @@ def main():
         with tempfile.TemporaryDirectory(prefix='jobmatch-reminders-') as temporary:
             folder = Path(temporary)
             addon = (ROOT/MIGRATION).read_bytes()
-            full = ordinary_english_schema_predecessor((ROOT/'supabase/schema.sql').read_bytes())
+            full = ordinary_english_schema_predecessor(source_english_schema_predecessor((ROOT/'supabase/schema.sql').read_bytes()))
             if full.count(addon) != 1 or not full.endswith(b'\n'+addon):
                 raise ValueError('Unexpected reminder additive suffix')
             predecessor = full[:-len(addon)-1]
@@ -89,6 +89,7 @@ def main():
             stage = 'populated-upgrade-and-consolidated-schema'
             run(['psql', '-X', '-w', '-v', 'ON_ERROR_STOP=1', '-f', str(ROOT/MIGRATION)], upgrade)
             run(['psql', '-X', '-w', '-v', 'ON_ERROR_STOP=1', '-f', str(ROOT/'supabase/migrations/20261105111200_current_ordinary_english.sql')], upgrade)
+            run(['psql', '-X', '-w', '-v', 'ON_ERROR_STOP=1', '-f', str(ROOT/'supabase/migrations/20261105130000_current_source_english.sql')], upgrade)
             if source_before != sql(upgrade, 'select public.read_workspace();', user=OWNER):
                 raise ValueError('Migration changed current workspace')
             for target in (upgrade, clean):

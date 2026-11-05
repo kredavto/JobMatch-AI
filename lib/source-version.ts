@@ -1,6 +1,9 @@
 import {z} from 'zod';
 import {SourceProfileSchema,type SourceProfile} from './source-profile';
 export const TEMPLATE_VERSION='source-literal-ru-v1';
+export const ENGLISH_TEMPLATE_VERSION='source-literal-en-v1';
+export const SourceTemplateSchema=z.enum([TEMPLATE_VERSION,ENGLISH_TEMPLATE_VERSION]);
+export type SourceTemplate=z.infer<typeof SourceTemplateSchema>;
 export const CONTEXT_GUARD_VERSION='ascii-cyrillic-line-v1';
 // Frozen labels/order/lexical grammar: changes require a new template/guard version.
 export const SOURCE_VERSION_FIELDS=Object.freeze(['title','organization','start','end','description','credential'] as const);
@@ -19,24 +22,28 @@ export function contextIssue(profile:SourceProfile,entry:SourceProfile['entries'
  }
  return null;
 }
-export function renderSourceVersion(snapshot:SourceProfile){
- return 'Структурированные сведения\n\n'+snapshot.entries.map(entry=>kinds[entry.kind]+'\n'+SOURCE_VERSION_FIELDS.filter(name=>entry.fields[name]).map(name=>labels[name]+': '+entry.fields[name]!.quote).join('\n')).join('\n\n');
+const englishKinds=Object.freeze({employment:'Employment',education:'Education',certification:'Certification',achievement:'Achievement'});
+const englishLabels=Object.freeze({title:'Title',organization:'Organization',start:'Start / issue date',end:'End',description:'Description',credential:'Credential number'});
+export function renderSourceVersion(snapshot:SourceProfile,template:SourceTemplate=TEMPLATE_VERSION){
+ const en=SourceTemplateSchema.parse(template)===ENGLISH_TEMPLATE_VERSION;
+ const headings=en?englishKinds:kinds,fields=en?englishLabels:labels;
+ return (en?'Structured information':'Структурированные сведения')+'\n\n'+snapshot.entries.map(entry=>headings[entry.kind]+'\n'+SOURCE_VERSION_FIELDS.filter(name=>entry.fields[name]).map(name=>fields[name]+': '+entry.fields[name]!.quote).join('\n')).join('\n\n');
 }
 const snapshotSchema=SourceProfileSchema.superRefine((profile,ctx)=>{
  if(!profile.source_captured||!profile.source_matches||profile.revision<1||!profile.source_original.trim()||profile.source_original.includes('\0')||!profile.source_fact_ids.length||!profile.entries.length||profile.entries.some(entry=>!entry.confirmed||contextIssue(profile,entry)))ctx.addIssue({code:'custom',message:'Источник или подтверждение не допускает дословную версию'});
 });
 const hashSchema=z.string().regex(/^[0-9a-f]{64}$/);
-const previewFields={template_version:z.literal(TEMPLATE_VERSION),context_guard_version:z.literal(CONTEXT_GUARD_VERSION),generator:z.literal('literal-template'),model_version:z.null(),snapshot:snapshotSchema,text:z.string().refine(value=>Array.from(value).length<=200000),preview_hash:hashSchema};
-export const SourcePreviewSchema=z.object(previewFields).strict().superRefine((value,ctx)=>{if(value.text!==renderSourceVersion(value.snapshot))ctx.addIssue({code:'custom',message:'Текст не соответствует снимку'});});
-export const SourceVersionSchema=z.object({...previewFields,format:z.literal('jobmatch-source-version-v1'),id:z.uuid(),created:z.iso.datetime({offset:true}),source_status:z.literal('at-save-only')}).strict().superRefine((value,ctx)=>{if(value.text!==renderSourceVersion(value.snapshot))ctx.addIssue({code:'custom',message:'Текст не соответствует снимку'});});
+const previewFields={template_version:SourceTemplateSchema,context_guard_version:z.literal(CONTEXT_GUARD_VERSION),generator:z.literal('literal-template'),model_version:z.null(),snapshot:snapshotSchema,text:z.string().refine(value=>Array.from(value).length<=200000),preview_hash:hashSchema};
+export const SourcePreviewSchema=z.object(previewFields).strict().superRefine((value,ctx)=>{if(value.text!==renderSourceVersion(value.snapshot,value.template_version))ctx.addIssue({code:'custom',message:'Текст не соответствует снимку'});});
+export const SourceVersionSchema=z.object({...previewFields,format:z.literal('jobmatch-source-version-v1'),id:z.uuid(),created:z.iso.datetime({offset:true}),source_status:z.literal('at-save-only')}).strict().superRefine((value,ctx)=>{if(value.text!==renderSourceVersion(value.snapshot,value.template_version))ctx.addIssue({code:'custom',message:'Текст не соответствует снимку'});});
 export type SourcePreview=z.infer<typeof SourcePreviewSchema>;
 export type SourceVersion=z.infer<typeof SourceVersionSchema>;
 export const EntryIdsSchema=z.array(z.uuid()).min(1).max(50).refine(ids=>new Set(ids).size===ids.length);
 export const VersionRequestSchema=z.discriminatedUnion('action',[
- z.object({action:z.literal('preview'),expectedOwnerId:z.uuid(),workspaceRevision:z.number().int().min(0).max(2147483647),profileRevision:z.number().int().min(1).max(2147483647),entryIds:EntryIdsSchema}).strict(),
- z.object({action:z.literal('save'),expectedOwnerId:z.uuid(),workspaceRevision:z.number().int().min(0).max(2147483647),profileRevision:z.number().int().min(1).max(2147483647),entryIds:EntryIdsSchema,previewHash:hashSchema,accept:z.literal('SAVE_LITERAL_SOURCE_VERSION'),consentToStore:z.literal(true)}).strict()
+ z.object({action:z.literal('preview'),expectedOwnerId:z.uuid(),workspaceRevision:z.number().int().min(0).max(2147483647),profileRevision:z.number().int().min(1).max(2147483647),entryIds:EntryIdsSchema,templateVersion:SourceTemplateSchema.optional()}).strict(),
+ z.object({action:z.literal('save'),expectedOwnerId:z.uuid(),workspaceRevision:z.number().int().min(0).max(2147483647),profileRevision:z.number().int().min(1).max(2147483647),entryIds:EntryIdsSchema,templateVersion:SourceTemplateSchema.optional(),previewHash:hashSchema,accept:z.literal('SAVE_LITERAL_SOURCE_VERSION'),consentToStore:z.literal(true)}).strict()
 ]);
-export const VersionListSchema=z.object({format:z.literal('jobmatch-source-version-list-v1'),ownerId:z.uuid(),collection_hash:hashSchema,versions:z.array(z.object({id:z.uuid(),created:z.iso.datetime({offset:true}),template_version:z.literal(TEMPLATE_VERSION),profile_revision:z.number().int().positive(),workspace_revision:z.number().int().nonnegative(),text_length:z.number().int().positive().max(200000),preview_hash:hashSchema}).strict()).max(20)}).strict().refine(value=>new Set(value.versions.map(row=>row.id)).size===value.versions.length);
+export const VersionListSchema=z.object({format:z.literal('jobmatch-source-version-list-v1'),ownerId:z.uuid(),collection_hash:hashSchema,versions:z.array(z.object({id:z.uuid(),created:z.iso.datetime({offset:true}),template_version:SourceTemplateSchema,profile_revision:z.number().int().positive(),workspace_revision:z.number().int().nonnegative(),text_length:z.number().int().positive().max(200000),preview_hash:hashSchema}).strict()).max(20)}).strict().refine(value=>new Set(value.versions.map(row=>row.id)).size===value.versions.length);
 export type VersionList=z.infer<typeof VersionListSchema>;
 /** NUL framing, fixed field order, Unicode UTF-8. No JSON object-key ordering dependency. */
 export async function sourcePreviewHash(value:Omit<SourcePreview,'preview_hash'>){
@@ -46,9 +53,9 @@ export async function sourcePreviewHash(value:Omit<SourcePreview,'preview_hash'>
  const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(parts.join('\0')));
  return Array.from(new Uint8Array(digest),byte=>byte.toString(16).padStart(2,'0')).join('');
 }
-export async function validateSourcePreview(value:unknown,ownerId:string,workspaceRevision?:number,profileRevision?:number,entryIds?:string[]){
+export async function validateSourcePreview(value:unknown,ownerId:string,workspaceRevision?:number,profileRevision?:number,entryIds?:string[],template?:SourceTemplate){
  const result=SourcePreviewSchema.parse(value);const s=result.snapshot;
- if(s.ownerId!==ownerId||(workspaceRevision!==undefined&&s.workspace_revision!==workspaceRevision)||(profileRevision!==undefined&&s.revision!==profileRevision)||(entryIds&&(entryIds.length!==s.entries.length||s.entries.some(entry=>!entryIds.includes(entry.id))))||await sourcePreviewHash(result)!==result.preview_hash)throw Error('Происхождение или текст версии не прошли проверку');
+ if(s.ownerId!==ownerId||(template!==undefined&&result.template_version!==template)||(workspaceRevision!==undefined&&s.workspace_revision!==workspaceRevision)||(profileRevision!==undefined&&s.revision!==profileRevision)||(entryIds&&(entryIds.length!==s.entries.length||s.entries.some(entry=>!entryIds.includes(entry.id))))||await sourcePreviewHash(result)!==result.preview_hash)throw Error('Происхождение или текст версии не прошли проверку');
  return result;
 }
 export async function validateSourceVersion(value:unknown,ownerId:string){

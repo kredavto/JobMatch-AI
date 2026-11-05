@@ -7,10 +7,10 @@ const owner='11111111-1111-4111-8111-111111111111',session='44444444-4444-4444-8
 const codec=require('../../lib/source-version.ts'),{validateSourceProfile}=require('../../lib/source-profile.ts'),{NextRequest}=require('next/server');
 const {GET,POST}=require('../../app/api/source-versions/route.ts');
 const {OpsObservationSchema,OPS_PREFIX}=require('../../lib/ops-telemetry.ts');
-const ops=[],traces=[],originalInfo=console.info;let server,stage='setup';
+const ops=[],traces=[],originalInfo=console.info;let server,wireFault,stage='setup';
 console.info=line=>{assert.equal(typeof line,'string');assert.ok(line.startsWith(OPS_PREFIX));const value=OpsObservationSchema.parse(JSON.parse(line.slice(OPS_PREFIX.length)));assert.ok(!line.includes(owner)&&!line.includes('PRIVATE')&&!line.includes('synthetic-session'));ops.push(value);};
 const literal=value=>"'"+String(value).replaceAll("'","''")+"'";
-function pg(statement){return new Promise((resolve,reject)=>{const child=execFile('psql',['-X','-qAt','-w','-v','ON_ERROR_STOP=1'],{timeout:12000,maxBuffer:6000000},(error,out,stderr)=>{if(error){const code=['AUTH','CONFLICT','INVALID_WRITE','UNSAFE_CONTEXT','SOURCE_VERSION_UNAVAILABLE','PROJECTION_CONFLICT'].find(c=>new RegExp('ERROR:\\s+'+c+'(?:\\s|$)').test(stderr));reject(Error(code??'FIXTURE_REFUSED'));return;}try{resolve(JSON.parse(out.trim()));}catch{reject(Error('FIXTURE_PROTOCOL'));}});child.stdin.end('set role authenticated;set request.jwt.claims='+literal(JSON.stringify({sub:owner,session_id:session}))+';'+statement);});}
+function pg(statement){return new Promise((resolve,reject)=>{const child=execFile('psql',['-X','-qAt','-w','-v','ON_ERROR_STOP=1'],{timeout:12000,maxBuffer:6000000},(error,out,stderr)=>{if(error){const code=['AUTH','CONFLICT','INVALID_WRITE','UNSAFE_CONTEXT','SOURCE_VERSION_UNAVAILABLE','SOURCE_ENGLISH_UNAVAILABLE','PROJECTION_CONFLICT'].find(c=>new RegExp('ERROR:\\s+'+c+'(?:\\s|$)').test(stderr));reject(Error(code??'FIXTURE_REFUSED'));return;}try{resolve(JSON.parse(out.trim()));}catch{reject(Error('FIXTURE_PROTOCOL'));}});child.stdin.end('set role authenticated;set request.jwt.claims='+literal(JSON.stringify({sub:owner,session_id:session}))+';'+statement);});}
 async function start(){server=http.createServer(async(req,res)=>{let status=200,value;try{
  assert.equal(req.headers.apikey,'synthetic-publishable');assert.equal(req.headers.authorization,'Bearer synthetic-session');
  if(req.method==='GET'&&req.url==='/auth/v1/user'){traces.push({path:req.url,keys:[]});value={id:owner};}
@@ -18,21 +18,23 @@ async function start(){server=http.createServer(async(req,res)=>{let status=200,
   if(req.url==='/rest/v1/rpc/session_is_active'){assert.deepEqual(b,{});statement='select to_jsonb(public.session_is_active());';}
   else if(req.url==='/rest/v1/rpc/consume_quota'){assert.deepEqual(b,{p_bucket:'service'});statement="select to_jsonb(public.consume_quota('service'));";}
   else if(req.url==='/rest/v1/rpc/source_version_storage_ready'){assert.deepEqual(b,{});statement='select to_jsonb(public.source_version_storage_ready());';}
+  else if(req.url==='/rest/v1/rpc/source_version_english_ready'){assert.deepEqual(b,{});statement='select to_jsonb(public.source_version_english_ready());';}
   else if(req.url==='/rest/v1/rpc/list_source_versions'){assert.deepEqual(b,{});statement='select public.list_source_versions();';}
   else if(req.url==='/rest/v1/rpc/read_source_version'){assert.deepEqual(Object.keys(b),['p_id']);statement='select public.read_source_version('+literal(b.p_id)+'::uuid);';}
   else if(req.url==='/rest/v1/rpc/clear_source_versions'){assert.deepEqual(Object.keys(b).sort(),['p_accept','p_collection_hash']);statement='select public.clear_source_versions('+literal(b.p_collection_hash)+','+literal(b.p_accept)+');';}
-  else if(['/rest/v1/rpc/preview_source_version','/rest/v1/rpc/save_source_version'].includes(req.url)){
-   const save=req.url.endsWith('/save_source_version');assert.deepEqual(Object.keys(b).sort(),['p_entry_ids','p_profile_revision','p_workspace_revision',...(save?['p_accept','p_preview_hash']:[])].sort());assert.ok(Number.isInteger(b.p_workspace_revision)&&b.p_workspace_revision>=0&&Number.isInteger(b.p_profile_revision)&&b.p_profile_revision>0);assert.ok(Array.isArray(b.p_entry_ids)&&b.p_entry_ids.length<=50);
-   statement='select public.'+(save?'save':'preview')+'_source_version('+b.p_workspace_revision+','+b.p_profile_revision+',ARRAY['+b.p_entry_ids.map(literal).join(',')+']::uuid[]'+(save?','+literal(b.p_preview_hash)+','+literal(b.p_accept):'')+');';
+  else if(['/rest/v1/rpc/preview_source_version','/rest/v1/rpc/save_source_version','/rest/v1/rpc/preview_source_version_english','/rest/v1/rpc/save_source_version_english'].includes(req.url)){
+   const save=req.url.includes('/save_source_version'),english=req.url.endsWith('_english');assert.deepEqual(Object.keys(b).sort(),['p_entry_ids','p_profile_revision','p_workspace_revision',...(save?['p_accept','p_preview_hash']:[])].sort());assert.ok(Number.isInteger(b.p_workspace_revision)&&b.p_workspace_revision>=0&&Number.isInteger(b.p_profile_revision)&&b.p_profile_revision>0);assert.ok(Array.isArray(b.p_entry_ids)&&b.p_entry_ids.length<=50);
+   statement='select public.'+(save?'save':'preview')+'_source_version'+(english?'_english':'')+'('+b.p_workspace_revision+','+b.p_profile_revision+',ARRAY['+b.p_entry_ids.map(literal).join(',')+']::uuid[]'+(save?','+literal(b.p_preview_hash)+','+literal(b.p_accept):'')+');';
   }else throw Error('FIXTURE_RPC');value=await pg(statement);
+  if(wireFault&&req.url==='/rest/v1/rpc/save_source_version_english'){const fault=wireFault;wireFault=null;if(fault==='lost'){res.destroy();return;}assert.equal(fault,'alter');value={...value,text:value.text+' PRIVATE_FALSE_ACK'};}
  }
- }catch(error){status=error.message==='AUTH'?401:['CONFLICT','INVALID_WRITE','UNSAFE_CONTEXT','SOURCE_VERSION_UNAVAILABLE','PROJECTION_CONFLICT'].includes(error.message)?400:503;value={message:['AUTH','CONFLICT','INVALID_WRITE','UNSAFE_CONTEXT','SOURCE_VERSION_UNAVAILABLE','PROJECTION_CONFLICT'].includes(error.message)?error.message:'FIXTURE_REFUSED'};}
+ }catch(error){status=error.message==='AUTH'?401:['CONFLICT','INVALID_WRITE','UNSAFE_CONTEXT','SOURCE_VERSION_UNAVAILABLE','SOURCE_ENGLISH_UNAVAILABLE','PROJECTION_CONFLICT'].includes(error.message)?400:503;value={message:['AUTH','CONFLICT','INVALID_WRITE','UNSAFE_CONTEXT','SOURCE_VERSION_UNAVAILABLE','SOURCE_ENGLISH_UNAVAILABLE','PROJECTION_CONFLICT'].includes(error.message)?error.message:'FIXTURE_REFUSED'};}
  res.writeHead(status,{'content-type':'application/json','connection':'close'});res.end(JSON.stringify(value));});server.requestTimeout=15000;server.maxConnections=8;await new Promise(r=>server.listen(0,'127.0.0.1',r));process.env.SUPABASE_URL='http://127.0.0.1:'+server.address().port;process.env.SUPABASE_PUBLISHABLE_KEY='synthetic-publishable';process.env.JOBMATCH_AUTH_QUOTA_MODE='local';}
 (async()=>{let failed=false;try{
  const [input,output]=process.argv.slice(2),data=JSON.parse(fs.readFileSync(input,'utf8'));let result;
  if(data.op==='codec'){
   stage='codec';
-  if(data.kind==='preview'){const checked=await codec.validateSourcePreview(data.value,data.ownerId);assert.equal(checked.text,codec.renderSourceVersion(checked.snapshot));result={valid:true,hash:checked.preview_hash};}
+  if(data.kind==='preview'){const checked=await codec.validateSourcePreview(data.value,data.ownerId);assert.equal(checked.text,codec.renderSourceVersion(checked.snapshot,checked.template_version));result={valid:true,hash:checked.preview_hash};}
   else if(data.kind==='version'){const checked=await codec.validateSourceVersion(data.value,data.ownerId);result={valid:true,hash:checked.preview_hash};}
   else if(data.kind==='list'){const checked=await codec.validateSourceVersionList(data.value,data.ownerId);result={valid:true,hash:checked.collection_hash};}
   else if(data.kind==='guard'){const profile=validateSourceProfile(data.value,data.ownerId),value={template_version:codec.TEMPLATE_VERSION,context_guard_version:codec.CONTEXT_GUARD_VERSION,generator:'literal-template',model_version:null,snapshot:profile,text:codec.renderSourceVersion(profile),preview_hash:'0'.repeat(64)};result={valid:true,eligible:codec.SourcePreviewSchema.safeParse(value).success};}
@@ -41,8 +43,9 @@ async function start(){server=http.createServer(async(req,res)=>{let status=200,
   process.env.JOBMATCH_SOURCE_PROFILE_ENABLED='true';process.env.JOBMATCH_SOURCE_VERSIONS_ENABLED='true';process.env.JOBMATCH_OPS_TELEMETRY='stdout';await start();
   let preview,list,version;const results=[];
   for(const operation of data.operations){
-   const {expectedStatus=200,usePreviewHash=false,useCollectionHash=false,useVersionId=false,versionFlagOff=false,parentFlagOff=false,ownerHint=owner,query,...intent}=operation;stage='wire';
+   const {expectedStatus=200,usePreviewHash=false,useCollectionHash=false,useVersionId=false,versionFlagOff=false,parentFlagOff=false,englishFlagOff=false,ackFault,ownerHint=owner,query,...intent}=operation;stage='wire';
    process.env.JOBMATCH_SOURCE_VERSIONS_ENABLED=versionFlagOff?'false':'true';process.env.JOBMATCH_SOURCE_PROFILE_ENABLED=parentFlagOff?'false':'true';
+   process.env.JOBMATCH_SOURCE_ENGLISH_ENABLED=process.env.JOBMATCH_LOCAL_SOURCE_ENGLISH==='1'&&!englishFlagOff?'true':'false';wireFault=ackFault;
    if(usePreviewHash){assert.ok(preview);intent.previewHash=preview.preview_hash;}if(useCollectionHash){assert.ok(list);intent.collectionHash=list.collection_hash;}
    const suffix=useVersionId?'?id='+version.id:query===undefined?'':query;
    const write=Object.hasOwn(intent,'action'),start=traces.length,obs=ops.length;
@@ -57,7 +60,7 @@ async function start(){server=http.createServer(async(req,res)=>{let status=200,
    }
    const event=ops.slice(obs).filter(x=>x.kind==='returned');assert.equal(event.length,1);assert.equal(event[0].route,'source-versions');assert.equal(event[0].status,expectedStatus);
    const trace=traces.slice(start);assert.ok(!trace.some(t=>t.path.includes('save_workspace')||t.path.includes('apply_workspace_command')||t.path.includes('command_source_profile')));
-   if(versionFlagOff||parentFlagOff)assert.ok(!trace.some(t=>t.path.endsWith('/save_source_version')));
+   if(versionFlagOff||parentFlagOff)assert.ok(!trace.some(t=>t.path.includes('/save_source_version')));
    results.push({status:response.status,body,trace,ops:ops.slice(obs)});
   }
   result={results};

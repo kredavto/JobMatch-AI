@@ -34,6 +34,7 @@ jobs:
       PGUSER: postgres
       PGPASSWORD: public-local-letter-fixture
       JOBMATCH_LOCAL_SOURCE_VERSIONS: '1'
+      JOBMATCH_LOCAL_SOURCE_ENGLISH: '1'
       NEXT_TELEMETRY_DISABLED: '1'
     steps:
       - uses: actions/checkout@v4
@@ -62,3 +63,5 @@ jobs:
       - run: python3 -m unittest discover -s scripts -p 'test_*.py'
       - name: Current source versions, native codec/wire parity, explicit cleanup, session concurrency and populated18restore
         run: python3 scripts/source_version_drill.py
+      - name: Current English source framing, mixed immutable history, native gates and synthetic20restore
+        run: python3 scripts/source_english_drill.py

@@ -3,12 +3,12 @@ from pathlib import Path
 import unittest
 from unittest.mock import patch
 from ordinary_english_drill import allowed, BASE_SHA256
-from storage_fixture import ordinary_english_schema_predecessor
+from storage_fixture import source_english_schema_predecessor, ordinary_english_schema_predecessor
 
 ROOT=Path(__file__).resolve().parent.parent
 class OrdinaryEnglishGuards(unittest.TestCase):
     def test_preserves_the_exact_previous_schema_and_requires_the_single_terminal_addon(self):
-        full=(ROOT/'supabase/schema.sql').read_bytes()
+        full=source_english_schema_predecessor((ROOT/'supabase/schema.sql').read_bytes())
         self.assertEqual(hashlib.sha256(ordinary_english_schema_predecessor(full)).hexdigest(),BASE_SHA256)
         addon=(ROOT/'supabase/migrations/20261105111200_current_ordinary_english.sql').read_bytes()
         for invalid in (full+b'unknown',full+b'\n'+addon,ordinary_english_schema_predecessor(full)):
