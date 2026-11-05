@@ -1,6 +1,6 @@
 # Specialty tracker editor candidate — 2026-11-05
 
-This is a newly reconstructed implementation on PR #115 base `468bbb3957a1d517ab7ebafdcfd9e44f8030e998`. The prior unpublished local candidate and its patch were unavailable after an execution-environment change. This candidate is not that old commit, and its checks must be reported independently.
+The current tracker editor is implemented on the explicit specialty API/SQL protocol in PR #115. Labels remain manual metadata; they are not inferred from resumes or job titles.
 
 ## Contract
 
@@ -12,6 +12,6 @@ The shared application write guard serializes commands. Response acceptance requ
 
 ## Verification and limits
 
-Results for this reconstruction are recorded in `VERIFICATION.md`. Browser execution requires a permitted Chromium runtime; a browser launch failure is not a functional test pass. No physical-device or live-provider acceptance is implied by synthetic tests.
+Exact source results are recorded in [VERIFICATION_SPECIALTY_EDITOR_20261105](VERIFICATION_SPECIALTY_EDITOR_20261105.md): 1441 unit tests/98 files and 439 browser tests PASS, 2 live-account tests SKIP, all 17 source workflows successful. The 14 new editor and 11 existing note scenarios pass, including mobile automated axe/overflow and keyboard focus. No independent physical-device, visual, screen-reader or live-provider acceptance is implied.
 
-The existing signed antivirus database freshness requirement is unchanged. A normal CI run with a genuinely fresh signed database is still required; prior successes elsewhere do not erase the recorded antivirus failure. No migration, policy weakening, production configuration, main merge or release is part of this candidate.
+The existing signed antivirus freshness requirement is unchanged. Normal CI run41990276094/job127120595392 passed with database28174 (2026-11-05T06:26:24Z, observed07:54:00.676Z). The earlier #115 stale-database failure remains historical. No migration, policy weakening, production configuration, main merge or release is part of this candidate.
