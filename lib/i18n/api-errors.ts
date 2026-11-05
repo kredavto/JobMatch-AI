@@ -1,5 +1,12 @@
 /** Public closed error codes. Copy is presentation; status remains authoritative. */
 export const apiErrors={
+ AI_REWRITE_DISABLED:{status:503,ru:'AI-переписывание не включено.',en:'AI rewriting has not been enabled.'},
+ AI_REWRITE_SOURCE_INVALID:{status:400,ru:'Исходник не допускает выбранное переписывание.',en:'The source does not permit the selected rewriting.'},
+ AI_REWRITE_NOT_CONFIGURED:{status:503,ru:'Подпись AI-предпросмотра не настроена.',en:'AI preview signing has not been configured.'},
+ AI_REWRITE_PREVIEW_INVALID:{status:400,ru:'AI-предпросмотр устарел или не прошёл проверку.',en:'The AI preview expired or failed validation.'},
+ AI_REWRITE_TOO_LARGE:{status:413,ru:'Для AI-переписывания сократите выбранные факты или вакансию.',en:'Shorten the selected facts or vacancy for AI rewriting.'},
+ AI_REWRITE_TIMEOUT:{status:504,ru:'AI-переписывание прервано или не ответило вовремя.',en:'AI rewriting was interrupted or timed out.'},
+ AI_REWRITE_RESPONSE_INVALID:{status:502,ru:'AI-сервис не вернул связанный с исходником предпросмотр.',en:'The AI service did not return a source-bound preview.'},
  AUTH_REQUIRED:{"status":401,"ru":"Войдите в приложение","en":"Sign in to the application."},
  ORIGIN_REJECTED:{"status":403,"ru":"Недопустимый источник запроса","en":"The request origin is not allowed."},
  REVISION_CONFLICT:{"status":409,"ru":"Данные изменены в другой вкладке. Обновите страницу.","en":"Data changed in another tab. Reload current data before saving again."},
