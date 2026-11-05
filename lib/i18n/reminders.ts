@@ -1,7 +1,7 @@
 import type {Copy} from './locale';
 const ru={
  title:'Сохранённые напоминания',intro:'Ручные задачи в вашем аккаунте. Фоновая доставка, почта, push и события внешнего календаря не настроены. Статусы откликов не меняются.',
- load:'Загрузить напоминания',reload:'Загрузить актуальные данные и напоминания',loadHelp:'Чтение выполняется только по кнопке. При конфликте сначала перечитываются данные аккаунта. Запись не повторяется автоматически.',
+ load:'Загрузить напоминания',reload:'Загрузить актуальные данные и напоминания',loadHelp:'Чтение выполняется по кнопке; автоматические проверки включаются отдельно для уведомлений. При конфликте сначала перечитываются данные аккаунта. Запись не повторяется автоматически.',
  new:'Новое напоминание',empty:'Сохранённых напоминаний нет.',unloaded:'Напоминания ещё не загружены.',limit:'Достигнут лимит 100 записей. Удалите ненужную запись, чтобы создать новую.',
  edit:'Изменить напоминание',complete:'Завершить напоминание',cancel:'Отменить напоминание',remove:'Удалить напоминание',confirmDelete:'Подтвердить удаление напоминания',keep:'Оставить запись',deleteHelp:'Запись удалится из активной базы. Скачанные файлы и резервные копии этим действием не удаляются.',
  statuses:{scheduled:'Запланировано',completed:'Завершено вручную',cancelled:'Отменено вручную'},kinds:{interview:'Интервью', 'follow-up':'Повторный контакт'},
@@ -13,7 +13,7 @@ const ru={
 } as const;
 const en:Copy<typeof ru>={
  title:'Saved reminders',intro:'Manual tasks in your account. Background delivery, email, push and external calendar events are not configured. Application statuses stay unchanged.',
- load:'Load reminders',reload:'Load current workspace and reminders',loadHelp:'Reads happen only on request. After a conflict, account data is read first. Writes are never replayed automatically.',
+ load:'Load reminders',reload:'Load current workspace and reminders',loadHelp:'Reads happen on request; automatic checks require separate notification opt-in. After a conflict, account data is read first. Writes are never replayed automatically.',
  new:'New reminder',empty:'No saved reminders.',unloaded:'Reminders have not been loaded.',limit:'The 100-record limit is reached. Delete an unneeded record to create a new one.',
  edit:'Edit reminder',complete:'Complete reminder',cancel:'Cancel reminder',remove:'Delete reminder',confirmDelete:'Confirm reminder deletion',keep:'Keep record',deleteHelp:'This removes the record from the active database. Downloaded files and backup copies are not deleted by this action.',
  statuses:{scheduled:'Scheduled',completed:'Completed manually',cancelled:'Cancelled manually'},kinds:{interview:'Interview','follow-up':'Follow-up'},
