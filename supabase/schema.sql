@@ -2072,17 +2072,17 @@ do $$begin
 end;$$;
 -- Reapplying closes new English construction. Existing mixed history stays readable.
 create or replace function private.source_version_english_permission() returns boolean language sql stable security invoker set search_path='' as $$select false;$$;
-revoke all on function private.source_version_english_permission() from public,anon,authenticated,service_role;
+revoke all on function private.source_version_english_permission() from public,anon,authenticated;
 alter table public.source_profile_versions drop constraint source_profile_versions_template_version_check;
 alter table public.source_profile_versions add constraint source_profile_versions_template_version_check check(template_version in ('source-literal-ru-v1','source-literal-en-v1'));
 create or replace function private.source_version_english_ready() returns boolean language plpgsql stable security definer set search_path='' as $$begin
  if auth.uid() is null or not private.session_is_active() then raise exception 'AUTH';end if;
  return private.source_version_english_permission();
 end;$$;
-revoke all on function private.source_version_english_ready() from public,anon,service_role;
+revoke all on function private.source_version_english_ready() from public,anon;
 grant execute on function private.source_version_english_ready() to authenticated;
 create or replace function public.source_version_english_ready() returns boolean language sql stable security invoker set search_path='' as $$select private.source_version_english_ready();$$;
-revoke all on function public.source_version_english_ready() from public,anon,service_role;
+revoke all on function public.source_version_english_ready() from public,anon;
 grant execute on function public.source_version_english_ready() to authenticated;
 create or replace function private.source_version_preview_english(p_workspace_revision integer,p_profile_revision integer,p_entry_ids uuid[]) returns jsonb
 language plpgsql security definer set search_path='' set timezone='UTC' set lock_timeout='2s' as $$
@@ -2147,8 +2147,8 @@ begin
 end;$$;
 create or replace function public.preview_source_version_english(p_workspace_revision integer,p_profile_revision integer,p_entry_ids uuid[]) returns jsonb
 language sql security definer set search_path='' as $$select private.source_version_preview_english(p_workspace_revision,p_profile_revision,p_entry_ids);$$;
-revoke all on function private.source_version_preview_english(integer,integer,uuid[]) from public,anon,authenticated,service_role;
-revoke all on function public.preview_source_version_english(integer,integer,uuid[]) from public,anon,service_role;
+revoke all on function private.source_version_preview_english(integer,integer,uuid[]) from public,anon,authenticated;
+revoke all on function public.preview_source_version_english(integer,integer,uuid[]) from public,anon;
 grant execute on function public.preview_source_version_english(integer,integer,uuid[]) to authenticated;
 create or replace function public.save_source_version_english(p_workspace_revision integer,p_profile_revision integer,p_entry_ids uuid[],p_preview_hash text,p_accept text) returns jsonb
 language plpgsql security definer set search_path='' set timezone='UTC' set lock_timeout='2s' as $$
@@ -2177,6 +2177,12 @@ begin
 
  return private.source_version_json(v);
 end;$$;
-revoke all on function public.save_source_version_english(integer,integer,uuid[],text,text) from public,anon,service_role;
+revoke all on function public.save_source_version_english(integer,integer,uuid[],text,text) from public,anon;
 grant execute on function public.save_source_version_english(integer,integer,uuid[],text,text) to authenticated;
+-- Stock PostgreSQL fixtures may have no service_role. Revoke explicitly when present.
+do $$declare f record;begin if exists(select 1 from pg_roles where rolname='service_role') then
+ for f in select p.oid from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname in ('public','private') and p.proname in ('source_version_english_permission','source_version_english_ready','source_version_preview_english','preview_source_version_english','save_source_version_english') loop
+  execute format('revoke all on function %s from service_role',f.oid::regprocedure);
+ end loop;
+end if;end$$;
 commit;
