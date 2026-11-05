@@ -48,23 +48,28 @@ must retain English-aware readers; an older Russian-only app is not compatible w
 already-saved English history. Production migration/activation requires its own
 operator decision and the still-open personal-data placement decision.
 
-## Candidate verification status
+## Verified source and remaining limits
 
-Local: 1,615 unit tests / 108 files, 118 Python tests, typecheck, lint (six existing
-warnings), build and 20 security tests passed. An initial build failed opening old
-Turbopack persistence; its generated cache was preserved outside the new build and
-the new build passed. Initial test-only TypeScript widening and Playwright `each`
-usage were corrected before publication. Eight new browser cases are discovered;
-hosted execution and the new native PostgreSQL protocol are **pending**.
+Accepted source `43fcbd22fe466bde344af63eab7708ba9e3ad145`, tree
+`c6b7d4ad924c2d59a3bdf9510d2561ec34b0b57b`; all19sourceworkflows SUCCESS.
+Hosted application/native checkout tree was verified against the authored tree.
+[Complete evidence and retained failures](VERIFICATION_SOURCE_ENGLISH_20261105.md).
 
-Authored native checks use disposable loopback PostgreSQL 17 and actual current
-TS routes/codecs → owned transport → SQL. They cover populated and full-schema
-paths, atomic late migration failure, mixed history, JS/SQL Unicode and hash parity,
-default-off permissions, actual false/lost replies after commit, idempotent writers,
-shared cap, audit rollback, observed session-revoked waiters, closed rollback/reapply,
-20-table synthetic native restore, RLS and unknown-template corruption. These are
-test cases awaiting execution, not claimed passes. No provider-copy restore, real
-Auth/mail, CLI/advisor, physical-device/manual or model acceptance is claimed.
+Application:1,615unit/108files,487browserPASS/2liveSKIP; all8new cases passed.
+Native PG17:118Python, populated/full/atomic additive migration, actual production
+route/codec→owned transport→SQL, mixed hashes/Unicode/ranges, fresh committed false/
+lost responses and explicit reconciliation without replay,12writers/one row/audit,
+mixed20cap, audit rollback, observed revoked waiters/independent owner progress,
+closed rollback/mixed reads/export/cleanup/reapply exact definitions/ACL/data,20-table
+synthetic native restore/RLS/closed-default/unknown-tag corruption passed. Not every
+scoped table was populated by this extension; this is not provider-copy restore.
+
+Signed fresh ClamAV database28174 and unchanged24hgate passed. Actual CPU inference
+completed16syntheticresponses/1,074tokens but0/16gold,NOT ACCEPTED; source/corpus/model
+pin values unchanged, model/deployment identity and semantic/held-out acceptance
+unverified. Initial migration guard/schema-reference, optional-role and duplicate
+fixture failures are retained in the journal. No Supabase CLI/advisor, local browser/
+native, real Auth/mail, physical-device/manual, provider or model acceptance claimed.
 
 No production configuration, data, flags, external model traffic, HH writes, mail,
 paid infrastructure, merge, release or deployment was changed. Supabase CLI was not
