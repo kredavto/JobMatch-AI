@@ -60,3 +60,16 @@ SQL-заменитель Auth моделирует только таблицы �
 
 ### Новое source-version хранилище (кандидат после #89)
 При наличии public.source_profile_versions прежние13/15/17scope не покрывают её. Для18table manifest нужны все3флага: --include-letters --include-source-profile --include-source-versions; logical дополнительно --logical-workspaces. Formats v3 не смешиваются сv1/v2.3private central Auth-quota tables/key по-прежнему вне fingerprint scope; native dump и manifest scope различаются. См. docs/CURRENT_SOURCE_VERSIONS.md; реальный provider-copy restore/RPO/RTO остаётся OPEN.
+
+
+## Optional persisted reminder scope (unreleased candidate)
+After applying the reminder migration, capture with all prior scopes plus
+`--include-reminders` (and `--logical-workspaces` for compact storage):
+`python3 scripts/backup_manifest.py snapshot MANIFEST.json --include-letters --include-source-profile --include-source-versions --include-reminders --logical-workspaces`.
+The new `jobmatch-backup-logical-reminders-v4` scope contains20tables, including
+`public.application_reminders` and `private.reminder_state`. Earlier formats remain frozen
+and do not cover reminders. Never compare scopes or treat a prior18table success as reminder coverage.
+Use actual provider-copy restore only with an approved isolated target/cost/RPO/RTO;
+the new owned CI pg_dump/pg_restore drill is synthetic tool/schema verification.
+The rollback retains records/counter and authenticated owner reads/exports; it disables writes.
+Do not discard the counter after deleting a reminder: global revisions must never reset.

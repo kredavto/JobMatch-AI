@@ -10,7 +10,7 @@ import uuid
 import hashlib
 from saved_letter_drill import sql as pg_sql, OWNER, OTHER, OTHER_SESSION, KEY, literal, bridge, accept_statement, verify_history
 from canonical_reads_drill import definitions
-from storage_fixture import english_schema_predecessor, specialty_schema_predecessor
+from storage_fixture import english_schema_predecessor, specialty_schema_predecessor, reminder_schema_predecessor
 from source_profile_drill import read, context, codec
 from profile_command_drill import service, source_command
 
@@ -108,7 +108,7 @@ def main():
         receipts = {}
         forward = ROOT / 'supabase/migrations/20261028120214_compact_workspace_storage.sql'
         rollback = ROOT / 'supabase/rollback' / forward.name
-        consolidated = english_schema_predecessor(specialty_schema_predecessor((ROOT / 'supabase/schema.sql').read_bytes()))
+        consolidated = english_schema_predecessor(specialty_schema_predecessor(reminder_schema_predecessor((ROOT / 'supabase/schema.sql').read_bytes())))
         migration = forward.read_bytes()
         source_versions = ROOT / 'supabase/migrations/20261101171000_source_versions.sql'
         addon = source_versions.read_bytes()
@@ -167,6 +167,7 @@ def main():
         sql(upgrade, source_versions, file=True)
         sql(upgrade, ROOT / 'supabase/migrations/20261102082400_english_saved_letters.sql', file=True)
         sql(upgrade, ROOT / 'supabase/migrations/20261104074700_current_specialty_commands.sql', file=True)
+        sql(upgrade, ROOT / 'supabase/migrations/20261105080950_current_persisted_reminders.sql', file=True)
         seed_provenance(upgrade)
         if catalog(source) == catalog(upgrade):
             raise ValueError('Mirror and compact definitions unexpectedly identical')
