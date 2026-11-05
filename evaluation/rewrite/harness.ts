@@ -52,7 +52,7 @@ export async function evaluateCase(test:RewriteCase,backend:Backend,signal:Abort
  finally{
   transport.abort();signal.removeEventListener('abort',stop);
   if(server){server.closeAllConnections();await new Promise<void>(resolve=>server!.close(()=>resolve()));}
-  for(const key of KEYS){const value=previous[key];if(value===undefined)delete process.env[key];else process.env[key]=value;}
+  for(const key of KEYS){const value=previous[key];if(value===undefined)Reflect.deleteProperty(process.env,key);else Object.assign(process.env,{[key]:value});}
  }
  function snapshot(){return{id:test.id,requestedLanguage:test.requestedLanguage,reviewNotes:test.reviewNotes,stage,payloadSha256,calls,backendRequests,backendStatus,backendResponse,tokens,promptTokens,finish,rawSyntheticReply,rawBackendEnvelope};}
 }
