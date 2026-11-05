@@ -90,8 +90,8 @@ def main():
                 if len({r['id'] for r in rows})!=1 or sql(target,"select count(*) from public.audit_log where action='source_version_save' and user_id="+literal(OWNER)+';')!=count+1:raise ValueError('Concurrent duplicate committed')
                 stage='false-lost-committed-ack-manual-read-no-replay'
                 # A fresh hash per operation ensures an actual new commit, not deduplication.
-                for fault in ('alter','lost'):
-                    p=source_command(target,folder,dict(action='add',kind='achievement',fields=dict(description=dict(quote='SQL',start=0,end=3))))
+                for fault,kind in (('alter','education'),('lost','certification')):
+                    p=source_command(target,folder,dict(action='add',kind=kind,fields=dict(title=dict(quote='SQL',start=0,end=3))))
                     source_command(target,folder,dict(action='confirm',id=p['entries'][-1]['id'],confirmed=True))
                     p,ids,args,value=preview(target);initial=versions(target)
                     op=dict(action='save',workspaceRevision=p['workspace_revision'],profileRevision=p['revision'],entryIds=ids,templateVersion=EN,previewHash=value['preview_hash'],accept='SAVE_LITERAL_SOURCE_VERSION',consentToStore=True,ackFault=fault,expectedStatus=502)
