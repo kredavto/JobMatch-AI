@@ -22,15 +22,16 @@ test('invalid export produces no download and can recover after explicit reload'
  expect(downloads).toBe(1);
 });
 
-test('all history archive links are owner-bound and disclose all five source-bearing files',async({page})=>{
+test('all history archive links are owner-bound and disclose all six source-bearing files',async({page})=>{
  const ownerId='11111111-1111-4111-8111-111111111111';
  await page.route('**/api/service',r=>r.fulfill({json:{...workspace,ownerId}}));
  await page.goto('/');await page.getByRole('navigation').getByRole('button',{name:'Настройки',exact:true}).click();
  await expect(page.getByRole('link',{name:'Скачать историю серверных писем (NDJSON)'})).toHaveAttribute('href','/api/letter-versions?export=1&expectedOwnerId='+ownerId);
  await expect(page.getByRole('link',{name:'Скачать историю структурированных версий (NDJSON)'})).toHaveAttribute('href','/api/source-versions?export=1&expectedOwnerId='+ownerId);
+ await expect(page.getByRole('link',{name:'Скачать сохранённые напоминания (JSON)'})).toHaveAttribute('href','/api/reminders?export=1&expectedOwnerId='+ownerId);
  await expect(page.getByRole('link',{name:'Скачать полную историю фактов (NDJSON)'})).toHaveAttribute('href','/api/fact-history?export=1&expectedOwnerId='+ownerId);
- await expect(page.getByText(/Для полного архива скачайте JSON, три истории и JSON структурированного профиля/)).toContainText('выбранные источники и текст вакансии');
- await expect(page.getByText(/Для полного архива скачайте JSON, три истории/)).toContainText('пять файлов не являются единым транзакционным снимком');
+ await expect(page.getByText(/Для полного архива скачайте JSON, три истории, JSON структурированного профиля и JSON напоминаний/)).toContainText('выбранные источники и текст вакансии');
+ await expect(page.getByText(/Для полного архива скачайте JSON, три истории/)).toContainText('шесть файлов не являются единым транзакционным снимком');
 });
 test('missing owner blocks profile export and all history archive links',async({page})=>{
  await page.route('**/api/service',r=>r.fulfill({json:{...workspace,ownerId:undefined}}));await page.goto('/');

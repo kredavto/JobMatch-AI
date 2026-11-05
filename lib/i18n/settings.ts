@@ -12,12 +12,13 @@ const ru={
  "facts": "Скачать полную историю фактов (NDJSON)",
  "letters": "Скачать историю серверных писем (NDJSON)",
  "sources": "Скачать историю структурированных версий (NDJSON)",
- "archive": "Для полного архива скачайте JSON, три истории и JSON структурированного профиля отдельными файлами. JSON структурированного профиля доступен после явного чтения на вкладке «Профиль» и может содержать дополнительную копию исходника. Эти пять файлов не являются единым транзакционным снимком. История структурированных версий содержит отдельные неизменяемые копии исходного резюме и удаляется отдельно от текущей структуры. В истории писем сохраняются выбранные источники и текст вакансии; серверное сохранение требует отдельного согласия, предпросмотра и принятия и по умолчанию отключено. JSON содержит журнал действий до exported_at.",
+ "reminders": "Скачать сохранённые напоминания (JSON)",
+ "archive": "Для полного архива скачайте JSON, три истории, JSON структурированного профиля и JSON напоминаний отдельными файлами. JSON структурированного профиля доступен после явного чтения на вкладке «Профиль» и может содержать дополнительную копию исходника. Эти шесть файлов не являются единым транзакционным снимком. История структурированных версий содержит отдельные неизменяемые копии исходного резюме и удаляется отдельно от текущей структуры. В истории писем сохраняются выбранные источники и текст вакансии; серверное сохранение требует отдельного согласия, предпросмотра и принятия и по умолчанию отключено. JSON содержит журнал действий до exported_at. Файл напоминаний содержит текущие записи, включая завершённые и отменённые, и их ревизию; удалённое содержимое и история правок не сохраняются.",
  "limits": "В конце каждого NDJSON должна быть строка complete: true; её отсутствие или ошибка означает неполный файл. Лимит истории фактов: 5000 снимков или 50 МиБ; для большего объёма нужен расширенный экспорт. Файлы содержат персональные данные: проверьте их полноту и храните безопасно. Они не заменяют восстановление копии провайдера.",
  "ownerUnknown": "Владелец профиля не установлен. Перед экспортом или удалением явно загрузите актуальные данные.",
  "paused": "Экспорт и удаление приостановлены. Восстановите сессию при необходимости и явно загрузите актуальные данные; запрос не повторяется автоматически.",
  "deleteTitle": "Удалить аккаунт и данные",
- "deleteHelp": "Удалятся профиль, версии, отклики, структура, истории, сессии и журнал аккаунта из активной базы. Скачанные вами файлы останутся на вашем устройстве. Сроки удаления резервных копий должен подтвердить оператор.",
+ "deleteHelp": "Удалятся профиль, версии, отклики, напоминания, структура, истории, сессии и журнал аккаунта из активной базы. Скачанные вами файлы останутся на вашем устройстве. Сроки удаления резервных копий должен подтвердить оператор.",
  "confirm": "Введите УДАЛИТЬ",
  "remove": "Удалить безвозвратно"
 } as const;
@@ -34,12 +35,13 @@ const en:Copy<typeof ru>={
  "facts": "Download complete fact history (NDJSON)",
  "letters": "Download saved-letter history (NDJSON)",
  "sources": "Download structured-version history (NDJSON)",
- "archive": "For a complete archive, download the JSON, three histories and structured-profile JSON as separate files. Structured-profile JSON is available after an explicit read in Profile and may contain an additional source copy. These five files are not one transactional snapshot. Structured-version history contains separate immutable copies of the original resume and is deleted separately from the current structure. Letter history stores selected sources and vacancy text; server saving requires separate consent, preview and acceptance and is off by default. JSON includes the action log up to exported_at.",
+ "reminders": "Download saved reminders (JSON)",
+ "archive": "For a complete archive, download the JSON, three histories, structured-profile JSON and reminders JSON as separate files. Structured-profile JSON is available after an explicit read in Profile and may contain an additional source copy. These six files are not one transactional snapshot. Structured-version history contains separate immutable copies of the original resume and is deleted separately from the current structure. Letter history stores selected sources and vacancy text; server saving requires separate consent, preview and acceptance and is off by default. JSON includes the action log up to exported_at. Reminders JSON contains current records, including completed and cancelled reminders, and their revision; deleted content and edit history are not retained.",
  "limits": "Every NDJSON must end with a complete: true record; a missing marker or an error means an incomplete file. Fact history is limited to 5000 snapshots or 50 MiB; larger histories need an extended export. Files contain personal data: check completeness and store them securely. They do not replace restoration of a provider backup.",
  "ownerUnknown": "The profile owner is unknown. Explicitly load current data before exporting or deleting.",
  "paused": "Export and deletion are paused. Restore the session if needed and explicitly load current data; the request is not retried automatically.",
  "deleteTitle": "Delete account and data",
- "deleteHelp": "Profile, versions, applications, structure, histories, sessions and the account log are removed from the active database. Downloaded files remain on your device. The operator must confirm backup-copy deletion periods.",
+ "deleteHelp": "Profile, versions, applications, reminders, structure, histories, sessions and the account log are removed from the active database. Downloaded files remain on your device. The operator must confirm backup-copy deletion periods.",
  "confirm": "Type УДАЛИТЬ",
  "remove": "Delete permanently"
 };

@@ -1,7 +1,7 @@
 import {z} from 'zod';
 import {ExportSchema} from './export-schema';
 import {WorkspaceRequestError} from './workspace-feedback';
-export const SETTINGS_EXPORT_PATHS={facts:'/api/fact-history',letters:'/api/letter-versions',sources:'/api/source-versions'} as const;
+export const SETTINGS_EXPORT_PATHS={facts:'/api/fact-history',letters:'/api/letter-versions',sources:'/api/source-versions',reminders:'/api/reminders'} as const;
 export type SettingsExport=keyof typeof SETTINGS_EXPORT_PATHS;
 export function knownSettingsOwner(value:unknown):value is string{return z.uuid().safeParse(value).success;}
 /** Unknown identity must never create an unbound download URL. */
