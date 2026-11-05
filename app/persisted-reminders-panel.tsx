@@ -1,5 +1,7 @@
 'use client';
 import {useEffect,useLayoutEffect,useMemo,useRef,useState} from 'react';
+import ForegroundReminders from './foreground-reminders';
+import {sameJson} from '../lib/application-write-response';
 import type {Application} from '../lib/db';
 import {knownSettingsOwner} from '../lib/settings-export';
 import {RequestError,requestJson} from '../lib/client-api';
@@ -14,7 +16,7 @@ type Props={ownerId?:string;workspaceRevision:number;applications:Application[];
 export default function PersistedRemindersPanel({ownerId,workspaceRevision,applications,busy,paused,visible,locale:requestedLocale,onPending,onReloadWorkspace,onFailure}:Props){
  const locale=normalizeLocale(requestedLocale),t=remindersCopy[locale],known=knownSettingsOwner(ownerId);
  const [state,setState]=useState<RemindersState|null>(null),[draft,setDraft]=useState<ReminderDraft|null>(null),[pending,setPending]=useState(false),[needsRead,setNeedsRead]=useState(false),[error,setError]=useState<ErrorKey|null>(null),[notice,setNotice]=useState<Notice|null>(null),[deleteId,setDeleteId]=useState<string|null>(null);
- const active=useRef(true),requestRef=useRef<AbortController|null>(null),session=useRef(0),epoch=useRef(0),pendingCallback=useRef(onPending),context=useRef({ownerId,workspaceRevision});
+ const stored=useRef<RemindersState|null>(null),active=useRef(true),requestRef=useRef<AbortController|null>(null),session=useRef(0),epoch=useRef(0),pendingCallback=useRef(onPending),context=useRef({ownerId,workspaceRevision});
  useLayoutEffect(()=>{pendingCallback.current=onPending;context.current={ownerId,workspaceRevision};},[onPending,ownerId,workspaceRevision]);
  const heading=useRef<HTMLHeadingElement>(null),newButton=useRef<HTMLButtonElement>(null),firstField=useRef<HTMLSelectElement>(null),editing=useRef<string|null>(null),restoreFocus=useRef(false);
  useEffect(()=>{active.current=true;return()=>{active.current=false;requestRef.current?.abort();pendingCallback.current(false);};},[]);
@@ -36,14 +38,14 @@ export default function PersistedRemindersPanel({ownerId,workspaceRevision,appli
   try{if(needsRead||paused)await onReloadWorkspace();if(!active.current||context.current.ownerId!==owner)return;
    const raw=await requestJson<unknown>('/api/reminders?expectedOwnerId='+encodeURIComponent(owner!),{headers:{'x-jobmatch-owner':owner!},signal:controller.signal},locale);
    const next=RemindersStateSchema.parse(raw);if(next.ownerId!==owner||context.current.ownerId!==owner)throw new RequestError('',409);
-   if(!active.current)return;setState(next);setNeedsRead(false);setDeleteId(null);setNotice('read');
+   if(!active.current)return;stored.current=next;setState(next);setNeedsRead(false);setDeleteId(null);setNotice('read');
   }catch(e){if(active.current)fail(e,false);}finally{finish(controller);}
  }
  async function write(command:ReminderCommand){
   if(locked||!state)return null;const before=state,owner=ownerId,revision=workspaceRevision,controller=start(true);if(!controller)return null;
   try{const raw=await requestJson<unknown>('/api/reminders',{method:'POST',headers:{'Content-Type':'application/json','x-jobmatch-owner':owner!},signal:controller.signal,body:JSON.stringify({expectedOwnerId:owner,workspaceRevision:revision,revision:before.revision,consentToStore:true,command})},locale);
    if(!active.current)return null;if(context.current.ownerId!==owner||context.current.workspaceRevision!==revision)throw new RequestError('',409);
-   const after=validateReminderWrite(raw,before,command);setState(after);setDeleteId(null);setNotice('saved');if(visible)heading.current?.focus();return after;
+   const after=validateReminderWrite(raw,before,command);stored.current=after;setState(after);setDeleteId(null);setNotice('saved');if(visible)heading.current?.focus();return after;
   }catch(e){if(active.current)fail(e,true);return null;}finally{finish(controller);}
  }
  function open(row?:PersistedReminder){
@@ -70,6 +72,7 @@ export default function PersistedRemindersPanel({ownerId,workspaceRevision,appli
   {!known&&<p role="alert">{t.errors.owner}</p>}{error&&<p role="alert" data-reminder-error="">{t.errors[error]}</p>}{notice&&<p role="status" data-reminder-notice="">{t[notice]}</p>}
   <button id="saved-reminders-load" disabled={busy||!known} onClick={()=>void load()}>{needsRead||paused?t.reload:t.load}</button>
   {state?<><button id="saved-reminders-new" ref={newButton} disabled={locked||state.items.length>=100} onClick={()=>open()}>{t.new}</button><button id="saved-reminders-download" disabled={locked} onClick={download}>{t.download}</button>{state.items.length>=100&&<p>{t.limit}</p>}{!state.items.length&&<p>{t.empty}</p>}</>:<p>{t.unloaded}</p>}
+  <ForegroundReminders ownerId={ownerId} state={state} busy={busy} paused={paused||needsRead} locale={locale} available={()=>active.current&&!requestRef.current&&!needsRead&&!paused&&!busy&&known} current={()=>stored.current} onFresh={next=>{const previous=stored.current;if(!active.current||requestRef.current||next.ownerId!==ownerId||previous&&(next.revision<previous.revision||next.revision===previous.revision&&!sameJson(next,previous)))throw new RequestError('',409);stored.current=next;setState(next);}} onFailure={status=>fail(new RequestError('',status),false)}/>
   {draft&&<fieldset id="saved-reminder-editor"><legend>{draft.base?t.edit:t.new}</legend><p>{t.draftHelp}</p>
    <label htmlFor="saved-reminder-application">{t.application}</label><select ref={firstField} id="saved-reminder-application" value={draft.form.applicationId} onChange={e=>edit({applicationId:e.target.value})}><option value="">{t.chooseApplication}</option>{!applications.some(a=>a.id===draft.form.applicationId)&&draft.form.applicationId&&<option value={draft.form.applicationId}>{t.missingApplication}</option>}{applications.map(a=><option key={a.id} value={a.id}>{a.title}</option>)}</select>
    <label htmlFor="saved-reminder-kind">{t.kind}</label><select id="saved-reminder-kind" value={draft.form.kind} onChange={e=>edit({kind:e.target.value as ReminderForm['kind']})}>{(['interview','follow-up'] as const).map(k=><option key={k} value={k}>{t.kinds[k]}</option>)}</select>

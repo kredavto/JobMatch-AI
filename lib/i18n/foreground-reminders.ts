@@ -1,0 +1,18 @@
+import type {Copy} from './locale';
+const ru={
+ title:'Уведомления в открытой вкладке',help:'После отдельного разрешения приложение проверяет сохранённые задачи каждые 30 секунд, пока вкладка видима. Закрытая, скрытая или приостановленная вкладка не доставляет уведомления. Доставка на устройство и работа в фоне не подтверждены.',
+ privacy:'Системное уведомление содержит только общий текст JobMatch AI, без вакансии, описания, резюме или идентификатора аккаунта. Разрешение не включает почту или push-подписку.',
+ consent:'Разрешаю автоматическое чтение моих напоминаний и общие уведомления в этой вкладке',enable:'Разрешить уведомления в этой вкладке',disable:'Остановить уведомления и закрыть их',check:'Проверить задачи сейчас',
+ off:'Уведомления выключены.',enabled:'Проверка включена только для этой видимой вкладки.',pending:'Ожидается ответ на запрос разрешения или чтения.',denied:'Браузер не разрешил уведомления. Измените разрешение вручную в его настройках, если хотите продолжить.',unsupported:'Этот браузер или контекст не поддерживает уведомления из страницы. Можно использовать отдельный файл ICS.',failed:'Проверка или запрос показа не подтверждены. Проверки остановлены; перечитайте данные и включите их снова по желанию.',paused:'Вкладка приостановлена или данные требуют перечитывания. Сначала явно загрузите актуальные данные.',
+ limits:'При включении старые просроченные задачи не показываются заново. Пропуск более пяти минут не восполняется. Повтор одного момента подавляется только в памяти вкладки; запись не помечается доставленной. Остановка или выход закрывает показанные этой вкладкой уведомления. Разрешение браузера отзывается отдельно в его настройках.',
+ requested:(count:number)=>'Запросов системного показа: '+count+'. Это не подтверждение доставки на устройство.',notificationTitle:'JobMatch AI',notificationBody:'Есть задачи для проверки. Откройте JobMatch AI.',
+};
+const en:Copy<typeof ru>={
+ title:'Notifications in this open tab',help:'After separate permission, saved tasks are checked every 30 seconds while this tab is visible. Closed, hidden or paused tabs do not deliver notifications. Device delivery and background operation are not verified.',
+ privacy:'System notifications contain only generic JobMatch AI text, without a vacancy, description, resume or account identifier. Permission does not enable email or a push subscription.',
+ consent:'I allow automatic reads of my reminders and generic notifications in this tab',enable:'Allow notifications in this tab',disable:'Stop checks and close notifications',check:'Check tasks now',
+ off:'Notifications are off.',enabled:'Checks are enabled only for this visible tab.',pending:'Waiting for a permission or read response.',denied:'The browser did not grant notifications. Change its permission manually in browser settings if you want to continue.',unsupported:'This browser or context does not support page notifications. You can use a separate ICS file.',failed:'A check or show request is unconfirmed. Checks stopped; read current data and enable again if desired.',paused:'The tab is paused or current data must be read. Explicitly load current data first.',
+ limits:'Old overdue tasks are not replayed when enabled. Gaps over five minutes are not caught up. A repeated instant is suppressed only in tab memory; no record is marked delivered. Stopping or signing out closes notifications from this tab. Browser permission is revoked separately in browser settings.',
+ requested:(count:number)=>'System show requests: '+count+'. This does not confirm device delivery.',notificationTitle:'JobMatch AI',notificationBody:'There are tasks to review. Open JobMatch AI.'
+};
+export const foregroundRemindersCopy={ru,en};
