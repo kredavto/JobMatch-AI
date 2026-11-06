@@ -1,0 +1,98 @@
+[
+  {
+    "id": "nli-ru-negation-preserved",
+    "language": "ru",
+    "premise": "Кандидат никогда не выполнял сварку алюминия.",
+    "hypothesis": "Кандидат не имеет практического опыта сварки алюминия.",
+    "expectedEntailment": true,
+    "rationale": "The premise explicitly denies ever performing the same activity; the hypothesis preserves that denial, rather than treating all negation as non-entailment."
+  },
+  {
+    "id": "nli-ru-personal-role",
+    "language": "ru",
+    "premise": "В 2023 году кандидат лично руководил миграцией сервиса «Маяк». Другой сотрудник организовывал обучение пользователей.",
+    "hypothesis": "В 2023 году кандидат руководил миграцией сервиса «Маяк».",
+    "expectedEntailment": true,
+    "rationale": "Exact actor, leadership activity, named project and year match. The second actor has a different task and does not negate the claim."
+  },
+  {
+    "id": "nli-ru-count-lower-bound",
+    "language": "ru",
+    "premise": "За весь 2024 год кандидат лично отремонтировал ровно 7 насосов.",
+    "hypothesis": "В 2024 году кандидат лично отремонтировал не менее 4 насосов.",
+    "expectedEntailment": true,
+    "rationale": "An explicit total of seven entails a lower bound of four for the same actor, activity, unit and period."
+  },
+  {
+    "id": "nli-ru-negation-reversed",
+    "language": "ru",
+    "premise": "Кандидат никогда не выполнял сварку алюминия.",
+    "hypothesis": "Кандидат имеет практический опыт сварки алюминия.",
+    "expectedEntailment": false,
+    "rationale": "The positive hypothesis directly reverses the explicit denial of the same activity."
+  },
+  {
+    "id": "nli-ru-team-department-scope",
+    "language": "ru",
+    "premise": "В 2022 году кандидат руководил группой из 3 инспекторов. Во всём отделе работало 12 инспекторов.",
+    "hypothesis": "В 2022 году кандидат руководил группой из 12 инспекторов.",
+    "expectedEntailment": false,
+    "rationale": "Department headcount cannot be substituted for the size of the team personally managed. The smaller explicit team does not establish management of the larger department."
+  },
+  {
+    "id": "nli-ru-dates-not-continuity",
+    "language": "ru",
+    "premise": "Кандидат выполнил топографическую съёмку в 2016 году и ещё одну такую работу в 2022 году.",
+    "hypothesis": "Кандидат непрерывно выполнял топографическую съёмку с 2016 по 2022 год.",
+    "expectedEntailment": false,
+    "rationale": "Two isolated dated tasks do not entail uninterrupted activity over the intervening years; the premise does not specify continuity."
+  },
+  {
+    "id": "nli-en-negation-preserved",
+    "language": "en",
+    "premise": "The candidate has never operated a forklift.",
+    "hypothesis": "The candidate has no practical experience operating a forklift.",
+    "expectedEntailment": true,
+    "rationale": "The hypothesis preserves the explicit absence of the same practical activity. Negative wording is not itself a reason to reject entailment."
+  },
+  {
+    "id": "nli-en-personal-role",
+    "language": "en",
+    "premise": "In 2021 the candidate chaired the laboratory safety committee. A colleague managed equipment purchases.",
+    "hypothesis": "The candidate served as chair of the laboratory safety committee in 2021.",
+    "expectedEntailment": true,
+    "rationale": "Same person, chair role, named committee and year. Equipment purchases by a colleague do not alter the stated chairmanship."
+  },
+  {
+    "id": "nli-en-count-lower-bound",
+    "language": "en",
+    "premise": "During all of 2023 the candidate personally inspected exactly 11 bridges.",
+    "hypothesis": "The candidate personally inspected at least 8 bridges in 2023.",
+    "expectedEntailment": true,
+    "rationale": "Eleven entails at least eight with unchanged actor, activity, unit and period; this guards against blanket rejection of unequal numbers."
+  },
+  {
+    "id": "nli-en-count-incompatible",
+    "language": "en",
+    "premise": "The candidate personally filed exactly 3 patent applications in total during 2024.",
+    "hypothesis": "The candidate personally filed at least 7 patent applications during 2024.",
+    "expectedEntailment": false,
+    "rationale": "The exhaustive total for the same actor, activity and period contradicts the higher lower bound. This is not a missing-context numerical comparison."
+  },
+  {
+    "id": "nli-en-subject-and-metric",
+    "language": "en",
+    "premise": "In 2022 the company increased sales revenue by 18%. The candidate reduced stored file volume by 18% that year.",
+    "hypothesis": "In 2022 the candidate personally increased sales revenue by 18%.",
+    "expectedEntailment": false,
+    "rationale": "Equal percentages and year do not transfer a company-level sales outcome to the candidate, whose stated achievement concerns a different metric."
+  },
+  {
+    "id": "nli-en-role-negated",
+    "language": "en",
+    "premise": "In 2017 the candidate was a member of the hospital audit committee and was not its chair.",
+    "hypothesis": "The candidate chaired the hospital audit committee in 2017.",
+    "expectedEntailment": false,
+    "rationale": "Same actor, committee and period but an explicitly denied chair role; membership does not entail chairmanship."
+  }
+]
