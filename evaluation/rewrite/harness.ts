@@ -15,12 +15,19 @@ export type Backend=(payload:Payload,signal:AbortSignal)=>Promise<Response>;
 export const ALIAS='jobmatch-qwen2.5-0.5b-q8-diagnostic';
 export const RUNTIME={context:8192,threads:4,maxTokens:4096,seed:42} as const;
 export function approved(env:Record<string,string|undefined>){return env.CI==='true'&&env.GITHUB_ACTIONS==='true'&&env.JOBMATCH_AI_CPU_DIAGNOSTIC==='true'&&env.JOBMATCH_AI_REWRITE_CPU_DIAGNOSTIC==='true'&&env.GITHUB_REPOSITORY==='kredavto/JobMatch-AI'&&env.JOBMATCH_REPOSITORY_VISIBILITY==='public';}
-const envelope=z.object({choices:z.tuple([z.object({message:z.object({role:z.literal('assistant'),content:z.string().min(1).max(120000)}),finish_reason:z.enum(['stop','length'])})]),usage:z.object({prompt_tokens:z.number().int().positive().max(RUNTIME.context),completion_tokens:z.number().int().positive().max(RUNTIME.maxTokens)})});
+const envelope=z.object({choices:z.tuple([z.object({message:z.object({role:z.literal('assistant'),content:z.string().min(1).max(120000)}),finish_reason:z.enum(['stop','length'])})]),usage:z.object({prompt_tokens:z.number().int().positive().max(RUNTIME.context),completion_tokens:z.number().int().positive().max(RUNTIME.maxTokens)})}).refine(v=>v.usage.prompt_tokens+v.usage.completion_tokens<=RUNTIME.context);
 const FIXTURE_KEY='43'.repeat(32),FIXTURE_TOKEN='rewrite-owned-synthetic-diagnostic-only';
 const KEYS=['NODE_ENV','JOBMATCH_AI_REWRITE_ENABLED','JOBMATCH_AI_ENABLED','JOBMATCH_AI_SELF_HOSTED','JOBMATCH_AI_ENDPOINT','JOBMATCH_AI_MODEL','JOBMATCH_AI_TOKEN','JOBMATCH_LETTER_SIGNING_SECRET'] as const;
 /** One real production HTTP request through an explicitly labelled local envelope adapter.
  * The callback sees actual captured provider bytes, never review notes or a gold answer. */
+let evaluating=false;
+/** Environment configuration is process-wide. Refuse overlap rather than mix cases. */
 export async function evaluateCase(test:RewriteCase,backend:Backend,signal:AbortSignal){
+ if(evaluating)throw Error('REWRITE_DIAGNOSTIC_BUSY');
+ evaluating=true;
+ try{return await evaluateExclusive(test,backend,signal);}finally{evaluating=false;}
+}
+async function evaluateExclusive(test:RewriteCase,backend:Backend,signal:AbortSignal){
  const workspace={ownerId:'11111111-1111-4111-8111-111111111111',revision:1,original:test.original,facts:test.facts,vacancy:test.vacancy,goal:'',versions:[],applications:[]} as Workspace;
  const source=await prepareRewriteSource(workspace,workspace.ownerId!,test.factIds),previous=Object.fromEntries(KEYS.map(k=>[k,process.env[k]]));
  let server:Server|undefined,calls=0,backendRequests=0,payloadSha256:string|null=null,rawSyntheticReply:string|null=null,rawBackendEnvelope:string|null=null,backendStatus:number|null=null,tokens=0,promptTokens=0,finish:string|null=null,backendResponse=false,stage='local-source';

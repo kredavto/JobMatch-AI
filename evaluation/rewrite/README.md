@@ -1,51 +1,28 @@
-# Rewrite CPU diagnostic — unfinished checkpoint
+# Rewrite diagnostic: verified HTTP harness, CPU runner pending
 
-5 November 2026. Started from ready/unmerged PR#123 final
-6b774a0d675053c56bd8f84a7c19cb1e85388af9 (tree 76380f242e7454fced22f52fbc4c6cb3b4e1df73).
-Fresh main a3a9ef0c, four main plans and113openPRs were reread first.
+6 November2026. Continues checkpoint b4b0a47d367671d2a8ae7135a8a9096641406df3 on ready/unmerged PR#123. Fresh main/four plans/113open PRs read. No production activation or model acceptance.
 
-**Not a completed technical block or model acceptance.** The managed workspace
-became unavailable before the first typecheck/test/compile command could run.
-The authored corpus, initial harness and compile configuration are checkpointed
-in git so the next environment can resume. No runner, workflow, tests or actual
-inference for this new protocol exists yet. No new PR is opened for this WIP.
-No production flag/key/data/DB, mail, HH write or paid resource changed.
+Run from repository root with Node24:
 
-The six RU/EN cases are explicitly public authored synthetic examples frozen
-before any model call. Original locally generated corpus SHA256 was
-0703166fc0491ed093676cd6612331f680f26f45b6b4883eed9e2465c10bdf73;
-verify bytes against this value before pinning/using the corpus. Do not tune the
-prompt or corpus in response to the forthcoming outputs. This is not independent
-held-out or human semantic evidence. The harness has not passed even typecheck.
+```sh
+npm ci --ignore-scripts
+npx tsc -p evaluation/rewrite/tsconfig.json
+node --test evaluation/dist/evaluation/rewrite/harness.test.cjs
+```
 
-Intended next steps:
+25tests exercise the actual production provider over owned loopback HTTP. The backend callback returns authored synthetic responses; this is **not actual inference**. They cover all six frozen RU/EN cases, selected-only input, exact raw reply preservation, numeric findings, refusals, malformed/unfinished/oversized/invalid UTF8 responses, nonpositive/overflow token counts, cancellation, exclusive process environment lease and restoration on every exit.69existing rewrite tests, full application types and focused harness lint also passed locally. Separate rewrite-harness CI installs dependencies canonically and executes the same compilation/tests at the exact PR head, without model downloads, external inference or secrets.
 
-1. Fresh checkout this branch; inspect main/four plans/openPRs again. Check the
-   frozen corpus hash, source bindings and harness carefully; typecheck/build it.
-2. Add meaningful actual-loopback tests of the harness: one production provider
-   request, selected-only input, raw output unchanged, valid/refused/malformed/
-   unfinished/oversized responses, cancellation, environment restoration and
-   default-closed CI guard. Auth/DB are outside this diagnostic.
-3. Add a bounded owned runner using the existing immutable public CPU weights and
-   llama.cpp revision, with SHA/license/size/read-only checks before/after,
-   process/image/binary/source/compiled hashes, no network except loopback during
-   inference, no model retries and complete raw synthetic responses/token counts.
-   The Ollama-shaped local HTTP gateway is an explicit envelope adapter to the
-   pinned llama HTTP server; it is not a verified deployed Ollama provider.
-4. New runtime parameters are explicitly8192context/4096maxTokens/4threads/seed42;
-   do not alter or misdescribe the old4096/2048 pin/defaults or frozen 0/16 report.
-   Record actual parameters. Keep model/deployment identity unverified, semantic/
-   independent-held-out assessment not-performed and acceptance not-accepted.
-5. Add a separate public same-repository disposable CI workflow with existing
-   owned disk/RAM/download gates, no secrets, read-only/no-network/nonroot bounded
-   container, exact runtime proof and cleanup of only job-owned resources. A docs
-   update must not count as new inference. No third-party inference endpoint.
-6. Update the four plans/journal, test, commit, create a concrete PR and read back
-   immutable content/tree. Record any refusal/failure without weakening guards.
+`evaluateCase` changes process environment only during its owned operation. It refuses concurrent calls (`REWRITE_DIAGNOSTIC_BUSY`); callers must await completion before starting another case. It does not change global fetch. The local HTTP gateway checks the captured production wire and translates the backend OpenAI envelope to the production Ollama shape without editing assistant content. Backend success, contract validity and model refusal are separate recorded outcomes. No semantic assessment is performed. Proposed changes with numeric issues can be structurally valid but remain unreviewed and NOT ACCEPTED.
 
-Human review/edit decisions, normalized immutable AI-version storage with DB/
-legacy-forgery defenses and UI remain separate unfinished work. SMTP/recovery,
-real Supabase provider-copy restore, operator personal-data decisions, HH
-permissions, model qualification and final live/security/device gates remain open.
-The full project is incomplete. The environment failure is not evidence that
-only user-controlled external blockers remain, so no automation is paused here.
+The six public authored synthetic cases were frozen before inference. Corpus SHA256:
+`0703166fc0491ed093676cd6612331f680f26f45b6b4883eed9e2465c10bdf73`.
+Do not retune this corpus/prompt after reading forthcoming model replies. It is not independent held-out evidence. The earlier workspace interruption is retained in the four plans; testing is now completed for this harness sub-block only.
+
+## Remaining CPU diagnostic work
+
+1. Add a bounded owned runner using the existing immutable public weights and llama.cpp revision, verifying model/license/size before and after execution. Preserve complete raw synthetic replies, actual tokens/finish reasons, source/compiled/binary/image hashes; no retries or output substitution.
+2. Explicit new runtime:8192context/4096maxTokens/4threads/seed42. Do not edit/misdescribe the old4096/2048pin/defaults or frozen0/16report. The envelope adapter is not evidence of a verified deployed Ollama service.
+3. Add a separate public same-repository disposable inference workflow with existing opt-in/disk/RAM/download gates, no secrets, read-only/nonroot/no-network bounded container, exact runtime proof and job-owned cleanup. Docs-only commits must not count as new inference.
+4. Execute actual pinned model on this unchanged corpus, report failures without weakening guards; keep acceptance NOT ACCEPTED and semantic/independent-held-out/model/deployment identity gates open.
+
+Human review/edit decisions, normalized immutable AI-version save with DB/legacy-forgery defenses and UI remain unfinished. SMTP/recovery, actual Supabase provider-copy restore, operator personal-data decisions, HH permissions and final live/security/device gates remain open. Full project incomplete.

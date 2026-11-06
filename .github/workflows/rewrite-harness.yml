@@ -1,0 +1,27 @@
+name: Rewrite diagnostic harness
+on:
+  pull_request:
+    paths:
+      - 'evaluation/rewrite/**'
+      - 'lib/**'
+      - 'package*.json'
+      - '.github/workflows/rewrite-harness.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  harness:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npx tsc -p evaluation/rewrite/tsconfig.json
+      - run: node --test evaluation/dist/evaluation/rewrite/harness.test.cjs
