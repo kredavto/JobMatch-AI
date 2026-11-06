@@ -1,0 +1,71 @@
+{
+  "format": "jobmatch-offline-cli-package-v1",
+  "exactHead": "988af211ea96bb908b78f6fa43072dac1fc7fbec",
+  "cliVersion": "3.0.0",
+  "cliArchiveSha256": "eeb61edcd59a4735fcb5e58596574f25d03d420efca779f43ddb307e1cc5c754",
+  "cliBinarySha256": "1dde91b59c65297cfa0d1322a7337230d307e4e2696d16181577c0725bc50560",
+  "sourceSha256": "124be76990e21ca6eef54dd1c4fe78a135d0a3d86b66b838429924f5369e7e18",
+  "migrationFilename": "20261106143805_reviewed_rewrite_versions.sql",
+  "migrationSha256": "1dea9321004cc4b86eccf81755d9edbc4c04d3ce0f309988d84a0cb4240ef739",
+  "migrationGitBlobSha1": "c4b96522e172a039df026718e71fe00e0b2694ca",
+  "networkInterfaces": [
+    "lo"
+  ],
+  "egressProbe": "ENETUNREACH",
+  "uid": 1000,
+  "capEff": "0",
+  "noNewPrivileges": true,
+  "commands": [
+    {
+      "args": [
+        "--help"
+      ],
+      "status": 0,
+      "stdoutSha256": "0d52d7bf685aa53520957876e475d356cdaa448f7080c922b77afc6702967eaa",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "args": [
+        "--version"
+      ],
+      "status": 0,
+      "stdoutSha256": "2985be8b28d3ade858e8d8fb4bc22f565b1bf6020dff982dce141f7721b9999c",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "args": [
+        "migration",
+        "--help"
+      ],
+      "status": 0,
+      "stdoutSha256": "b7b5ed1f792db54706dbcc46ef251cb6c565bf3d62ae73af3439a740ace3c605",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "args": [
+        "migration",
+        "new",
+        "--help"
+      ],
+      "status": 0,
+      "stdoutSha256": "bae9b8424fb292128f0407e71ef8b93af2dbf7ec48613ee251c8de469c6821fc",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "args": [
+        "migration",
+        "new",
+        "reviewed_rewrite_versions"
+      ],
+      "status": 0,
+      "stdoutSha256": "c097be8a22154e82330dc5d4af3237bf3096bbbf7e22550f179241f8c3f72187",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "containerImageId": "sha256:4ec989dc9e69bc7f2cdede4d6755b81f34d697447daba63c72d81d3b48011800",
+  "containerNetworkMode": "none",
+  "providerOperations": "not-performed",
+  "advisors": "not-performed",
+  "migrationList": "not-performed",
+  "evidenceRun": "https://github.com/kredavto/JobMatch-AI/actions/runs/42235584051"
+}

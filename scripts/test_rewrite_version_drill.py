@@ -2,10 +2,12 @@ import hashlib
 import re
 import unittest
 import copy
+import json
 from unittest.mock import patch,MagicMock
 from pathlib import Path
 from rewrite_version_drill import allowed,database_allowed,observed_waiter,NativeFailure,rewrite_corruption_detected
 from backup_manifest import FORMATS
+from storage_fixture import rewrite_schema_predecessor
 
 
 class RewriteProtocolGuard(unittest.TestCase):
@@ -41,11 +43,30 @@ class RewriteProtocolGuard(unittest.TestCase):
         self.assertIn("candidate:=new_state->'versions'->jsonb_array_length(old_state->'versions')",body)
         self.assertNotIn('from jsonb_array_elements(new_state',body.split('allowed:=',1)[0])
 
-    def test_source_protocol_is_not_claimed_as_a_packaged_cli_migration(self):
-        root=Path(__file__).resolve().parent.parent;source=(root/'supabase/protocols/rewrite_versions.sql').read_text()
-        self.assertIn('NOT a CLI-generated Supabase migration',source)
-        self.assertNotIn(source,(root/'supabase/schema.sql').read_text())
-        self.assertIn('select null::text',(root/'supabase/protocols/rewrite_versions_disable.sql').read_text())
+    def test_actual_cli_artifact_matches_source_body_migration_and_closed_rollback(self):
+        root=Path(__file__).resolve().parent.parent
+        evidence=json.loads((root/'supabase/protocols/rewrite_versions_packaging.json').read_text())
+        source=(root/'supabase/protocols/rewrite_versions.sql').read_bytes()
+        migration=(root/'supabase/migrations'/evidence['migrationFilename']).read_bytes()
+        self.assertEqual(hashlib.sha256(source).hexdigest(),evidence['sourceSha256'])
+        self.assertEqual(migration,b'-- CLI-created migration shell; reviewed native rewrite source.\n-- Source SHA256: '+evidence['sourceSha256'].encode()+b'\n'+source[source.index(b'\nbegin;\n')+1:])
+        self.assertEqual(hashlib.sha256(migration).hexdigest(),evidence['migrationSha256'])
+        self.assertEqual(hashlib.sha1(b'blob '+str(len(migration)).encode()+b'\0'+migration).hexdigest(),evidence['migrationGitBlobSha1'])
+        self.assertEqual(evidence['egressProbe'],'ENETUNREACH')
+        self.assertEqual(evidence['containerNetworkMode'],'none')
+        self.assertEqual(evidence['providerOperations'],'not-performed')
+        self.assertEqual([c['args'] for c in evidence['commands']][-1],['migration','new','reviewed_rewrite_versions'])
+        rollback=(root/'supabase/rollback'/evidence['migrationFilename']).read_bytes()
+        self.assertEqual(rollback,(root/'supabase/protocols/rewrite_versions_disable.sql').read_bytes())
+        self.assertIn(b'select null::text',rollback)
+
+    def test_new_suffix_is_exactly_once_and_unknown_or_duplicate_content_refuses(self):
+        root=Path(__file__).resolve().parent.parent
+        full=(root/'supabase/schema.sql').read_bytes()
+        prior=rewrite_schema_predecessor(full)
+        self.assertNotEqual(prior,full)
+        for bad in (prior,full+b'unknown',full+b'\n'+full[len(prior)+1:]):
+            with self.assertRaises(ValueError):rewrite_schema_predecessor(bad)
 
 
 if __name__=='__main__':unittest.main()

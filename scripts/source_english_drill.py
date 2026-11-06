@@ -14,7 +14,7 @@ from profile_command_drill import service, source_command
 from saved_letter_drill import ROOT, OWNER, OTHER, SESSION, OTHER_SESSION, literal, run
 from reminder_drill import manifest
 from compact_storage_drill import catalog
-from storage_fixture import source_english_schema_predecessor
+from storage_fixture import rewrite_schema_predecessor, source_english_schema_predecessor
 from backup_manifest import compare
 
 MIGRATION='supabase/migrations/20261105130000_current_source_english.sql'
@@ -45,7 +45,7 @@ def main():
     try:
         with tempfile.TemporaryDirectory(prefix='jobmatch-source-english-owned-') as directory:
             folder=Path(directory);addon=(ROOT/MIGRATION).read_text()
-            predecessor=source_english_schema_predecessor((ROOT/'supabase/schema.sql').read_bytes())
+            predecessor=source_english_schema_predecessor(rewrite_schema_predecessor((ROOT/'supabase/schema.sql').read_bytes()))
             # Exact prior authored schema, including all current reminder/ordinary addons.
             if hashlib.sha256(predecessor).hexdigest()!=BASE_SHA256:raise ValueError('Unexpected predecessor')
             base=folder/'base.sql';base.write_bytes(predecessor)
@@ -64,6 +64,7 @@ def main():
             sql(upgrade,addon.replace('\ncommit;\n',"\ndo $$begin raise exception 'SOURCE_ENGLISH_TEST_LATE';end$$;\ncommit;\n"),failure='SOURCE_ENGLISH_TEST_LATE')
             if catalog(upgrade)!=defs or compare(before,manifest(upgrade,folder/'failed.json')):raise ValueError('Late fault left changes')
             sql(upgrade,addon)
+            sql(upgrade,(ROOT/'supabase/migrations/20261106143805_reviewed_rewrite_versions.sql').read_text())
             if compare(before,manifest(upgrade,folder/'upgraded.json')):raise ValueError('Upgrade rewrote data')
             if catalog(upgrade)!=catalog(clean):raise ValueError('Upgrade/full catalog differs')
             for target,old in zip((upgrade,clean),old_records):

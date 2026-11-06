@@ -1,4 +1,4 @@
-name: Reviewed rewrite native acceptance (source protocol)
+name: Reviewed rewrite native acceptance (packaged migration)
 on:
   pull_request:
     paths:
@@ -65,6 +65,6 @@ jobs:
           pg_dump --version
           psql -X -w -v ON_ERROR_STOP=1 -d postgres -c 'CREATE ROLE anon NOLOGIN; CREATE ROLE authenticated NOLOGIN; CREATE ROLE service_role NOLOGIN BYPASSRLS;'
       - run: python3 -m unittest discover -s scripts -p 'test_*.py'
-      - name: Owned protocol source, nested signatures, lock waiters, immutable history and selected20table restore
+      - name: Packaged upgrade and full schema, nested signatures, lock waiters, immutable history and selected20table restore
         run: python3 scripts/rewrite_version_drill.py
 

@@ -18,9 +18,10 @@ from source_english_drill import definitions
 from reminder_drill import manifest, command as reminder_command, statement as reminder_statement, ENABLE as ENABLE_REMINDERS
 from backup_manifest import compare
 from check_workspace_concurrency import Probe
+from storage_fixture import rewrite_schema_predecessor
 
-PROTOCOL='supabase/protocols/rewrite_versions.sql'
-DISABLE='supabase/protocols/rewrite_versions_disable.sql'
+PROTOCOL='supabase/migrations/20261106143805_reviewed_rewrite_versions.sql'
+DISABLE='supabase/rollback/20261106143805_reviewed_rewrite_versions.sql'
 CONFIGURATION='34'*32
 KEY_ID=hashlib.sha256(KEY).hexdigest()
 ENABLE="create or replace function private.rewrite_storage_configuration() returns text language sql stable security invoker set search_path='' as $$select '"+CONFIGURATION+"'::text;$$;"
@@ -193,10 +194,12 @@ def main():
     try:
         with tempfile.TemporaryDirectory(prefix='jobmatch-reviewed-rewrite-owned-') as directory:
             folder=Path(directory);addon=(ROOT/PROTOCOL).read_text()
+            predecessor=folder/'before-rewrite.sql'
+            predecessor.write_bytes(rewrite_schema_predecessor((ROOT/'supabase/schema.sql').read_bytes()))
             for name in names:run(['createdb','--',name],environment);created.append(name)
             upgrade,clean,restored=[dict(environment,PGDATABASE=name) for name in names]
-            for target in (upgrade,clean):
-                for path in ('scripts/restore_fixture.sql','supabase/schema.sql','scripts/restore_seed.sql'):run(['psql','-X','-w','-v','ON_ERROR_STOP=1','-f',str(ROOT/path)],target)
+            for target,schema in ((upgrade,predecessor),(clean,ROOT/'supabase/schema.sql')):
+                for path in (ROOT/'scripts/restore_fixture.sql',schema,ROOT/'scripts/restore_seed.sql'):run(['psql','-X','-w','-v','ON_ERROR_STOP=1','-f',str(path)],target)
                 sql(target,'insert into auth.sessions values('+literal(OTHER_SESSION)+','+literal(OTHER)+');')
                 seed_core(target,folder);sql(target,'grant execute on function private.source_version_storage_permission() to authenticated;');save_source(target,folder)
                 sql(target,ENABLE_REMINDERS);sql(target,reminder_statement(0,reminder_command()),OWNER)
@@ -316,7 +319,7 @@ def main():
             sql(restored,"alter table public.resume_versions disable trigger rewrite_version_frozen;update public.resume_versions set text='corrupt' where extra ? 'ai_rewrite';alter table public.resume_versions enable trigger rewrite_version_frozen;")
             bridge(restored,folder,dict(op='collection',versions=workspace(restored)['versions'],ownerId=OWNER),refused=True,expected_error='INVALID_REWRITE_VERSION')
             if not rewrite_corruption_detected(reference,manifest(restored,folder/'corrupt.json')):raise ValueError('Fingerprint missed canonical/logical same-count historical drift')
-        print('PASS: owned PG17 source-only rewrite protocol; first-install legacy collision/late-DDL rollback; closed default; actual nested HMAC/current source/ranges/render/ACK;12writers1row/audit; ordinary-after-AI/immutable ACL;Unicode/CRLF/refusal/manual parity;atomic audit failure;observed revoked/config/expiry/revision waiters and independent owner;closed key-rotation/history/restore/reapply;selected20table populated native dump/restore/RLS/same-count corruption. Not CLI migration packaging/live Supabase/provider/model/semantic acceptance.')
+        print('PASS: owned PG17 CLI-packaged migration populated upgrade/current full-schema clean install; first-install legacy collision/late-DDL rollback; closed default; actual nested HMAC/current source/ranges/render/ACK;12writers1row/audit; ordinary-after-AI/immutable ACL;Unicode/CRLF/refusal/manual parity;atomic audit failure;observed revoked/config/expiry/revision waiters and independent owner;closed key-rotation/history/restore/reapply;selected20table populated native dump/restore/RLS/same-count corruption. Not live Supabase/provider backup/model/semantic acceptance.')
         return 0
     except Exception as error:
         print('FAIL: rewrite protocol stage='+stage+'; '+type(error).__name__+(' code='+error.code if isinstance(error,(NativeFailure,NativeCodecFailure)) else '')+'; no payloads/keys/raw diagnostics.',file=sys.stderr);return 1
