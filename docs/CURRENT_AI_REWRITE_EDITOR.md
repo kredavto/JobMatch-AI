@@ -1,6 +1,6 @@
 # Current AI rewrite review editor
 
-Status: experimental, feature gates default-off. PR #127 stacks on #126; accepted source `8a297b013bc73bbd3f0b57cb21029fbc4eb165a0`. This is a browser interface to the existing preview/review contracts, not immutable reviewed-version storage, a useful-model qualification or operational acceptance.
+Status: experimental, feature gates default-off. PR #127 introduced preview/review; #130–#132 add native immutable storage, authenticated historical reads and separate browser storage consent. PR #133 packages the actual CLI-created migration for isolated installation tests. These branches are unmerged; useful-model qualification, provider installation and operational acceptance remain open. Historical editor-only evidence is retained in VERIFICATION_AI_REWRITE_EDITOR_20261106.md; current storage evidence is in VERIFICATION_REWRITE_STORAGE_UI_20261106.md and VERIFICATION_OFFLINE_CLI_20261106.md.
 
 ## Scope and provenance
 
@@ -26,14 +26,16 @@ The complete preview deadline is inherited from the original signed preview and 
 
 These browser checks do not verify HMAC. The browser has no signing key. A structurally consistent forged MAC can pass a browser decoder and still fail the server's authenticated verifier; an explicit unit test preserves that distinction. The existing server review route verifies the current preview MAC and source/config/key/expiry, obtains a fresh owner read before and after work, and signs the review under a separate domain. Current-context verification is not a historical restore policy.
 
-A successful message says confirmation received and no version saved. The editor never calls ordinary version-save, profile/score mutation, HH writes or model-dependent export. Its chosen text is not silently placed in the ordinary literal-version form. No new schema, migration, stored metadata tag, API endpoint or production flag is introduced here.
+A successful review message says confirmation received; the separate storage card reports storage outcome. It never asserts that no write occurred after an unknown acknowledgement. A review receipt alone does not authorize storage. The editor never silently places chosen text in the ordinary version form or changes master profile/facts/goal. HH writes and model-dependent export remain outside this editor.
 
 ## Accessibility, localization and verification boundary
 
 RU/EN copy lives in `lib/i18n/ai-rewrite-editor.ts`. Native labels/fieldsets/legends, stable unique DOM IDs, escaped evidence and responsive minimum widths support keyboard and narrow-screen use. Automated English mobile axe reports zero violations and no horizontal overflow; a screenshot was inspected. This is not manual screen-reader, physical-device or full WCAG acceptance.
 
-The26 browser cases execute the actual current React root but use authored public synthetic data and stub Auth/API/model/DB replies. Fixture receipts use real signing helpers with public fixture-only keys. They test UI state, provenance display and request boundaries, not a real model, live Auth or native persistence. Server and owned native regression evidence is recorded separately in VERIFICATION_AI_REWRITE_EDITOR_20261106.md.
+The original26 and10 added storage browser cases execute the actual current React root but use authored public synthetic data and stub Auth/API/model/DB replies. Fixture receipts use real signing helpers with public fixture-only keys. They test UI state, provenance display and request boundaries, not a real model or live Auth. Separate owned PG17 and actual HTTP-to-SQL evidence appears in the native/HTTP/storage journals.
 
-## Next write block
+## Separate immutable storage
 
-Immutable reviewed-version storage must add a separate explicit storage consent and a normalized command with authenticated current receipt verification, deadline/source/config checks under the owner lock, caps/nonce idempotence and exact acknowledgement/manual reconciliation without automatic replay. Trusted metadata must be rejected by every legacy forgery route. Mixed old/new history, export, historical restore/key rotation/feature disable, concurrency, revoked waiters, fault rollback/reapply and populated native20table restore remain necessary before an editor Save action is connected. No such persistence is accepted by this PR.
+Storage requires explicit STORE_REVIEWED_AI_REWRITE consent after confirmed chosen text, plus the default-off storage flag and native current receipt/key/config/source/deadline checks under the owner lock. One write is sent; timeout/cancellation/invalid or lost acknowledgement remains outcome-unknown, without replay. A persistent owner-local attempt permits an explicit exact-nonce historical read across navigation/locales; it never silently adopts the master workspace. Logout discards local private state. Root adopts a valid exact acknowledgement by appending only the immutable version/revision and preserving master data/drafts.
+
+Reserved AI metadata is accepted only from a native protected read in the same SQL snapshot as its readiness check. Frozen historical decoding does not claim current HMAC verification or semantic truth. History/export/ID-only restore preserve original source, receipt, acceptance time and manual/model origins even after key rotation, feature disable or expiry. Rules scores describe saved facts, not generated-text quality. The CLI-packaged migration and closed rollback retain immutable history and refuse effective legacy write bypasses. No production migration, key/config activation or future merge/release permission is implied.
