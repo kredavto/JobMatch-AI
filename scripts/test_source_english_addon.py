@@ -3,12 +3,12 @@ from pathlib import Path
 import unittest
 from unittest.mock import patch
 from source_english_drill import allowed,BASE_SHA256
-from storage_fixture import source_english_schema_predecessor
+from storage_fixture import rewrite_schema_predecessor, source_english_schema_predecessor
 
 ROOT=Path(__file__).resolve().parent.parent
 class SourceEnglishGuards(unittest.TestCase):
     def test_exact_prior_schema_and_single_terminal_addon(self):
-        full=(ROOT/'supabase/schema.sql').read_bytes()
+        full=rewrite_schema_predecessor((ROOT/'supabase/schema.sql').read_bytes())
         prior=source_english_schema_predecessor(full)
         self.assertEqual(hashlib.sha256(prior).hexdigest(),BASE_SHA256)
         addon=(ROOT/'supabase/migrations/20261105130000_current_source_english.sql').read_bytes()

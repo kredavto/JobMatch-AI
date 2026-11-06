@@ -86,6 +86,14 @@ def ordinary_english_schema_predecessor(consolidated):
     return consolidated[:-len(addon)-1]
 
 
+def rewrite_schema_predecessor(consolidated):
+    """Exact CLI-created suffix; historical cutpoints remain pinned separately."""
+    addon = (ROOT / 'supabase/migrations/20261106143805_reviewed_rewrite_versions.sql').read_bytes()
+    if consolidated.count(addon) != 1 or not consolidated.endswith(b'\n' + addon):
+        raise ValueError('Unexpected reviewed rewrite migration suffix')
+    return consolidated[:-len(addon)-1]
+
+
 def source_english_schema_predecessor(consolidated):
     addon = (ROOT / 'supabase/migrations/20261105130000_current_source_english.sql').read_bytes()
     if consolidated.count(addon) != 1 or not consolidated.endswith(b'\n' + addon):

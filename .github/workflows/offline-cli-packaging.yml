@@ -1,0 +1,44 @@
+name: Offline CLI migration packaging (no provider access)
+on:
+  pull_request:
+    paths:
+      - 'scripts/offline_cli_package.py'
+      - 'scripts/test_offline_cli_package.py'
+      - 'tests/fixtures/offline-cli-package.mjs'
+      - 'supabase/protocols/rewrite_versions.sql'
+      - '.github/workflows/offline-cli-packaging.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  package:
+    if: github.repository == 'kredavto/JobMatch-AI' && github.event.repository.private == false && (github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      JOBMATCH_OFFLINE_CLI_PACKAGE: '1'
+      JOBMATCH_REPOSITORY_VISIBILITY: ${{ github.event.repository.visibility }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - run: python3 -m unittest discover -s scripts -p 'test_offline_cli_package.py'
+      - name: Network-none nonroot CLI, empty project, single migration shell
+        id: package
+        run: python3 scripts/offline_cli_package.py
+      - name: Preserve public source artifact only
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: offline-cli-migration-${{ github.run_id }}
+          path: |
+            ${{ steps.package.outputs.directory }}/manifest.json
+            ${{ steps.package.outputs.directory }}/project/supabase/migrations/*.sql
+          if-no-files-found: error
+          retention-days: 14
+      - name: Remove only this job-owned directory
+        if: always() && steps.package.outputs.directory != ''
+        env:
+          OWNED_CLI_DIRECTORY: ${{ steps.package.outputs.directory }}
+        run: python3 scripts/offline_cli_package.py --cleanup "$OWNED_CLI_DIRECTORY"
