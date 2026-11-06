@@ -34,15 +34,17 @@ async function main(){
  const startedAt=new Date().toISOString(),binarySha256=await digest(BINARY),controller=new AbortController(),stop=()=>controller.abort();
  const timer=setTimeout(stop,750000);process.once('SIGTERM',stop);process.once('SIGINT',stop);
  const args=['--model',MODEL,'--alias',ALIAS,'--host','127.0.0.1','--port','18765','--ctx-size',String(RUNTIME.context),'--parallel','1','--threads',String(RUNTIME.threads),'--threads-batch',String(RUNTIME.threads),'--n-gpu-layers','0','--load-mode','none','--no-warmup','--no-webui','--offline'];
- const child=spawn(BINARY,args,{env:{PATH:process.env.PATH,LLAMA_CACHE:'/tmp'},stdio:'ignore'});
+ const child=spawn(BINARY,args,{env:{PATH:process.env.PATH,LLAMA_CACHE:'/tmp'},stdio:['ignore','ignore','pipe']});
+ let startupStderr=Buffer.alloc(0),lastHealthStatus:number|null=null;
+ child.stderr.on('data',(part:Buffer)=>{startupStderr=Buffer.concat([startupStderr,part]).subarray(-16384);});
  child.on('error',stop);controller.signal.addEventListener('abort',()=>child.kill('SIGTERM'),{once:true});
  try{
   const deadline=Date.now()+120000;let ready=false;
   while(Date.now()<deadline&&!controller.signal.aborted&&child.exitCode===null){
-   try{const r=await fetch('http://127.0.0.1:18765/health',{redirect:'error',signal:AbortSignal.any([controller.signal,AbortSignal.timeout(1000)])});ready=r.ok;await r.body?.cancel();if(ready)break;}catch{}
+   try{const r=await fetch('http://127.0.0.1:18765/health',{redirect:'error',signal:AbortSignal.any([controller.signal,AbortSignal.timeout(1000)])});lastHealthStatus=r.status;ready=r.ok;await r.body?.cancel();if(ready)break;}catch{}
    await new Promise(r=>setTimeout(r,250));
   }
-  if(!ready)throw Error('STARTUP');
+  if(!ready){process.stdout.write('JOBMATCH_REWRITE_STARTUP_V1 '+JSON.stringify({exactHead,containerImageId:image,binarySha256,serverArgs:args,lastHealthStatus,exitCode:child.exitCode,signalCode:child.signalCode,stderrTail:startupStderr.toString('utf8'),acceptance:'not-accepted'})+'\n');throw Error('STARTUP');}
   const rows:Row[]=[];
   for(const test of corpus.cases){
    if(controller.signal.aborted)break;
