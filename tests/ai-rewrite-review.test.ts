@@ -37,6 +37,8 @@ it('manual edits remain manual and require separate source/proposal findings',as
  const d=[{fact_id:'sql',reviewed:true,action:'edit',text:'Wrote 8 SQL reports'},{fact_id:'negative',reviewed:true,action:'edit',text:'Use Python'}];
  const review=await confirmRewriteReview(preview,state.original,await confirmation(d));
  expect(review.rows.every(r=>r.origin==='manual')).toBe(true);
+ expect(review.rows[0].comparisons.map(c=>c.basis)).toEqual(['source','proposal']);
+ expect(review.rows[1].comparisons.map(c=>c.basis)).toEqual(['source']);
  expect(new Set(review.issues.map(i=>i.id)).size).toBe(review.issues.length);
  expect(review.issues.some(i=>i.basis==='source'&&i.issue.kind==='negation-removed')).toBe(true);
  expect(review.issues.some(i=>i.basis==='proposal'&&i.issue.kind==='number-removed')).toBe(true);

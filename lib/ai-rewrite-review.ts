@@ -20,7 +20,7 @@ export async function prepareRewriteReview(raw:RewritePreview,original:string,ra
  });
  const rows=decisions.map((decision,i)=>{
   const source=preview.source.facts[i].text,proposed=preview.claims[i].text??source,approved=claims[i].text;
-  const comparisons=decision.action==='keep-source'?[]:[{basis:'source' as const,lexical:reviewLetterEdit(source,approved)},...(decision.action==='edit'?[{basis:'proposal' as const,lexical:reviewLetterEdit(proposed,approved)}]:[])];
+  const comparisons=decision.action==='keep-source'?[]:[{basis:'source' as const,lexical:reviewLetterEdit(source,approved)},...(decision.action==='edit'&&preview.claims[i].status==='proposed'?[{basis:'proposal' as const,lexical:reviewLetterEdit(proposed,approved)}]:[])];
   if(comparisons.some(c=>c.lexical.coverage!=='bounded-lexical-only'))throw Error('REWRITE_REVIEW_INVALID');
   return{fact_id:decision.fact_id,origin:decision.action==='keep-source'?'source' as const:decision.action==='edit'?'manual' as const:'model-proposal' as const,comparisons};
  });
