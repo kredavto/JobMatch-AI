@@ -5,6 +5,12 @@ import {resolve} from 'node:path';
 import {rewriteState,rewriteFixture} from '../fixtures/rewrite-review';
 import {issueRewriteReviewReceipt} from '../../lib/ai-rewrite-review-signing';
 import type {Workspace} from '../../lib/db';
+import {decodeRewriteReviewReceipt} from '../../lib/ai-rewrite-review-receipt';
+import {rewriteArchiveReceiptSha256,REWRITE_ARCHIVE_FORMAT} from '../../lib/ai-rewrite-archive';
+import {prepareRewriteVersionScore,REWRITE_VERSION_ENGINE,REWRITE_VERSION_TEMPLATE,validateRewriteVersionSaveResult} from '../../lib/ai-rewrite-version';
+import {RewriteReceiptSchema} from '../../lib/ai-rewrite';
+import {readFile} from 'node:fs/promises';
+import {randomUUID} from 'node:crypto';
 let child:ChildProcess,origin:string;
 test.describe.configure({timeout:60000});
 test.beforeAll(async()=>{
@@ -15,13 +21,16 @@ test.beforeAll(async()=>{
 });
 test.afterAll(async()=>{if(!child||child.exitCode!==null)return;await new Promise<void>((done,fail)=>{const timer=setTimeout(()=>{child.kill();fail(Error('Fixture cleanup timeout'));},10000);child.once('exit',()=>{clearTimeout(timer);done();});child.send('close');});});
 type Hook=(route:Route,body:Record<string,unknown>,state:Workspace)=>Promise<void>;
-async function setup(page:Page,options:{preview?:Hook;review?:Hook;refused?:boolean;locale?:'ru'|'en'}={}){
- let state=rewriteState();const requests:{kind:string;body:Record<string,unknown>}[]=[],actions:Record<string,unknown>[]=[];
+type SaveResult=Awaited<ReturnType<typeof validateRewriteVersionSaveResult>>;
+type StorageHook=(route:Route,body:Record<string,unknown>,state:Workspace,commit:()=>Promise<SaveResult>)=>Promise<void>;
+async function setup(page:Page,options:{preview?:Hook;review?:Hook;store?:StorageHook;history?:(route:Route)=>Promise<void>;refused?:boolean;locale?:'ru'|'en'}={}){
+ let state=rewriteState(),loads=0;const requests:{kind:string;body:Record<string,unknown>}[]=[],actions:Record<string,unknown>[]=[],stores:Record<string,unknown>[]=[],reads:string[]=[];
  await page.route('**/*',route=>new URL(route.request().url()).origin===origin?route.continue():route.abort());
  await page.route('**/api/service',async route=>{
-  if(route.request().method()==='GET')return route.fulfill({json:state});
+  if(route.request().method()==='GET'){loads++;return route.fulfill({json:state});}
   const b=route.request().postDataJSON();actions.push(b);if(b.action==='logout')return route.fulfill({json:{ok:true}});
   if(b.action==='goal')state={...state,goal:b.text,revision:state.revision+1};
+  if(b.action==='restore'){const saved=state.versions.find(v=>v.id===b.id)!;state={...state,revision:state.revision+1,versions:[...state.versions,{...structuredClone(saved),id:randomUUID(),created:new Date().toISOString(),restored_from:saved.id}]};}
   return route.fulfill({json:state});
  });
  await page.route('**/api/ai-rewrites',async route=>{
@@ -37,11 +46,34 @@ async function setup(page:Page,options:{preview?:Hook;review?:Hook;refused?:bool
   const receipt=await issueRewriteReviewReceipt(owner as string,state,previewReceipt,confirmation,f.config);
   await route.fulfill({json:{ownerId:state.ownerId,revision:state.revision,receipt}});
  });
+ // Auth/model/database responses below are authored UI fixtures. The native
+ // protocol is proved separately; this handler only exercises actual Root UI.
+ await page.route('**/api/rewrite-versions**',async route=>{
+  if(route.request().method()==='GET'){
+   reads.push(route.request().url());if(options.history)return options.history(route);
+   const id=new URL(route.request().url()).searchParams.get('id'),versions=state.versions.filter(v=>v.id===id);
+   return route.fulfill({status:versions.length?200:404,json:versions.length?{format:'jobmatch-ai-rewrite-history-v1',ownerId:state.ownerId,workspaceRevision:state.revision,versions}:{code:'AI_REWRITE_VERSION_NOT_FOUND',error:'PRIVATE_UNTRUSTED'}});
+  }
+  const body=route.request().postDataJSON() as Record<string,unknown>;stores.push(body);
+  const commit=async()=>{
+   const receipt=RewriteReceiptSchema.parse(body.receipt),checked=await decodeRewriteReviewReceipt(receipt,state.original),source=checked.previewPayload.preview.source,created=new Date().toISOString();
+   const archive={format:REWRITE_ARCHIVE_FORMAT,ownerId:state.ownerId!,acceptedAt:created,sourceOriginal:state.original,receipt,receiptSha256:await rewriteArchiveReceiptSha256(receipt),sourceVerification:'current-at-storage-acceptance',receiptSignature:'verified-at-storage-acceptance',storageConsent:'STORE_REVIEWED_AI_REWRITE',contentReview:'user-declared-only',semanticAssessment:'not-performed',modelAcceptance:'not-accepted'};
+   const version={id:checked.payload.id,created,text:checked.payload.review.text,vacancy:state.vacancy,evidence_ids:source.facts.map(f=>f.id),evidence_snapshot:state.facts.filter(f=>source.facts.some(x=>x.id===f.id)),profile_revision:state.revision,engine_version:REWRITE_VERSION_ENGINE,template_version:REWRITE_VERSION_TEMPLATE,...prepareRewriteVersionScore(state),ai_rewrite:archive};
+   const result=await validateRewriteVersionSaveResult({format:'jobmatch-ai-rewrite-save-result-v1',ownerId:state.ownerId,workspaceRevision:state.revision+1,version},state,receipt,state.ownerId!);state={...state,revision:result.workspaceRevision,versions:[...state.versions,result.version]};return result;
+  };
+  if(options.store)return options.store(route,body,structuredClone(state),commit);
+  await route.fulfill({json:await commit()});
+ });
  await page.goto(origin+'/tests/fixtures/workspace-locale.html'+(options.locale==='en'?'?locale=en':''));
  await page.getByRole('navigation').getByRole('button',{name:options.locale==='en'?'Resume editor':'Редактор резюме',exact:true}).click();
- await expect(page.locator('#ai-rewrite-editor')).toBeVisible();return{requests,actions,getState:()=>state};
+ await expect(page.locator('#ai-rewrite-editor')).toBeVisible();return{requests,actions,stores,reads,loads:()=>loads,getState:()=>state};
 }
 const panel=(page:Page)=>page.locator('#ai-rewrite-editor');
+const storage=(page:Page)=>page.locator('#rewrite-version-storage');
+async function reviewed(page:Page,manual='Manually built 8 SQL reports'){
+ await preview(page);await choose(page,manual);await acknowledge(page);const p=panel(page);await p.getByRole('checkbox',{name:'Подтверждаю проверку выбранного текста',exact:false}).check();await p.getByRole('button',{name:'Подтвердить проверку',exact:true}).click();await expect(p).toContainText('Подтверждение получено');
+}
+async function store(page:Page){const p=storage(page);await p.getByRole('checkbox',{name:'Разрешаю сохранить выбранный текст',exact:false}).check();await p.getByRole('button',{name:'Сохранить отдельную AI-версию',exact:true}).click();}
 async function preview(page:Page,both=false){const p=panel(page);await p.getByRole('checkbox',{name:'Built 5 SQL reports',exact:true}).check();if(both)await p.getByRole('checkbox',{name:'No Python',exact:true}).check();await p.getByRole('checkbox',{name:'Разрешаю отправить',exact:false}).check();await p.getByRole('button',{name:'Получить предложения',exact:true}).click();await expect(p.getByTestId('rewrite-fact-0')).toBeVisible();}
 async function choose(page:Page,manual?:string,both=false){const p=panel(page),first=p.getByTestId('rewrite-fact-0');await first.getByLabel('Ваше решение',{exact:true}).selectOption(manual===undefined?'accept-proposal':'edit');if(manual!==undefined)await first.getByLabel('Ручной текст',{exact:true}).fill(manual);await first.getByRole('checkbox',{name:'Я проверил решение по этому факту',exact:true}).check();if(both){const second=p.getByTestId('rewrite-fact-1');await second.getByLabel('Ваше решение',{exact:true}).selectOption('keep-source');await second.getByRole('checkbox',{name:'Я проверил решение по этому факту',exact:true}).check();}await expect(p.getByRole('textbox',{name:'Выбранный текст',exact:true})).toBeVisible();}
 async function acknowledge(page:Page){for(const c of await panel(page).getByRole('checkbox',{name:'Я проверил это изменение',exact:true}).all())await c.check();}
@@ -53,9 +85,44 @@ test('explicit selection/consents bind preview and server review; no saved versi
  expect(JSON.stringify(s.requests[0].body)).not.toContain('PRIVATE');await choose(page,undefined,true);
  const p=panel(page);await expect(p.getByRole('button',{name:'Подтвердить проверку',exact:true})).toBeDisabled();await acknowledge(page);
  await p.getByRole('checkbox',{name:'Подтверждаю проверку выбранного текста',exact:false}).check();await p.getByRole('button',{name:'Подтвердить проверку',exact:true}).click();
- await expect(p.getByRole('status')).toContainText('Подтверждение получено');await expect(p).toContainText('Версия не сохранена');
+ await expect(p.getByRole('status')).toContainText('Подтверждение получено');await expect(p).toContainText('Подтверждение проверки не создаёт версию');expect(s.stores).toEqual([]);
  expect(s.requests.map(r=>r.kind)).toEqual(['preview','review']);expect(s.actions).toEqual([]);
  expect(s.requests[1].body).not.toHaveProperty('original');expect(s.getState().versions).toEqual([]);
+});
+test('separate storage consent saves one immutable reviewed row and retains original master/facts/goal',async({page})=>{
+ const s=await setup(page),before=structuredClone(s.getState());await reviewed(page);expect(s.stores).toEqual([]);await expect(storage(page).getByRole('button',{name:'Сохранить отдельную AI-версию',exact:true})).toBeDisabled();await store(page);await expect(storage(page)).toContainText('Отдельная AI-версия сохранена');
+ expect(s.stores).toHaveLength(1);expect(Object.keys(s.stores[0]).sort()).toEqual(['accept','action','consentToStore','expectedOwnerId','receipt','revision']);expect(s.stores[0]).toMatchObject({action:'accept',revision:7,expectedOwnerId:before.ownerId,consentToStore:true,accept:'STORE_REVIEWED_AI_REWRITE'});
+ const after=s.getState();expect(after).toEqual({...before,revision:8,versions:after.versions});expect(after.versions).toHaveLength(1);expect(after.versions[0].text).toBe(before.original.replace('Built 5 SQL reports','Manually built 8 SQL reports'));expect(s.actions).toEqual([]);
+ await page.getByRole('navigation').getByRole('button',{name:'Мои версии',exact:true}).click();const history=page.locator('#version-history');await expect(history).toContainText('AI-правки с пользовательской проверкой');await expect(history.locator('[data-rewrite-provenance]')).toContainText('Ручная правка');await expect(history).toContainText('Оценка рассчитана правилами');
+ const txtWait=page.waitForEvent('download');await history.getByRole('button',{name:'Скачать TXT',exact:true}).click();const txt=await txtWait;expect(await readFile((await txt.path())!,'utf8')).toBe(after.versions[0].text);
+ const jsonWait=page.waitForEvent('download');await history.getByRole('button',{name:'Скачать JSON + evidence',exact:true}).click();const json=await jsonWait;expect(JSON.parse(await readFile((await json.path())!,'utf8'))).toEqual(after.versions[0]);
+ await history.getByRole('button',{name:'Восстановить как новую версию',exact:true}).click();await expect.poll(()=>s.getState().versions.length).toBe(2);await expect(history.locator(':scope > details')).toHaveCount(2);expect(s.getState().original).toBe(before.original);expect(s.getState().versions[1].text).toBe(after.versions[0].text);expect((s.getState().versions[1] as unknown as Record<string,unknown>).ai_rewrite).toEqual((after.versions[0] as unknown as Record<string,unknown>).ai_rewrite);expect(s.stores).toHaveLength(1);
+});
+test('storage consent is revoked by decision edit and exact undo, navigation and a new confirmation',async({page})=>{
+ const s=await setup(page);await reviewed(page);await storage(page).getByRole('checkbox').check();await page.getByRole('navigation').getByRole('button',{name:'Аналитика',exact:true}).click();await page.getByRole('navigation').getByRole('button',{name:'Редактор резюме',exact:true}).click();await expect(storage(page).getByRole('checkbox')).not.toBeChecked();
+ await panel(page).getByLabel('Ручной текст',{exact:true}).fill('Manually built 9 SQL reports');await expect(storage(page).getByRole('checkbox')).toHaveCount(0);await panel(page).getByLabel('Ручной текст',{exact:true}).fill('Manually built 8 SQL reports');expect(s.stores).toHaveLength(0);
+});
+for(const fault of ['lost','invalid','foreign'] as const)test('committed '+fault+' ACK pauses without replay and explicit nonce read finds exact version across navigation',async({page})=>{
+ const s=await setup(page,{store:async(route,_body,_state,commit)=>{const result=await commit();if(fault==='lost')await route.abort('failed');else await route.fulfill({json:fault==='invalid'?{...result,version:{...result.version,text:'PRIVATE_WRONG_ACK'}}:{...result,ownerId:'22222222-2222-4222-8222-222222222222'}});}});
+ await reviewed(page);await store(page);await expect(storage(page).getByRole('alert')).toContainText('Сохранение не подтверждено');await expect(storage(page)).not.toContainText('PRIVATE_WRONG_ACK');await expect(panel(page)).not.toContainText('Версия не сохранена');expect(s.stores).toHaveLength(1);expect(s.getState().versions).toHaveLength(1);
+ await page.getByRole('navigation').getByRole('button',{name:'Аналитика',exact:true}).click();await page.getByLabel('Fixture language',{exact:true}).selectOption('en');await page.getByRole('navigation').getByRole('button',{name:'Resume editor',exact:true}).click();await expect(storage(page).getByRole('alert')).toContainText('Saving is not confirmed');await expect(panel(page)).not.toContainText('No version was saved');await storage(page).getByRole('button',{name:'Check the saved version manually',exact:true}).click();await expect(storage(page)).toContainText('The exact version was found');expect(s.stores).toHaveLength(1);expect(s.reads).toHaveLength(1);expect(new URL(s.reads[0]).searchParams.get('id')).toBe(s.getState().versions[0].id);
+ expect(s.loads()).toBe(1); // no automatic workspace reload/adoption
+ expect(s.actions).toEqual([]);
+});
+test('absent manual history response remains unconfirmed and never enables write replay',async({page})=>{
+ const s=await setup(page,{store:async route=>route.abort('failed'),history:async route=>route.fulfill({status:404,json:{error:'PRIVATE_HISTORY_ERROR'}})});await reviewed(page);await store(page);await expect(storage(page).getByRole('alert')).toBeVisible();await storage(page).getByRole('button',{name:'Проверить сохранённую версию вручную',exact:true}).click();await expect(storage(page).getByRole('alert')).toContainText('Это не доказывает откат');await expect(storage(page)).not.toContainText('PRIVATE_HISTORY_ERROR');expect(s.stores).toHaveLength(1);expect(s.getState().versions).toEqual([]);
+});
+test('pending storage is single-flight; cancellation preserves unknown attempt and master draft',async({page})=>{
+ let release!:()=>void;const hold=new Promise<void>(resolve=>{release=resolve;});const s=await setup(page,{store:async(route,_body,_state,commit)=>{await hold;await route.fulfill({json:await commit()}).catch(()=>{});}});await reviewed(page);await store(page);await expect(storage(page).getByRole('status')).toContainText('Сохранение');expect(s.stores).toHaveLength(1);await storage(page).getByRole('button',{name:'Прервать ожидание ответа',exact:true}).click();await expect(storage(page).getByRole('alert')).toContainText('Сохранение не подтверждено');release();await expect.poll(()=>s.getState().versions.length).toBe(1);await storage(page).getByRole('button',{name:'Проверить сохранённую версию вручную',exact:true}).click();await expect(storage(page)).toContainText('Точная версия найдена');expect(s.stores).toHaveLength(1);
+});
+test('English storage consent and accepted provenance have no mobile axe violations or overflow',async({page},testInfo)=>{
+ await page.setViewportSize({width:390,height:844});const s=await setup(page);await reviewed(page);await language(page,'en');await expect(storage(page)).toHaveAttribute('lang','en');await page.screenshot({path:testInfo.outputPath('rewrite-consent-mobile.png'),fullPage:true});expect((await new AxeBuilder({page}).include('#rewrite-version-storage').analyze()).violations).toEqual([]);await storage(page).getByRole('checkbox',{name:'I allow the chosen text',exact:false}).check();await storage(page).getByRole('button',{name:'Save a separate AI version',exact:true}).click();await expect(storage(page)).toContainText('A separate AI version was saved');await page.getByRole('navigation').getByRole('button',{name:'My versions',exact:true}).click();await expect(page.locator('[data-rewrite-provenance]')).toContainText('Manual edit');expect((await new AxeBuilder({page}).include('#version-history').analyze()).violations).toEqual([]);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(s.stores).toHaveLength(1);await page.screenshot({path:testInfo.outputPath('rewrite-history-mobile.png'),fullPage:true});
+});
+test('receipt expiry removes storage consent but retains the chosen manual text without a write',async({page})=>{
+ const s=await setup(page);await reviewed(page);await storage(page).getByRole('checkbox').check();await page.clock.install();await page.clock.fastForward(601000);await expect(panel(page)).toContainText('Срок предпросмотра истёк');await expect(storage(page).getByRole('checkbox')).toHaveCount(0);await expect(panel(page).getByLabel('Ручной текст',{exact:true})).toHaveValue('Manually built 8 SQL reports');expect(s.stores).toHaveLength(0);
+});
+test('cancel then logout never adopts a late committed response and removes reconciliation from browser memory',async({page})=>{
+ let release!:()=>void;const hold=new Promise<void>(resolve=>{release=resolve;});const s=await setup(page,{store:async(route,_body,_state,commit)=>{await hold;await route.fulfill({json:await commit()}).catch(()=>{});}});await reviewed(page);await store(page);await storage(page).getByRole('button',{name:'Прервать ожидание ответа',exact:true}).click();await expect(storage(page).getByRole('alert')).toBeVisible();await page.getByRole('button',{name:'Выйти',exact:true}).click();await expect(storage(page)).toHaveCount(0);release();await expect.poll(()=>s.getState().versions.length).toBe(1);await expect(storage(page)).toHaveCount(0);await expect(panel(page)).toHaveCount(0);expect(s.stores).toHaveLength(1);expect(await page.evaluate(()=>Object.keys(localStorage).filter(k=>!k.includes('locale')))).toEqual([]);expect(await page.evaluate(()=>Object.keys(sessionStorage))).toEqual([]);
 });
 test('refusal never offers acceptance; manual text stays manual and outside text remains literal',async({page})=>{
  await setup(page,{refused:true});await preview(page);const p=panel(page),fact=p.getByTestId('rewrite-fact-0');

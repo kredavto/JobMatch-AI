@@ -1,4 +1,6 @@
 'use client';
+import RewriteVersionStorage,{type StorageCandidate} from './rewrite-version-storage';
+import type {RewriteSaveResult} from '../lib/ai-rewrite-storage-ui';
 import {useEffect,useId,useMemo,useRef,useState} from 'react';
 import type {UiLocale} from '../lib/i18n/locale';
 import {normalizeLocale} from '../lib/i18n/locale';
@@ -14,7 +16,7 @@ type Draft={localId:number;context:string;source:RewriteUiSource;preview:Preview
 type Local={draft:Draft|null;backup:Draft|null;nextId:number;acks:{key:string;ids:string[]};confirmed:{key:string;value:Confirmation}|null};
 type ErrorKind='error'|'unavailable'|'rate'|'timeout'|'limit';
 type Gate={current:AbortController|null};
-type Props={source:RewriteUiSource;active:boolean;disabled:boolean;locale?:UiLocale;onBoundaryError?:(status:number)=>void};
+type Props={onSave?:(candidate:StorageCandidate,signal:AbortSignal)=>Promise<RewriteSaveResult>;storageBusy?:boolean;source:RewriteUiSource;active:boolean;disabled:boolean;locale?:UiLocale;onBoundaryError?:(status:number)=>void};
 class UiFailure extends Error{constructor(readonly status:number){super('REWRITE_REQUEST_FAILED');}}
 async function post(path:string,body:unknown,signal:AbortSignal){
  const response=await fetch(path,{method:'POST',cache:'no-store',signal,headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
@@ -37,7 +39,7 @@ function RequestAction<T>({locale,gateRef,pending,onPending,consentLabel,label,o
  return <div><label><input type="checkbox" checked={consent} disabled={disabled||pending&&!busy} onChange={e=>{if(disabled||pending&&!busy)return;if(!e.target.checked)cancel();setConsent(e.target.checked);}}/>{consentLabel}</label><div className="actions"><button type="button" disabled={disabled||pending||!consent} onClick={()=>void run()}>{busy?t.busy:label}</button>{busy&&<button type="button" onClick={cancel}>{t.cancel}</button>}</div></div>;
 }
 /** Owner-keyed in Root. Local drafts survive navigation/pauses, never a reload or account change. */
-export default function AiRewriteEditor({source,active,disabled,locale:requested='ru',onBoundaryError}:Props){
+export default function AiRewriteEditor({source,active,disabled,locale:requested='ru',onBoundaryError,onSave,storageBusy=false}:Props){
  const locale=normalizeLocale(requested),t=rewriteEditorCopy[locale],baseId=useId();
  const context=useMemo(()=>JSON.stringify([source.ownerId,source.revision,source.original,source.vacancy,source.facts]),[source.ownerId,source.revision,source.original,source.vacancy,source.facts]);
  const eligible=useMemo(()=>eligibleRewriteFacts(source),[source]);
@@ -70,10 +72,10 @@ export default function AiRewriteEditor({source,active,disabled,locale:requested
   if(!proposal||patch.action==='accept-proposal'&&proposal.status!=='proposed'||patch.text!==undefined&&patch.text.length>2000)return;
   setLocal(old=>{if(!old.draft||old.draft.localId!==draft.localId)return old;const choices={...old.draft.choices,[id]:{...old.draft.choices[id],...patch,...(patch.action!==undefined||patch.text!==undefined?{reviewed:false}:{})}};return{...old,draft:{...old.draft,choices,epoch:old.draft.epoch+1},acks:{key:'',ids:[]},confirmed:null};});setError(null);
  }
- if(!active)return null;
  const locked=disabled||pending||!current||expired;
  const issueName=(kind:string)=>kind==='number-added'?t.numberAdded:kind==='number-removed'?t.numberRemoved:kind==='negation-added'?t.negationAdded:kind==='negation-removed'?t.negationRemoved:t.manualIssue;
- return <section className="card localized-panel" lang={locale} id="ai-rewrite-editor" aria-labelledby={baseId+'title'}><h2 id={baseId+'title'}>{t.title}</h2><p>{t.help}</p><p>{t.notSaved}</p><p className="muted">{t.lifetime}</p>
+ const storageCandidate:StorageCandidate|null=confirmed&&local.confirmed&&draft?{ownerId:draft.source.ownerId!,revision:draft.source.revision,receipt:local.confirmed.value.receipt,nonce:local.confirmed.value.payload.id,expiresAt:local.confirmed.value.payload.expiresAt}:null;
+ return <>{active&&<section className="card localized-panel" lang={locale} id="ai-rewrite-editor" aria-labelledby={baseId+'title'}><h2 id={baseId+'title'}>{t.title}</h2><p>{t.help}</p><p>{t.notSaved}</p><p className="muted">{t.lifetime}</p>
  {disabled&&<p role="status">{t.paused}</p>}
  <fieldset style={{minWidth:0}} disabled={disabled||pending||!source.ownerId}><legend>{t.choose}</legend>{eligible.map(f=><label className="fact" key={f.id}><input type="checkbox" checked={selected.includes(f.id)} disabled={disabled||pending||selected.length>=12&&!selected.includes(f.id)} onChange={e=>{if(disabled||gateRef.current||!source.ownerId)return;const next=e.target.checked?[...selected,f.id]:selected.filter(id=>id!==f.id);if(next.length<=12)setSelection({context,ids:next});}}/><span lang="">{f.text}</span></label>)}{!eligible.length&&<p>{t.empty}</p>}<label htmlFor={baseId+'language'}>{t.language}</label><select id={baseId+'language'} value={language} onChange={e=>{if(disabled||gateRef.current)return;if(e.target.value==='ru'||e.target.value==='en')setLanguage(e.target.value);}}><option value="ru">{t.russian}</option><option value="en">{t.english}</option></select><p>{t.languageHelp}</p></fieldset>
  {active&&!disabled&&source.ownerId&&source.vacancy.trim()&&selected.length>0&&<RequestAction key={context+JSON.stringify([selected,language,generation])} locale={locale} gateRef={gateRef} pending={pending} onPending={setPending} consentLabel={t.previewConsent} label={t.run} onError={fail} operation={async signal=>{setLanguage(language);const captured={ownerId:source.ownerId,revision:source.revision,original:source.original,vacancy:source.vacancy,facts:source.facts.map(f=>({...f}))};const data=await post('/api/ai-rewrites',{consent:true,expectedOwnerId:captured.ownerId,revision:captured.revision,factIds:selected,requestedLanguage:language},signal);const value=await validateRewriteUiPreview(data,captured,selected,language);if(Date.now()>=value.payload.expiresAt*1000)throw new UiFailure(408);return{value,source:captured};}} onAccepted={({value,source:captured})=>{setLocal(old=>({draft:{localId:old.nextId,context,source:captured,preview:value,choices:Object.fromEntries(value.payload.preview.source.facts.map(f=>[f.id,{action:'',text:'',reviewed:false}])),epoch:0},backup:old.draft&&Object.values(old.draft.choices).some(c=>c.text.trim())?old.draft:old.backup,nextId:old.nextId+1,acks:{key:'',ids:[]},confirmed:null}));setError(null);}}/>}
@@ -85,5 +87,5 @@ export default function AiRewriteEditor({source,active,disabled,locale:requested
  </>}
  {local.backup&&<details><summary>{t.previous}</summary>{Object.entries(local.backup.choices).filter(([,c])=>c.text.trim()).map(([id,c],i)=><label key={id}>{t.manual} {i+1}<textarea readOnly value={c.text} lang=""/></label>)}</details>}
  {error&&<p role="alert">{t[error]}</p>}{(draft||local.backup)&&<button type="button" onClick={()=>{setGeneration(v=>v+1);setLocal(old=>({draft:null,backup:null,nextId:old.nextId+1,acks:{key:'',ids:[]},confirmed:null}));setSelection({context,ids:[]});setError(null);}}>{t.clear}</button>}
- </section>;
+ </section>}{onSave&&<RewriteVersionStorage key={generation} active={active} busy={storageBusy} disabled={disabled||!current||expired} locale={locale} candidate={storageCandidate} onSave={onSave} onBoundaryError={onBoundaryError}/>}</>;
 }
