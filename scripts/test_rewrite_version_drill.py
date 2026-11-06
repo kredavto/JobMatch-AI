@@ -1,11 +1,22 @@
 import hashlib
 import re
 import unittest
+from unittest.mock import patch,MagicMock
 from pathlib import Path
-from rewrite_version_drill import allowed,database_allowed
+from rewrite_version_drill import allowed,database_allowed,observed_waiter,NativeFailure
 
 
 class RewriteProtocolGuard(unittest.TestCase):
+    def test_probe_setup_failure_closes_owned_children_and_keeps_original_error(self):
+        for cleanup_fails in (False,True):
+            with self.subTest(cleanup_fails=cleanup_fails):
+                fake=MagicMock();fake.a='11111111-1111-4111-8111-111111111111';fake.b='22222222-2222-4222-8222-222222222222';fake.sa='44444444-4444-4444-8444-444444444444';fake.sb='55555555-5555-4555-8555-555555555555'
+                if cleanup_fails:fake.cleanup.side_effect=RuntimeError('fixture cleanup')
+                expected=NativeFailure('EXPECTED_SETUP_REFUSAL')
+                with patch('rewrite_version_drill.Probe',return_value=fake),patch('rewrite_version_drill.sql',side_effect=expected),patch('rewrite_version_drill.sys.stderr'):
+                    with self.assertRaises(NativeFailure) as caught:observed_waiter({},Path('.'),'session')
+                self.assertIs(caught.exception,expected);fake.cleanup.assert_called_once_with()
+
     def test_requires_both_explicit_optins_loopback_and_generated_database(self):
         env=dict(JOBMATCH_LOCAL_REWRITE_VERSIONS='1',JOBMATCH_LOCAL_SOURCE_VERSIONS='1',PGHOST='127.0.0.1',PGDATABASE='jobmatch_source_versions_'+'a'*32)
         self.assertTrue(allowed(env));self.assertTrue(database_allowed(env))

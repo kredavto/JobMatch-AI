@@ -105,7 +105,7 @@ def checked_accept(target,folder,issued,state=None,user=OWNER,session=SESSION):
 
 
 def observed_waiter(target,folder,kind):
-    probe=Probe(target)
+    probe=Probe(target);failed=False
     try:
         sql(target,'insert into auth.users values('+literal(probe.a)+'),('+literal(probe.b)+');insert into auth.sessions values('+literal(probe.sa)+','+literal(probe.a)+'),('+literal(probe.sb)+','+literal(probe.b)+');')
         states={}
@@ -140,7 +140,14 @@ def observed_waiter(target,folder,kind):
         bridge(target,folder,dict(op='ack',result=other_result,previous=states[probe.b],receipt=other['receipt'],ownerId=probe.b))
         if sql(target,'select count(*) from public.resume_versions where user_id='+literal(probe.a)+';')!=0:raise ValueError('Late refusal left version')
         if kind=='config':sql(target,ENABLE)
-    finally:probe.close()
+    except BaseException:
+        failed=True
+        raise
+    finally:
+        try:probe.cleanup()
+        except Exception:
+            if not failed:raise
+            print('FAIL: owned waiter cleanup refused; original failure retained.',file=sys.stderr)
 
 
 def main():
@@ -279,7 +286,7 @@ def main():
     finally:
         cleanup_failed=False
         for name in reversed(created):
-            try:run(['dropdb','--if-exists','--',name],environment)
+            try:run(['dropdb','--force','--if-exists','--',name],environment)
             except Exception:cleanup_failed=True;print('FAIL: owned rewrite cleanup incomplete.',file=sys.stderr)
         if cleanup_failed:return 1
 
