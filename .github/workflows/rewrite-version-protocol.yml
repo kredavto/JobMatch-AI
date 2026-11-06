@@ -12,6 +12,7 @@ on:
       - 'tests/fixtures/source-version-native.cjs'
       - 'tests/fixtures/rewrite-version.ts'
       - 'tests/fixtures/rewrite-version-native.cjs'
+      - 'tests/fixtures/rewrite-version-http-native.cjs'
       - '.github/workflows/rewrite-version-protocol.yml'
   workflow_dispatch:
 permissions:

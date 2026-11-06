@@ -157,6 +157,34 @@ def observed_waiter(target,folder,kind):
             print('FAIL: owned waiter cleanup refused; original failure retained.',file=sys.stderr)
 
 
+def http_acceptance(target,folder):
+    """Production handler/transport/codecs to owned PG; authored Auth only."""
+    if not database_allowed(target):raise ValueError('Owned HTTP SQL target required')
+    probe=Probe(target);failed=False
+    try:
+        sql(target,'insert into auth.users values('+literal(probe.a)+'),('+literal(probe.b)+');insert into auth.sessions values('+literal(probe.sa)+','+literal(probe.a)+'),('+literal(probe.sb)+','+literal(probe.b)+');')
+        sql(target,"select public.apply_workspace_command(0,'{\"action\":\"import\",\"text\":\"SQL\\nOwned HTTP source\"}');",probe.a,probe.sa)
+        state=workspace(target,probe.a,probe.sa)
+        sql(target,'select public.apply_workspace_command(1,'+literal(json.dumps(dict(action='verify',ids=[f['id'] for f in state['facts']],verified=True)))+'::jsonb);',probe.a,probe.sa)
+        sql(target,"select public.apply_workspace_command(2,'{\"action\":\"vacancy\",\"text\":\"SQL role\"}');",probe.a,probe.sa)
+        a=folder/'http-input.json';b=folder/'http-output.json';a.write_text(json.dumps(dict(owner=probe.a,session=probe.sa)))
+        result=subprocess.run(['node',str(ROOT/'tests/fixtures/rewrite-version-http-native.cjs'),str(a),str(b)],env=target,capture_output=True,timeout=180)
+        if result.returncode or result.stdout or not b.is_file():
+            safe=re.search(rb'FAIL: owned rewrite HTTP stage=([a-zA-Z0-9-]+)',result.stderr)
+            raise NativeCodecFailure('HTTP_'+(safe.group(1).decode().upper().replace('-','_') if safe else 'REFUSED'))
+        report=json.loads(b.read_text())
+        if report.get('format')!='jobmatch-owned-rewrite-http-v1' or report.get('nativeWrites')!=3 or report.get('modelRequests')!=0 or len(report.get('checks',[]))!=10:raise ValueError('Owned HTTP evidence incomplete')
+        print('PASS: production reviewed rewrite HTTP + bounded real loopback RPC + owned native PG;10 checks/3 writes;lost and malformed committed ACK manual reads without replay;no model request;Auth envelope authored.')
+    except BaseException:
+        failed=True
+        raise
+    finally:
+        try:probe.cleanup()
+        except Exception:
+            if not failed:raise
+            print('FAIL: owned HTTP cleanup refused; original failure retained.',file=sys.stderr)
+
+
 def main():
     if not allowed(os.environ):
         print('FAIL: explicit owned loopback rewrite opt-ins required.',file=sys.stderr);return 2
@@ -274,6 +302,8 @@ def main():
                 sql(target,"update private.letter_signing_config set signing_key=decode('"+KEY.hex()+"','hex');");sql(target,ENABLE)
             stage='observed-session-config-expiry-revision-waiters-and-independent-owner-progress'
             for kind in ('session','config','expiry','revision'):observed_waiter(upgrade,folder,kind)
+            stage='production-HTTP-native-acceptance-and-lost-ACK'
+            http_acceptance(clean,folder)
             stage='populated-selected20table-native-dump-restore'
             sql(upgrade,(ROOT/DISABLE).read_text());reference=manifest(upgrade,folder/'source.json');dump=folder/'owned.dump'
             if len(reference['tables'])!=20 or any(v['rows']==0 for v in reference['tables'].values()):raise ValueError('Expected selected20table populated scope')
