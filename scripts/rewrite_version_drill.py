@@ -238,7 +238,7 @@ def main():
                 call=accept_statement(w['revision'],issued).replace('select public.','perform public.',1)
                 attempt="create function pg_temp.cap_attempt() returns boolean language plpgsql as $$begin "+call+"raise exception 'CAP_NOT_REFUSED';exception when raise_exception then if sqlerrm='INVALID_WRITE' then return true;end if;raise;end$$;"
                 claims=literal(json.dumps(dict(sub=OWNER,session_id=SESSION)))
-                if sql(target,'begin;'+fill+attempt+'set local request.jwt.claims='+claims+';set local role authenticated;select pg_temp.cap_attempt();rollback;') is not True or compare(cap_before,manifest(target,folder/(target['PGDATABASE']+'-cap-after.json'))):raise ValueError('Shared cap failed or left rows')
+                if sql(target,'begin;'+fill+attempt+'set local request.jwt.claims='+claims+';set local role authenticated;select to_jsonb(pg_temp.cap_attempt());rollback;') is not True or compare(cap_before,manifest(target,folder/(target['PGDATABASE']+'-cap-after.json'))):raise ValueError('Shared cap failed or left rows')
                 stage='audit-fault-atomic-save-and-closed-rollback-history'
                 sql(target,"create function public.rewrite_audit_fault() returns trigger language plpgsql as $$begin if new.action='ai-rewrite-version-accept' then raise exception 'REWRITE_AUDIT_TEST';end if;return new;end$$;create trigger rewrite_audit_fault before insert on public.audit_log for each row execute function public.rewrite_audit_fault();")
                 before_fault=manifest(target,folder/(target['PGDATABASE']+'-fault-before.json'));sql(target,accept_statement(w['revision'],issued),OWNER,failure='REWRITE_AUDIT_TEST')
