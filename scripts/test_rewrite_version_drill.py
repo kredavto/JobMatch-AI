@@ -1,12 +1,24 @@
 import hashlib
 import re
 import unittest
+import copy
 from unittest.mock import patch,MagicMock
 from pathlib import Path
-from rewrite_version_drill import allowed,database_allowed,observed_waiter,NativeFailure
+from rewrite_version_drill import allowed,database_allowed,observed_waiter,NativeFailure,rewrite_corruption_detected
+from backup_manifest import FORMATS
 
 
 class RewriteProtocolGuard(unittest.TestCase):
+    def test_same_count_logical_corruption_changes_native_and_workspace_projection_only(self):
+        kind='jobmatch-backup-logical-reminders-v4';before=dict(format=kind,tables={name:dict(rows=1,sha256='a'*64) for name in FORMATS[kind]})
+        changed=copy.deepcopy(before)
+        for name in ('public.workspaces','public.resume_versions'):changed['tables'][name]['sha256']='b'*64
+        self.assertTrue(rewrite_corruption_detected(before,changed))
+        for name in ('public.workspaces','public.resume_versions'):
+            partial=copy.deepcopy(before);partial['tables'][name]['sha256']='b'*64;self.assertFalse(rewrite_corruption_detected(before,partial))
+        wrong_count=copy.deepcopy(changed);wrong_count['tables']['public.resume_versions']['rows']=2;self.assertFalse(rewrite_corruption_detected(before,wrong_count))
+        unrelated=copy.deepcopy(changed);unrelated['tables']['private.letter_signing_config']['sha256']='c'*64;self.assertFalse(rewrite_corruption_detected(before,unrelated))
+
     def test_probe_setup_failure_closes_owned_children_and_keeps_original_error(self):
         for cleanup_fails in (False,True):
             with self.subTest(cleanup_fails=cleanup_fails):

@@ -96,6 +96,13 @@ def resign(body, domain='jobmatch-ai-rewrite-review-receipt-v1'):
     return dict(payload=payload,signature=hmac.new(KEY,(domain+'\n'+payload).encode(),hashlib.sha256).hexdigest())
 
 
+def rewrite_corruption_detected(before, after):
+    # The selected logical scope also embeds the native versions in workspace
+    # projections. Both hashes must change, while both row counts stay fixed.
+    expected={'public.workspaces','public.resume_versions'}
+    return set(compare(before,after))==expected and all(before['tables'][name]['rows']==after['tables'][name]['rows'] for name in expected)
+
+
 def checked_accept(target,folder,issued,state=None,user=OWNER,session=SESSION):
     before=state or workspace(target,user,session)
     result=sql(target,accept_statement(before['revision'],issued),user,session)
@@ -278,7 +285,7 @@ def main():
             stage='same-count-historical-corruption-refused-privately'
             sql(restored,"alter table public.resume_versions disable trigger rewrite_version_frozen;update public.resume_versions set text='corrupt' where extra ? 'ai_rewrite';alter table public.resume_versions enable trigger rewrite_version_frozen;")
             bridge(restored,folder,dict(op='collection',versions=workspace(restored)['versions'],ownerId=OWNER),refused=True,expected_error='INVALID_REWRITE_VERSION')
-            if compare(reference,manifest(restored,folder/'corrupt.json'))!=['public.resume_versions']:raise ValueError('Fingerprint missed historical drift')
+            if not rewrite_corruption_detected(reference,manifest(restored,folder/'corrupt.json')):raise ValueError('Fingerprint missed canonical/logical same-count historical drift')
         print('PASS: owned PG17 source-only rewrite protocol; first-install legacy collision/late-DDL rollback; closed default; actual nested HMAC/current source/ranges/render/ACK;12writers1row/audit; ordinary-after-AI/immutable ACL;Unicode/CRLF/refusal/manual parity;atomic audit failure;observed revoked/config/expiry/revision waiters and independent owner;closed key-rotation/history/restore/reapply;selected20table populated native dump/restore/RLS/same-count corruption. Not CLI migration packaging/live Supabase/provider/model/semantic acceptance.')
         return 0
     except Exception as error:
