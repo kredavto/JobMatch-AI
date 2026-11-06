@@ -1,0 +1,76 @@
+name: Typed support three-arm CPU diagnostic (synthetic only)
+on:
+  pull_request:
+    paths:
+      - 'evaluation/typed-support/**'
+      - 'scripts/*typed*'
+      - '.github/workflows/typed-cpu-diagnostic.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  diagnostic:
+    if: github.repository == 'kredavto/JobMatch-AI' && github.event.repository.private == false && (github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      CI: 'true'
+      GITHUB_ACTIONS: 'true'
+      JOBMATCH_AI_CPU_DIAGNOSTIC: 'true'
+      JOBMATCH_REPOSITORY_VISIBILITY: ${{ github.event.repository.visibility }}
+      JOBMATCH_CPU_EVENT_NAME: ${{ github.event_name }}
+      NEXT_TELEMETRY_DISABLED: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 2
+          persist-credentials: false
+      - run: python3 -m unittest discover -s scripts -p 'test_*typed*.py'
+      - name: Fail-closed executable scope; docs-only is not fresh inference
+        id: scope
+        run: python3 scripts/adaptation_model_scope.py
+      - name: Check actual free target disk and RAM
+        if: steps.scope.outputs.run == 'true'
+        run: python3 scripts/adaptation_capacity.py
+      - name: Exclusive temporary directory
+        if: steps.scope.outputs.run == 'true'
+        id: files
+        run: echo "directory=$(mktemp -d "$RUNNER_TEMP/jobmatch-typed.XXXXXXXX")" >> "$GITHUB_OUTPUT"
+      - name: Verify immutable public files, bytes, SHA256 and license
+        if: steps.scope.outputs.run == 'true'
+        env:
+          OWNED_ROOT: ${{ steps.files.outputs.directory }}
+        run: python3 scripts/fetch_typed_model.py "$OWNED_ROOT/model"
+      - name: Build pinned CPU-only classifier
+        if: steps.scope.outputs.run == 'true'
+        id: image
+        run: |
+          docker build -f evaluation/typed-support/Dockerfile -t jobmatch-typed-diagnostic:local evaluation/typed-support
+          image_id="$(docker image inspect jobmatch-typed-diagnostic:local --format '{{.Id}}')"
+          [[ "$image_id" =~ ^sha256:[a-f0-9]{64}$ ]]
+          echo "image=$image_id" >> "$GITHUB_OUTPUT"
+      - name: One actual model attempt per frozen synthetic case
+        if: steps.scope.outputs.run == 'true'
+        env:
+          OWNED_ROOT: ${{ steps.files.outputs.directory }}
+          IMAGE_ID: ${{ steps.image.outputs.image }}
+        run: |
+          set -euo pipefail
+          container_name="jobmatch-typed-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          trap 'docker rm -f "$container_name" >/dev/null 2>&1 || true' EXIT
+          set +e
+          timeout --signal=TERM --kill-after=10s 650s docker run --name "$container_name" --rm --init --network none --read-only --cap-drop ALL --security-opt no-new-privileges --cpus 4 --memory 4g --memory-swap 4g --pids-limit 128 --tmpfs /tmp:rw,noexec,nosuid,size=64m --user 1000:1000 -v "$GITHUB_WORKSPACE:/app:ro" -v "$OWNED_ROOT/model:/model:ro" -e CI=true -e GITHUB_ACTIONS=true -e JOBMATCH_AI_CPU_DIAGNOSTIC=true -e GITHUB_REPOSITORY=kredavto/JobMatch-AI -e JOBMATCH_REPOSITORY_VISIBILITY=public -e NODE_ENV=test -e JOBMATCH_EVAL_HEAD="$(git rev-parse HEAD)" -e JOBMATCH_AI_CPU_IMAGE_ID="$IMAGE_ID" "$IMAGE_ID" | tee "$OWNED_ROOT/run.log"
+          statuses=("${PIPESTATUS[@]}")
+          status=${statuses[0]}
+          if [ "${statuses[1]}" != 0 ]; then status=2; fi
+          set -e
+          python3 scripts/summarize_typed.py "$OWNED_ROOT/run.log"
+          exit "$status"
+      - name: Remove only job-owned weights
+        if: always() && steps.files.outputs.directory != ''
+        env:
+          OWNED_ROOT: ${{ steps.files.outputs.directory }}
+        run: |
+          test ! -L "$OWNED_ROOT"
+          case "$OWNED_ROOT" in "$RUNNER_TEMP"/jobmatch-typed.????????) rm -rf -- "$OWNED_ROOT" ;; *) exit 2 ;; esac
