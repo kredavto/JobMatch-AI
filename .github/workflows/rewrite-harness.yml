@@ -24,4 +24,4 @@ jobs:
           cache: npm
       - run: npm ci --ignore-scripts
       - run: npx tsc -p evaluation/rewrite/tsconfig.json
-      - run: node --test evaluation/dist/evaluation/rewrite/harness.test.cjs
+      - run: node --test evaluation/dist/evaluation/rewrite/*.test.cjs
