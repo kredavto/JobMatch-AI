@@ -26,6 +26,7 @@ const server=http.createServer(async(req,res)=>{
    if(req.url==='/rest/v1/rpc/session_is_active'){none();statement='select to_jsonb(public.session_is_active());';}
    else if(req.url==='/rest/v1/rpc/consume_quota'){assert.deepEqual(b,{p_bucket:'service'});statement="select to_jsonb(public.consume_quota('service'));";}
    else if(req.url==='/rest/v1/rpc/read_workspace'){none();statement='select public.read_workspace();';}
+   else if(req.url==='/rest/v1/rpc/read_rewrite_workspace'){none();statement='select public.read_rewrite_workspace();';}
    else if(req.url==='/rest/v1/rpc/rewrite_history_ready'){none();statement='select to_jsonb(public.rewrite_history_ready());';}
    else if(req.url==='/rest/v1/rpc/rewrite_storage_ready'){assert.deepEqual(Object.keys(b).sort(),['p_configuration_id','p_key_id']);statement='select to_jsonb(public.rewrite_storage_ready('+literal(b.p_key_id)+','+literal(b.p_configuration_id)+'));';}
    else if(req.url==='/rest/v1/rpc/accept_rewrite_version'){
@@ -37,7 +38,7 @@ const server=http.createServer(async(req,res)=>{
    value=await pg(statement);
    if(req.url==='/rest/v1/rpc/accept_rewrite_version'&&fault){const current=fault;fault=null;if(current==='lost'){req.socket.destroy();return;}value.version.text+='CORRUPTED_ACK_ONLY';}
   }
- }catch(error){status=error.message==='AUTH'?401:['CONFLICT','INVALID_WRITE','REWRITE_STORAGE_UNAVAILABLE'].includes(error.message)?400:503;value={message:['AUTH','CONFLICT','INVALID_WRITE','REWRITE_STORAGE_UNAVAILABLE'].includes(error.message)?error.message:'OWNED_FIXTURE_REFUSED'};}
+ }catch(error){status=error.message==='AUTH'?401:['CONFLICT','INVALID_WRITE','REWRITE_STORAGE_UNAVAILABLE','REWRITE_HISTORY_UNAVAILABLE'].includes(error.message)?400:503;value={message:['AUTH','CONFLICT','INVALID_WRITE','REWRITE_STORAGE_UNAVAILABLE','REWRITE_HISTORY_UNAVAILABLE'].includes(error.message)?error.message:'OWNED_FIXTURE_REFUSED'};}
  res.writeHead(status,{'content-type':'application/json','connection':'close'});res.end(JSON.stringify(value));
 });server.requestTimeout=15000;server.maxConnections=8;
 const originalFetch=globalThis.fetch;

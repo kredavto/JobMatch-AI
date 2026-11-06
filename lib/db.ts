@@ -7,7 +7,7 @@ import {boundedBody} from './body';
 import {readRpcText} from './db-rpc-response';
 import type {Fact} from './engine';
 import {hasRewriteVersionNamespace,validateRewriteVersionCollection} from './ai-rewrite-version';
-import {requireRewriteHistoryReady} from './ai-rewrite-version-capability';
+import {sameJson} from './application-write-response';
 export type Version={id:string;created:string;text:string;vacancy:string;evidence_ids:string[];score:number;evidence_snapshot?:Fact[];profile_revision?:number;engine_version?:string;match_metadata?:MatchMetadata;template_version?:unknown;restored_from?:string};
 export type Application={specialty?:unknown;id:string;title:string;status:string;note:string;created:string;events:{status:string;date:string}[];resumeVersionId?:string|null};
 export type Workspace={ownerId?:string;revision:number;original:string;facts:Fact[];vacancy:string;versions:Version[];applications:Application[];goal:string};
@@ -53,16 +53,17 @@ export async function supabase(path:string,method='GET',body?:unknown,token?:str
 
  if(!res.ok){if(data?.message==='REWRITE_STORAGE_UNAVAILABLE'&&['/rest/v1/rpc/accept_rewrite_version','/rest/v1/rpc/rewrite_storage_ready'].includes(path))throw new UserError('Сохранение недоступно.',503,'AI_REWRITE_STORAGE_UNAVAILABLE');if(data?.message==='PROJECTION_CONFLICT')throw new UserError('Проверка целостности хранилища не пройдена. Запись остановлена. Обратитесь к администратору.',503,'STORAGE_INTEGRITY');if(data?.message==='ORDINARY_ENGLISH_UNAVAILABLE'&&path==='/rest/v1/rpc/apply_workspace_command')throw new UserError('Английское оформление пока недоступно для сохранения.',503,'UPSTREAM_UNAVAILABLE');if(data?.message==='REMINDER_UNAVAILABLE'&&path==='/rest/v1/rpc/command_reminder')throw new UserError('Сохранение напоминаний недоступно.',503,'UPSTREAM_UNAVAILABLE');if(['SOURCE_VERSION_UNAVAILABLE','SOURCE_ENGLISH_UNAVAILABLE'].includes(data?.message)&&['/rest/v1/rpc/save_source_version','/rest/v1/rpc/save_source_version_english','/rest/v1/rpc/preview_source_version_english'].includes(path))throw new UserError('Сохранение структурированных версий недоступно.',503,'SOURCE_VERSION_STORAGE_UNAVAILABLE');if(data?.message==='UNSAFE_CONTEXT'&&['/rest/v1/rpc/preview_source_version','/rest/v1/rpc/save_source_version','/rest/v1/rpc/preview_source_version_english','/rest/v1/rpc/save_source_version_english'].includes(path))throw new UserError('В исходной строке есть отрицание, план или инструкция. Проверьте контекст.',400,'SOURCE_CONTEXT_UNSAFE');if(data?.message==='SOURCE_PROFILE_UNAVAILABLE'&&path==='/rest/v1/rpc/command_source_profile')throw new UserError('Сохранение структурированного профиля недоступно.',503,'SOURCE_PROFILE_STORAGE_UNAVAILABLE');if(data?.message==='LETTER_UNAVAILABLE')throw new UserError('Серверное сохранение писем недоступно.',503,'LETTER_STORAGE_UNAVAILABLE');if(data?.message==='INVALID_WRITE')throw new UserError('Изменение не прошло проверку. Обновите данные и повторите действие.',400,'WRITE_REJECTED');if(data?.message==='CONFLICT')throw new Error('CONFLICT');if(res.status===429)throw new Error('RATE');if(res.status===401||res.status===403)throw new Error('AUTH');if(data?.error_code==='email_not_confirmed')throw new UserError('Подтвердите почту и вернитесь для входа',400,'EMAIL_CONFIRMATION_REQUIRED');if(['over_email_send_rate_limit','over_request_rate_limit'].includes(code))throw new Error('RATE');if(path.includes('/auth/'))throw new UserError('Не удалось выполнить запрос авторизации. Проверьте данные и подтверждение почты.',400,'AUTH_REQUEST_REJECTED');throw new UserError('Ошибка базы данных. Повторите запрос позже.',502,'DATABASE_REQUEST_FAILED');}return data;
 }
-async function checkedRewriteHistory(state:Workspace,user:Identity){
- if(!state.versions.some(hasRewriteVersionNamespace))return;
+async function protectedRewriteRead(user:Identity):Promise<Workspace>{
+ let raw:unknown;try{raw=await supabase('/rest/v1/rpc/read_rewrite_workspace','POST',{},user.token);}catch(error){if(error instanceof Error&&['AUTH','CONFLICT','RATE'].includes(error.message))throw error;throw new UserError('История недоступна.',503,'AI_REWRITE_HISTORY_UNAVAILABLE');}
+ const parsed=WorkspaceSchema.safeParse(raw);if(!parsed.success)throw new UserError('Некорректная история.',502,'WORKSPACE_INVALID_RESPONSE');const state=parsed.data;
  // Canonical read_workspace is scoped by authenticated RLS and predates an
  // explicit ownerId field. Reject a conflicting hint; bind missing metadata to
  // the authenticated actor rather than to anything in the archive.
  if(state.ownerId!==undefined&&state.ownerId!==user.id)throw new UserError('Некорректный владелец истории.',502,'WORKSPACE_INVALID_RESPONSE');
- await requireRewriteHistoryReady(user.token,supabase);
  try{await validateRewriteVersionCollection(state.versions,user.id);}catch{throw new UserError('Некорректная история.',502,'WORKSPACE_INVALID_RESPONSE');}
+ return state;
 }
-export async function readWorkspace(user:Identity):Promise<Workspace>{const data=await supabase('/rest/v1/rpc/read_workspace','POST',{},user.token);if(data===null)return empty();const parsed=WorkspaceSchema.safeParse(data);if(!parsed.success)throw new UserError('Некорректный ответ хранилища. Повторите позже.',502,'WORKSPACE_INVALID_RESPONSE');await checkedRewriteHistory(parsed.data,user);return parsed.data;}
+export async function readWorkspace(user:Identity):Promise<Workspace>{const data=await supabase('/rest/v1/rpc/read_workspace','POST',{},user.token);if(data===null)return empty();const parsed=WorkspaceSchema.safeParse(data);if(!parsed.success)throw new UserError('Некорректный ответ хранилища. Повторите позже.',502,'WORKSPACE_INVALID_RESPONSE');return parsed.data.versions.some(hasRewriteVersionNamespace)?protectedRewriteRead(user):parsed.data;}
 export async function saveWorkspace(user:Identity,state:Workspace,revision:number,action:string):Promise<Workspace>{const result=await supabase('/rest/v1/rpc/save_workspace','POST',{p_revision:revision,p_payload:state,p_action:action},user.token);return {...state,revision:result};}
 export async function identity(token:string):Promise<Identity>{if(!token)throw new Error('AUTH');const u=await supabase('/auth/v1/user','GET',undefined,token);const active=await supabase('/rest/v1/rpc/session_is_active','POST',{},token);if(active!==true||!z.string().uuid().safeParse(u?.id).success)throw new Error('AUTH');return {id:u.id,email:u.email,token};}
 
@@ -76,6 +77,6 @@ export async function applyWorkspaceCommand(user:Identity,revision:number,comman
  if(!state.success||state.data.revision!==revision+1||(state.data.ownerId!==undefined&&state.data.ownerId!==user.id))throw new UserError('Некорректный ответ записи. Обновите данные перед повтором.',502,'WORKSPACE_WRITE_INVALID');
  // A command may already have committed. An invalid/unavailable history check
  // must not be presented as proof of rollback or automatically replayed.
- try{await checkedRewriteHistory(state.data,user);}catch{throw new UserError('Некорректный ответ записи. Обновите данные перед повтором.',502,'WORKSPACE_WRITE_INVALID');}
+ try{if(state.data.versions.some(hasRewriteVersionNamespace)&&!sameJson(state.data,await protectedRewriteRead(user)))throw Error('HISTORY_CHANGED');}catch{throw new UserError('Некорректный ответ записи. Обновите данные перед повтором.',502,'WORKSPACE_WRITE_INVALID');}
  return state.data;
 }

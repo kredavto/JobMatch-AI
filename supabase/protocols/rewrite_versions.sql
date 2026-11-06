@@ -46,6 +46,19 @@ grant execute on function private.rewrite_history_ready() to authenticated;
 create or replace function public.rewrite_history_ready() returns boolean language sql stable security invoker set search_path='' as $$select private.rewrite_history_ready();$$;
 revoke all on function public.rewrite_history_ready() from public,anon,authenticated;
 grant execute on function public.rewrite_history_ready() to authenticated;
+-- Never upgrade a previously fetched, pre-installation snapshot merely because
+-- a later capability request is true. Boundary check and read share one native
+-- statement/snapshot; the application discards its initial compatibility read.
+create or replace function private.read_rewrite_workspace() returns jsonb language plpgsql stable security invoker set search_path='' as $$
+begin
+ if not private.rewrite_history_ready() then raise exception 'REWRITE_HISTORY_UNAVAILABLE';end if;
+ return public.read_workspace();
+end$$;
+revoke all on function private.read_rewrite_workspace() from public,anon,authenticated;
+grant execute on function private.read_rewrite_workspace() to authenticated;
+create or replace function public.read_rewrite_workspace() returns jsonb language sql stable security invoker set search_path='' as $$select private.read_rewrite_workspace();$$;
+revoke all on function public.read_rewrite_workspace() from public,anon,authenticated;
+grant execute on function public.read_rewrite_workspace() to authenticated;
 create or replace function private.rewrite_storage_ready(p_key_id text,p_configuration_id text) returns boolean language plpgsql stable security definer set search_path='' as $$
 declare key bytea;begin
  if auth.uid() is null or not private.session_is_active() then raise exception 'AUTH';end if;
@@ -351,7 +364,7 @@ do $$declare f record;role_name text;begin if exists(select 1 from pg_roles wher
  -- their normal guarded grants; administrative SQL remains an operator action.
  revoke insert,update on public.resume_versions from service_role;
  revoke all on function private.project_workspace(uuid,jsonb),private.commit_workspace(integer,jsonb,text) from service_role;
- for f in select p.oid from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname in ('public','private') and (p.proname like 'rewrite_%' or p.proname in ('accept_rewrite_version','freeze_rewrite_version')) loop
+ for f in select p.oid from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname in ('public','private') and (p.proname like 'rewrite_%' or p.proname in ('accept_rewrite_version','freeze_rewrite_version','read_rewrite_workspace')) loop
   execute format('revoke all on function %s from service_role',f.oid::regprocedure);
  end loop;
 end if;
