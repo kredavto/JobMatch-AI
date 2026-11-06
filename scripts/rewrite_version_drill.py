@@ -40,6 +40,12 @@ class NativeFailure(ValueError):
         super().__init__('Owned SQL refused: '+code)
 
 
+class NativeCodecFailure(ValueError):
+    def __init__(self, code):
+        self.code=code
+        super().__init__('Owned codec refused')
+
+
 def sql(target, statement, user=None, session=SESSION, failure=None):
     if not database_allowed(target):raise ValueError('Owned rewrite SQL target required')
     prefix='' if user is None else 'set role authenticated;set request.jwt.claims='+literal(json.dumps(dict(sub=user,session_id=session)))+';'
@@ -64,7 +70,11 @@ def bridge(target,folder,data,refused=False):
     if refused:
         if result.returncode!=2 or b.exists() or result.stdout:raise ValueError('Corruption not refused privately')
         return None
-    if result.returncode or result.stdout or not b.is_file():raise ValueError('Actual production rewrite signer/codec refused')
+    if result.returncode or result.stdout or not b.is_file():
+        safe=re.search(rb'code=([A-Z][A-Z0-9_]{0,79})(?:\r?\n|$)',result.stderr)
+        code=safe.group(1).decode() if safe else 'FIXTURE_OPERATION_REFUSED'
+        operation=data.get('op') if data.get('op') in ('issue','verify-current','record','collection','ack') else 'unknown'
+        raise NativeCodecFailure(operation.upper()+'_'+code)
     return json.loads(b.read_text())
 
 
@@ -260,7 +270,7 @@ def main():
         print('PASS: owned PG17 source-only rewrite protocol; first-install legacy collision/late-DDL rollback; closed default; actual nested HMAC/current source/ranges/render/ACK;12writers1row/audit; ordinary-after-AI/immutable ACL;Unicode/CRLF/refusal/manual parity;atomic audit failure;observed revoked/config/expiry/revision waiters and independent owner;closed key-rotation/history/restore/reapply;selected20table populated native dump/restore/RLS/same-count corruption. Not CLI migration packaging/live Supabase/provider/model/semantic acceptance.')
         return 0
     except Exception as error:
-        print('FAIL: rewrite protocol stage='+stage+'; '+type(error).__name__+(' code='+error.code if isinstance(error,NativeFailure) else '')+'; no payloads/keys/raw diagnostics.',file=sys.stderr);return 1
+        print('FAIL: rewrite protocol stage='+stage+'; '+type(error).__name__+(' code='+error.code if isinstance(error,(NativeFailure,NativeCodecFailure)) else '')+'; no payloads/keys/raw diagnostics.',file=sys.stderr);return 1
     finally:
         cleanup_failed=False
         for name in reversed(created):
