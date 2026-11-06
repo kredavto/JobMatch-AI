@@ -26,3 +26,9 @@ Do not retune this corpus/prompt after reading forthcoming model replies. It is 
 4. Execute actual pinned model on this unchanged corpus, report failures without weakening guards; keep acceptance NOT ACCEPTED and semantic/independent-held-out/model/deployment identity gates open.
 
 Human review/edit decisions, normalized immutable AI-version save with DB/legacy-forgery defenses and UI remain unfinished. SMTP/recovery, actual Supabase provider-copy restore, operator personal-data decisions, HH permissions and final live/security/device gates remain open. Full project incomplete.
+
+
+### Hosted evidence — 6 November 2026
+
+[PR#124](https://github.com/kredavto/JobMatch-AI/pull/124), source `720346f04bee38432bb3c80421498eee6b0d1a8b`, tree `bf1fa91a7891ea6cbb4b1fa767741e4ddae4e3ff`.
+[Rewrite harness run42184806382/job127782496148](https://github.com/kredavto/JobMatch-AI/actions/runs/42184806382/job/127782496148) completed SUCCESS: canonical npm ci, compilation and25tests/0skipped confirmed from completed job logs. Immutable full-content readback of all eight written files passed; complete base/source tree comparison confirms exactly10changed files, no deletion,697prior blobs untouched. Separate [application run42184806471](https://github.com/kredavto/JobMatch-AI/actions/runs/42184806471) was still running when this evidence was recorded (install/graph/lint/types passed); no completed full application/browser CI result is asserted here. PR remains draft pending those checks. This final evidence update changes Markdown only; executable tests/harness/workflow remain exactly at the source above. No actual model run or semantic acceptance.

@@ -845,3 +845,9 @@ Fresh main `a3a9ef0c69e1e760010fc391234d66cd4a747e3b`, all four main plans and11
 - Next technical block: bounded owned CPU runner plus distinct inference workflow using existing immutable weights/license/llama pins, explicit8192context/4096maxTokens/4threads/seed42, raw synthetic outputs and source/runtime hashes. Old frozen0/16experiment and its4096/2048runtime remain unchanged. Then explicit human review/edit and normalized immutable AI-version storage/UI.
 
 PR#1/#2 remain merged under their historical scoped permission; baseline0.34.0/b05c45d0 unchanged. No merge/release/deploy/liveDB/production flag/key/mail/HH write/paid resource. SMTP/recovery with agreed recipient, actual Supabase provider-copy restore, personal-data hosting decision and final live/security/device acceptance remain OPEN. Full project incomplete; internal technical work remains.
+
+
+### Hosted evidence — 6 November 2026
+
+[PR#124](https://github.com/kredavto/JobMatch-AI/pull/124), source `720346f04bee38432bb3c80421498eee6b0d1a8b`, tree `bf1fa91a7891ea6cbb4b1fa767741e4ddae4e3ff`.
+[Rewrite harness run42184806382/job127782496148](https://github.com/kredavto/JobMatch-AI/actions/runs/42184806382/job/127782496148) completed SUCCESS: canonical npm ci, compilation and25tests/0skipped confirmed from completed job logs. Immutable full-content readback of all eight written files passed; complete base/source tree comparison confirms exactly10changed files, no deletion,697prior blobs untouched. Separate [application run42184806471](https://github.com/kredavto/JobMatch-AI/actions/runs/42184806471) was still running when this evidence was recorded (install/graph/lint/types passed); no completed full application/browser CI result is asserted here. PR remains draft pending those checks. This final evidence update changes Markdown only; executable tests/harness/workflow remain exactly at the source above. No actual model run or semantic acceptance.
