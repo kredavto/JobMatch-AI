@@ -317,7 +317,11 @@ create or replace function public.accept_rewrite_version(p_revision integer,p_pa
 language sql security invoker set search_path='' as $$select private.accept_rewrite_version(p_revision,p_payload,p_signature,p_key_id,p_configuration_id,p_score,p_match_metadata,p_accept);$$;
 revoke all on function public.accept_rewrite_version(integer,text,text,text,text,integer,jsonb,text) from public,anon,authenticated;
 grant execute on function public.accept_rewrite_version(integer,text,text,text,text,integer,jsonb,text) to authenticated;
-do $$declare f record;begin if exists(select 1 from pg_roles where rolname='service_role') then
+-- Trust in archive labels requires these unguarded paths to be closed even if
+-- an existing installation added grants outside the canonical schema.
+revoke insert,update on public.resume_versions from public,anon,authenticated;
+revoke all on function private.project_workspace(uuid,jsonb) from public,anon,authenticated;
+do $$declare f record;role_name text;begin if exists(select 1 from pg_roles where rolname='service_role') then
  -- Do not let hosted default grants create attested-looking rows through a
  -- privileged REST/table or projection-helper bypass. Owner JWT commands keep
  -- their normal guarded grants; administrative SQL remains an operator action.
@@ -326,6 +330,13 @@ do $$declare f record;begin if exists(select 1 from pg_roles where rolname='serv
  for f in select p.oid from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname in ('public','private') and (p.proname like 'rewrite_%' or p.proname in ('accept_rewrite_version','freeze_rewrite_version')) loop
   execute format('revoke all on function %s from service_role',f.oid::regprocedure);
  end loop;
-end if;end$$;
+end if;
+foreach role_name in array array['anon','authenticated','service_role'] loop
+ if exists(select 1 from pg_roles where rolname=role_name) then
+  if has_table_privilege(role_name,'public.resume_versions','INSERT') or has_table_privilege(role_name,'public.resume_versions','UPDATE')
+   or has_function_privilege(role_name,'private.project_workspace(uuid,jsonb)','EXECUTE') then raise exception 'REWRITE_UNSAFE_EFFECTIVE_GRANTS';end if;
+ end if;
+end loop;
+end$$;
 commit;
 
