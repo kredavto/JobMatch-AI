@@ -3,6 +3,7 @@ import type {Workspace} from './db';
 import {decodeRewriteReceipt,prepareRewriteSource,validateRewritePreview,RewriteReceiptSchema,type RewriteReceipt,type RewriteLocale} from './ai-rewrite';
 import {confirmRewriteReview,RewriteReviewConfirmation} from './ai-rewrite-review';
 import {sameJson} from './application-write-response';
+import {decodeRewriteReviewReceipt} from './ai-rewrite-review-receipt';
 export type RewriteUiSource=Pick<Workspace,'ownerId'|'revision'|'original'|'vacancy'|'facts'>;
 export function eligibleRewriteFacts(source:RewriteUiSource){
  const lines=new Map<string,number>(),ids=new Map<string,number>();
@@ -19,13 +20,12 @@ export async function validateRewriteUiPreview(raw:unknown,source:RewriteUiSourc
  const preview=await validateRewritePreview(payload.preview,{source:expected,language,original:source.original});
  return{receipt:outer.receipt,payload:{...payload,preview}};
 }
-const reviewPayload=z.strictObject({format:z.literal('jobmatch-ai-rewrite-review-receipt-v1'),id:z.uuid(),issuerKeyId:z.string().regex(/^[a-f0-9]{64}$/),issuedAt:z.number().int().min(0),expiresAt:z.number().int().positive(),previewReceipt:RewriteReceiptSchema,review:z.unknown()});
 /** Authenticated-response consistency only. The browser has no MAC key. */
 export async function validateRewriteUiConfirmation(raw:unknown,source:RewriteUiSource,previewReceipt:RewriteReceipt,confirmation:unknown){
  if(!source.ownerId)throw Error('UNKNOWN_OWNER');
- const outer=response(source).parse(raw),payload=reviewPayload.parse(JSON.parse(outer.receipt.payload));
+ const outer=response(source).parse(raw),decoded=await decodeRewriteReviewReceipt(outer.receipt,source.original),payload=decoded.payload;
  if(!sameJson(payload.previewReceipt,previewReceipt))throw Error('UNEXPECTED_PREVIEW');
- const original=await decodeRewriteReceipt(previewReceipt),input=RewriteReviewConfirmation.parse(confirmation);
+ const original=decoded.previewPayload,input=RewriteReviewConfirmation.parse(confirmation);
  if(payload.issuerKeyId!==original.issuerKeyId||payload.expiresAt!==original.expiresAt||payload.issuedAt>=payload.expiresAt)throw Error('INVALID_LIFETIME');
  const expected=await prepareRewriteSource({...source,goal:'',versions:[],applications:[]},source.ownerId,original.preview.source.facts.map(f=>f.id));
  const preview=await validateRewritePreview(original.preview,{source:expected,language:original.preview.requestedLanguage,original:source.original});
