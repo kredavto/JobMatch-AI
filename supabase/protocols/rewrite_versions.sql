@@ -317,6 +317,11 @@ language sql security invoker set search_path='' as $$select private.accept_rewr
 revoke all on function public.accept_rewrite_version(integer,text,text,text,text,integer,jsonb,text) from public,anon,authenticated;
 grant execute on function public.accept_rewrite_version(integer,text,text,text,text,integer,jsonb,text) to authenticated;
 do $$declare f record;begin if exists(select 1 from pg_roles where rolname='service_role') then
+ -- Do not let hosted default grants create attested-looking rows through a
+ -- privileged REST/table or projection-helper bypass. Owner JWT commands keep
+ -- their normal guarded grants; administrative SQL remains an operator action.
+ revoke insert,update on public.resume_versions from service_role;
+ revoke all on function private.project_workspace(uuid,jsonb),private.commit_workspace(integer,jsonb,text) from service_role;
  for f in select p.oid from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname in ('public','private') and (p.proname like 'rewrite_%' or p.proname in ('accept_rewrite_version','freeze_rewrite_version')) loop
   execute format('revoke all on function %s from service_role',f.oid::regprocedure);
  end loop;

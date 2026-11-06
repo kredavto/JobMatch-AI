@@ -123,7 +123,7 @@ def observed_waiter(target,folder,kind):
         elif kind=='expiry':
             deadline=json.loads(receipt['receipt']['payload'])['expiresAt']+0.02
             while time.time()<deadline:time.sleep(0.02)
-        extra='update public.workspaces set revision=4 where user_id='+literal(probe.a)+';' if kind=='revision' else ''
+        extra=('set local request.jwt.claims='+literal(json.dumps(dict(sub=probe.a,session_id=probe.sa)))+";select public.apply_workspace_command(3,'{\"action\":\"goal\",\"text\":\"Actual concurrent goal\"}');") if kind=='revision' else ''
         probe.finish(holder,extra+'commit;\n')
         if probe.finish(worker).strip()!=expected:raise ValueError('Late waiter accepted')
         bridge(target,folder,dict(op='ack',result=other_result,previous=states[probe.b],receipt=other['receipt'],ownerId=probe.b))
@@ -147,6 +147,9 @@ def main():
                 sql(target,'insert into auth.sessions values('+literal(OTHER_SESSION)+','+literal(OTHER)+');')
                 seed_core(target,folder);sql(target,'grant execute on function private.source_version_storage_permission() to authenticated;');save_source(target,folder)
                 sql(target,ENABLE_REMINDERS);sql(target,reminder_statement(0,reminder_command()),OWNER)
+                # Model potentially inherited hosted service-role grants, then
+                # prove that installing this source closes the bypass explicitly.
+                sql(target,'grant insert,update on public.resume_versions to service_role;grant usage on schema private to service_role;grant execute on function private.project_workspace(uuid,jsonb),private.commit_workspace(integer,jsonb,text) to service_role;')
             stage='first-install-legacy-forgery-preflight'
             sql(upgrade,"update public.resume_versions set extra=extra||'{\"ai_rewrite\":null}'::jsonb where id='v1';")
             before=manifest(upgrade,folder/'collision-before.json');sql(upgrade,addon,failure='REWRITE_LEGACY_METADATA_COLLISION')
@@ -160,6 +163,7 @@ def main():
             if definitions(upgrade)!=definitions(clean) or compare(before,manifest(upgrade,folder/'upgraded.json')):raise ValueError('Installation changed data or definitions differ')
             for target in (upgrade,clean):
                 stage='closed-default-real-HMAC-and-source-binding'
+                if sql(target,"select to_jsonb(has_table_privilege('service_role','public.resume_versions','INSERT') or has_table_privilege('service_role','public.resume_versions','UPDATE') or has_function_privilege('service_role','private.project_workspace(uuid,jsonb)','EXECUTE') or has_function_privilege('service_role','private.commit_workspace(integer,jsonb,text)','EXECUTE') or has_function_privilege('service_role','public.accept_rewrite_version(integer,text,text,text,text,integer,jsonb,text)','EXECUTE') or has_function_privilege('anon','public.accept_rewrite_version(integer,text,text,text,text,integer,jsonb,text)','EXECUTE'));") is not False:raise ValueError('Privileged bypass remained open')
                 state=workspace(target);issued=issue(target,folder,state)
                 if sql(target,'select to_jsonb(public.rewrite_storage_ready('+literal(KEY_ID)+','+literal(CONFIGURATION)+'));',OWNER) is not False:raise ValueError('Default open')
                 sql(target,accept_statement(state['revision'],issued),OWNER,failure='REWRITE_STORAGE_UNAVAILABLE');sql(target,ENABLE)
