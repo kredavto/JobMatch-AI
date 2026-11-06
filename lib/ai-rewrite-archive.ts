@@ -20,7 +20,7 @@ export function rewriteArchiveReceiptSha256(raw:unknown){
  const receipt=RewriteReceiptSchema.parse(raw);
  return rewriteSha256('jobmatch-ai-rewrite-archive-receipt-v1\n'+receipt.payload+'\n'+receipt.signature);
 }
-/** Prepared history format only; no writer/table/legacy trust path is enabled.
+/** Frozen history format. Trusted API reads require the protected native boundary.
  * The acceptance labels are stored assertions, not authenticated by this reader.
  * Historical reads never refresh TTL or require a currently active signing key.
  */

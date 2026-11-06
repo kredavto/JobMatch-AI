@@ -31,7 +31,7 @@ export function hasRewriteVersionNamespace(raw:unknown){
 }
 /** Fail the collection on corruption/unknown reserved tags; never drop/promote a
  * legacy row. Restore provenance must be an exact copy of an earlier same-owner row.
- * Not registered in workspace reads until native acceptance is independently tested.
+ * Reserved rows are registered only behind the protected native workspace read.
  */
 export async function validateRewriteVersionCollection(versions:Version[],ownerId:string){
  if(versions.length>100||new Set(versions.map(v=>v.id)).size!==versions.length)throw Error('INVALID_REWRITE_HISTORY');
