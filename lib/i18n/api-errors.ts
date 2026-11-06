@@ -1,5 +1,12 @@
 /** Public closed error codes. Copy is presentation; status remains authoritative. */
 export const apiErrors={
+ AI_REWRITE_STORAGE_DISABLED:{status:503,ru:'Сохранение проверенных AI-правок не включено.',en:'Saving reviewed AI rewrites has not been enabled.'},
+ AI_REWRITE_STORAGE_UNAVAILABLE:{status:503,ru:'Сохранение проверенных правок недоступно. Черновик можно сохранить локально; автоматического повтора нет.',en:'Reviewed rewrite storage is unavailable. Keep your local draft; the write will not be retried automatically.'},
+ AI_REWRITE_HISTORY_UNAVAILABLE:{status:503,ru:'Защищённая история проверенных правок недоступна. Нужна проверка хранилища администратором.',en:'Protected reviewed rewrite history is unavailable. An administrator needs to check storage.'},
+ AI_REWRITE_STORAGE_CONFIG_INVALID:{status:502,ru:'Ответ о готовности хранилища проверенных правок не прошёл проверку.',en:'The reviewed rewrite storage readiness response failed validation.'},
+ AI_REWRITE_VERSION_SAVE_UNKNOWN:{status:502,ru:'Результат сохранения неизвестен. Перечитайте историю и сверьте версию; не повторяйте запись автоматически.',en:'The save outcome is unknown. Read history and compare the version; do not retry the write automatically.'},
+ AI_REWRITE_VERSION_WRITE_INVALID:{status:502,ru:'Подтверждение записи не прошло проверку. Перечитайте историю; автоматического повтора нет.',en:'The write acknowledgement failed validation. Read history; the write will not be retried automatically.'},
+ AI_REWRITE_VERSION_NOT_FOUND:{status:404,ru:'Сохранённая версия проверенных правок не найдена.',en:'The saved reviewed rewrite version was not found.'},
  AI_REWRITE_REVIEW_DISABLED:{status:503,ru:'Проверка AI-правок не включена.',en:'AI rewrite review has not been enabled.'},
  AI_REWRITE_REVIEW_INVALID:{status:400,ru:'Подтверждение AI-правок устарело или не прошло проверку.',en:'The AI rewrite review expired or failed validation.'},
  AI_REWRITE_DISABLED:{status:503,ru:'AI-переписывание не включено.',en:'AI rewriting has not been enabled.'},

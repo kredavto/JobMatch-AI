@@ -23,9 +23,33 @@ create or replace function private.rewrite_json_object(v jsonb,keys text[]) retu
  select jsonb_typeof(v)='object' and v ?& keys and v-keys='{}'::jsonb;
 $$;
 revoke all on function private.rewrite_json_object(jsonb,text[]) from public,anon,authenticated;
+-- Read attested history independently of current signing keys, model flags or
+-- write configuration. Administrative SQL remains outside this trust boundary.
+create or replace function private.rewrite_history_ready() returns boolean language plpgsql stable security definer set search_path='' as $$
+declare role_name text;begin
+ if auth.uid() is null or not private.session_is_active() then raise exception 'AUTH';end if;
+ if not exists(select 1 from pg_catalog.pg_proc where oid=to_regprocedure('private.validate_fact_write(jsonb,jsonb,text,integer)') and md5(prosrc)='1510059b958b0926662fdd7230f86435')
+  or not exists(select 1 from pg_catalog.pg_proc where oid=to_regprocedure('private.locked_workspace(integer)') and md5(prosrc)='3aef286173c882bf31977f929c741848')
+  or not exists(select 1 from pg_catalog.pg_proc where oid=to_regprocedure('private.apply_version_intent(jsonb,integer,jsonb)') and md5(prosrc)='a85dd7103fa641ca6f746a91adcf3d6c')
+  or not exists(select 1 from pg_catalog.pg_proc where oid=to_regprocedure('private.validate_version_write(jsonb,jsonb,text,integer)') and md5(prosrc)='9a7c3bc3627f10f9122720eedf5cfc52')
+  or not exists(select 1 from pg_catalog.pg_trigger where tgrelid='public.resume_versions'::regclass and tgname='rewrite_version_frozen' and tgenabled='O' and tgfoid=to_regprocedure('private.freeze_rewrite_version()'))
+  or to_regprocedure('public.accept_rewrite_version(integer,text,text,text,text,integer,jsonb,text)') is null then return false;end if;
+ foreach role_name in array array['anon','authenticated','service_role'] loop
+  if exists(select 1 from pg_catalog.pg_roles where rolname=role_name) and
+   (has_table_privilege(role_name,'public.resume_versions','INSERT') or has_table_privilege(role_name,'public.resume_versions','UPDATE')
+    or has_function_privilege(role_name,'private.project_workspace(uuid,jsonb)','EXECUTE')) then return false;end if;
+ end loop;
+ return true;
+end$$;
+revoke all on function private.rewrite_history_ready() from public,anon,authenticated;
+grant execute on function private.rewrite_history_ready() to authenticated;
+create or replace function public.rewrite_history_ready() returns boolean language sql stable security invoker set search_path='' as $$select private.rewrite_history_ready();$$;
+revoke all on function public.rewrite_history_ready() from public,anon,authenticated;
+grant execute on function public.rewrite_history_ready() to authenticated;
 create or replace function private.rewrite_storage_ready(p_key_id text,p_configuration_id text) returns boolean language plpgsql stable security definer set search_path='' as $$
 declare key bytea;begin
  if auth.uid() is null or not private.session_is_active() then raise exception 'AUTH';end if;
+ if not private.rewrite_history_ready() then return false;end if;
  if p_key_id is null or p_key_id!~'^[a-f0-9]{64}$' or p_configuration_id is null or p_configuration_id!~'^[a-f0-9]{64}$'
   or private.rewrite_storage_configuration() is distinct from p_configuration_id then return false;end if;
  select signing_key into key from private.letter_signing_config where singleton;
