@@ -18,7 +18,7 @@ from ops_report import PREFIX, ROUTES, parse_event
 
 ROOT = Path(__file__).resolve().parent.parent
 PRIVATE = ('OPS_PRIVATE_QUERY', 'OPS_PRIVATE_COOKIE', 'OPS_PRIVATE_BODY', 'OPS_PRIVATE_PASSWORD')
-POST_ONLY = {'ai-review','ai-resume-adaptation','ai-rewrites','auth-email','hh-vacancy','import','recovery'}
+POST_ONLY = {'ai-review','ai-resume-adaptation','ai-rewrites', 'ai-rewrite-reviews','auth-email','hh-vacancy','import','recovery'}
 DUAL_ROUTES = ('service','letter-versions','source-profile','source-versions','reminders')
 CURRENT_PHASE = 'guard'
 
