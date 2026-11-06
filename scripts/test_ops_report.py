@@ -97,7 +97,7 @@ class OpsReportTests(unittest.TestCase):
         self.assertEqual(set(report['breaches']), {'unhandled', 'observed-response-5xx', 'observed-response-ge2s'})
 
     def test_rewrite_and_reminder_events_remain_reportable_alerts(self):
-        for route in ('ai-rewrites', 'reminders'):
+        for route in ('ai-rewrites', 'ai-rewrite-reviews', 'reminders'):
             with self.subTest(route=route):
                 row = ops.parse_event(line(event(route=route, handler='POST', status=503)).rstrip('\n'))
                 report = self.summary([row], route=route)

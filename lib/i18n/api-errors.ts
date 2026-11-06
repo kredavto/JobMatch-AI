@@ -1,5 +1,7 @@
 /** Public closed error codes. Copy is presentation; status remains authoritative. */
 export const apiErrors={
+ AI_REWRITE_REVIEW_DISABLED:{status:503,ru:'Проверка AI-правок не включена.',en:'AI rewrite review has not been enabled.'},
+ AI_REWRITE_REVIEW_INVALID:{status:400,ru:'Подтверждение AI-правок устарело или не прошло проверку.',en:'The AI rewrite review expired or failed validation.'},
  AI_REWRITE_DISABLED:{status:503,ru:'AI-переписывание не включено.',en:'AI rewriting has not been enabled.'},
  AI_REWRITE_SOURCE_INVALID:{status:400,ru:'Исходник не допускает выбранное переписывание.',en:'The source does not permit the selected rewriting.'},
  AI_REWRITE_NOT_CONFIGURED:{status:503,ru:'Подпись AI-предпросмотра не настроена.',en:'AI preview signing has not been configured.'},
