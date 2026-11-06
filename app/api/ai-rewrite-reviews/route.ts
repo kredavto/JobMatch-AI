@@ -33,7 +33,7 @@ async function POSTHandler(req:NextRequest){try{
  if(current.ownerId!==undefined&&current.ownerId!==user.id)throw new UserError('Некорректный владелец ответа.',502,'WORKSPACE_INVALID_RESPONSE');
  if(current.revision!==state.revision||current.original!==state.original||current.vacancy!==state.vacancy||!sameJson(current.facts,state.facts)||latest.configurationId!==config.configurationId)throw new Error('CONFLICT');
  if(req.signal.aborted)throw new UserError('Запрос прерван.',504,'AI_REWRITE_TIMEOUT');
- // Recheck expiry after auth/read latency; no new receipt is issued on retry.
+ // Recheck expiry after auth/read latency; no deadline refresh or persistence.
  if(JSON.parse(receipt.payload).expiresAt<=Math.floor(Date.now()/1000))throw new UserError('Подтверждение устарело.',400,'AI_REWRITE_REVIEW_INVALID');
  return NextResponse.json({ownerId:user.id,revision:state.revision,receipt},{headers:{'Cache-Control':'no-store'}});
  }catch(error){return failure(error);}}
