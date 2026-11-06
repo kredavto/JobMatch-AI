@@ -85,7 +85,7 @@ test('explicit selection/consents bind preview and server review; no saved versi
  expect(JSON.stringify(s.requests[0].body)).not.toContain('PRIVATE');await choose(page,undefined,true);
  const p=panel(page);await expect(p.getByRole('button',{name:'Подтвердить проверку',exact:true})).toBeDisabled();await acknowledge(page);
  await p.getByRole('checkbox',{name:'Подтверждаю проверку выбранного текста',exact:false}).check();await p.getByRole('button',{name:'Подтвердить проверку',exact:true}).click();
- await expect(p.getByRole('status')).toContainText('Подтверждение получено');await expect(p).toContainText('Версия не сохранена');
+ await expect(p.getByRole('status')).toContainText('Подтверждение получено');await expect(p).toContainText('Подтверждение проверки не создаёт версию');expect(s.stores).toEqual([]);
  expect(s.requests.map(r=>r.kind)).toEqual(['preview','review']);expect(s.actions).toEqual([]);
  expect(s.requests[1].body).not.toHaveProperty('original');expect(s.getState().versions).toEqual([]);
 });
@@ -104,8 +104,8 @@ test('storage consent is revoked by decision edit and exact undo, navigation and
 });
 for(const fault of ['lost','invalid','foreign'] as const)test('committed '+fault+' ACK pauses without replay and explicit nonce read finds exact version across navigation',async({page})=>{
  const s=await setup(page,{store:async(route,_body,_state,commit)=>{const result=await commit();if(fault==='lost')await route.abort('failed');else await route.fulfill({json:fault==='invalid'?{...result,version:{...result.version,text:'PRIVATE_WRONG_ACK'}}:{...result,ownerId:'22222222-2222-4222-8222-222222222222'}});}});
- await reviewed(page);await store(page);await expect(storage(page).getByRole('alert')).toContainText('Сохранение не подтверждено');await expect(storage(page)).not.toContainText('PRIVATE_WRONG_ACK');expect(s.stores).toHaveLength(1);expect(s.getState().versions).toHaveLength(1);
- await page.getByRole('navigation').getByRole('button',{name:'Аналитика',exact:true}).click();await page.getByLabel('Fixture language',{exact:true}).selectOption('en');await page.getByRole('navigation').getByRole('button',{name:'Resume editor',exact:true}).click();await expect(storage(page).getByRole('alert')).toContainText('Saving is not confirmed');await storage(page).getByRole('button',{name:'Check the saved version manually',exact:true}).click();await expect(storage(page)).toContainText('The exact version was found');expect(s.stores).toHaveLength(1);expect(s.reads).toHaveLength(1);expect(new URL(s.reads[0]).searchParams.get('id')).toBe(s.getState().versions[0].id);
+ await reviewed(page);await store(page);await expect(storage(page).getByRole('alert')).toContainText('Сохранение не подтверждено');await expect(storage(page)).not.toContainText('PRIVATE_WRONG_ACK');await expect(panel(page)).not.toContainText('Версия не сохранена');expect(s.stores).toHaveLength(1);expect(s.getState().versions).toHaveLength(1);
+ await page.getByRole('navigation').getByRole('button',{name:'Аналитика',exact:true}).click();await page.getByLabel('Fixture language',{exact:true}).selectOption('en');await page.getByRole('navigation').getByRole('button',{name:'Resume editor',exact:true}).click();await expect(storage(page).getByRole('alert')).toContainText('Saving is not confirmed');await expect(panel(page)).not.toContainText('No version was saved');await storage(page).getByRole('button',{name:'Check the saved version manually',exact:true}).click();await expect(storage(page)).toContainText('The exact version was found');expect(s.stores).toHaveLength(1);expect(s.reads).toHaveLength(1);expect(new URL(s.reads[0]).searchParams.get('id')).toBe(s.getState().versions[0].id);
  expect(s.loads()).toBe(1); // no automatic workspace reload/adoption
  expect(s.actions).toEqual([]);
 });
