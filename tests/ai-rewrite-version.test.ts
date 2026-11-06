@@ -3,8 +3,18 @@ import {randomUUID} from 'node:crypto';
 import {reviewedVersionFixture} from './fixtures/rewrite-version';
 import {rewriteState} from './fixtures/rewrite-review';
 import {validateReviewedRewriteVersion,validateRewriteVersionCollection,validateRewriteVersionSaveResult,hasRewriteVersionNamespace} from '../lib/ai-rewrite-version';
+import {parseFacts} from '../lib/engine';
 
 const owner='11111111-1111-4111-8111-111111111111';
+it('does not issue an assertion after normal import until a saved vacancy is supplied',async()=>{
+ const state={...rewriteState(),vacancy:''};await expect(reviewedVersionFixture(state)).rejects.toMatchObject({name:'ZodError',issues:expect.arrayContaining([expect.objectContaining({path:['vacancy']})])});await expect(reviewedVersionFixture({...state,vacancy:'SQL role'})).resolves.toHaveProperty('receipt');
+});
+it.each(['🧑‍💻 SQL\r\n  Built 5 reports  \r\nUnselected é','\u2003SQL\u00a0\nNo Python'])('preserves native-shaped selected Unicode/refusal/manual evidence: %s',async original=>{
+ const state={...rewriteState(),original,facts:parseFacts(original,'Public native source').map(f=>({...f,verified:true}))};const f=await reviewedVersionFixture(state,{refused:true,manual:'Manual 7 SQL reports'});expect((await validateRewriteVersionSaveResult(f.result,state,f.receipt,owner)).version).toEqual(f.row);await expect(validateRewriteVersionCollection([f.row],owner)).resolves.toBeUndefined();
+});
+it('refuses duplicate whole source lines before issuing an archive assertion',async()=>{
+ const original='SQL\nSQL',state={...rewriteState(),original,facts:parseFacts(original,'Public native source').map(f=>({...f,verified:true}))};await expect(reviewedVersionFixture(state)).rejects.toThrow('REWRITE_SOURCE_INVALID');
+});
 it('binds a native-shaped record and ACK to exact receipt/source/known evidence and existing rules score',async()=>{
  const f=await reviewedVersionFixture();expect((await validateReviewedRewriteVersion(f.row,owner)).version).toEqual(f.row);expect(await validateRewriteVersionSaveResult(f.result,f.state,f.receipt,owner)).toEqual(f.result);
 });

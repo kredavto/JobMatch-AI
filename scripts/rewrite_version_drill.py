@@ -63,16 +63,17 @@ def sql(target, statement, user=None, session=SESSION, failure=None):
     return json.loads(raw) if raw else None
 
 
-def bridge(target,folder,data,refused=False):
+def bridge(target,folder,data,refused=False,expected_error=None):
     if not database_allowed(target):raise ValueError('Owned codec target required')
     token=uuid.uuid4().hex;a=folder/('rewrite-in-'+token+'.json');b=folder/('rewrite-out-'+token+'.json');a.write_text(json.dumps(data,ensure_ascii=False))
     result=subprocess.run(['node',str(ROOT/'tests/fixtures/rewrite-version-native.cjs'),str(a),str(b)],env=target,capture_output=True,timeout=30)
+    safe=re.search(rb'code=([A-Z][A-Z0-9_]{0,79})(?:\r?\n|$)',result.stderr)
+    code=safe.group(1).decode() if safe else 'FIXTURE_OPERATION_REFUSED'
     if refused:
         if result.returncode!=2 or b.exists() or result.stdout:raise ValueError('Corruption not refused privately')
+        if expected_error is not None and code!=expected_error:raise NativeCodecFailure('UNEXPECTED_NEGATIVE_'+code)
         return None
     if result.returncode or result.stdout or not b.is_file():
-        safe=re.search(rb'code=([A-Z][A-Z0-9_]{0,79})(?:\r?\n|$)',result.stderr)
-        code=safe.group(1).decode() if safe else 'FIXTURE_OPERATION_REFUSED'
         operation=data.get('op') if data.get('op') in ('issue','verify-current','record','collection','ack') else 'unknown'
         raise NativeCodecFailure(operation.upper()+'_'+code)
     return json.loads(b.read_text())
@@ -219,12 +220,16 @@ def main():
                     w=workspace(target);ids=[f['id'] for f in w['facts']]
                     sql(target,'select public.apply_workspace_command('+str(w['revision'])+','+literal(json.dumps(dict(action='verify',ids=ids,verified=True)))+'::jsonb);',OWNER)
                     w=workspace(target)
-                    if text=='SQL\nSQL':bridge(target,folder,dict(op='issue',state=w),refused=True);continue
+                    # Normal import deliberately clears vacancy. Establish the
+                    # required new saved vacancy through its real command.
+                    sql(target,'select public.apply_workspace_command('+str(w['revision'])+',\'{"action":"vacancy","text":"SQL role"}\');',OWNER);w=workspace(target)
+                    if text=='SQL\nSQL':bridge(target,folder,dict(op='issue',state=w),refused=True,expected_error='REWRITE_SOURCE_INVALID');continue
                     issued=issue(target,folder,w,options=dict(refused=True,manual='Manual 7 SQL reports'))
                     checked_accept(target,folder,issued,w)
                 stage='audit-fault-atomic-save-and-closed-rollback-history'
                 w=workspace(target);sql(target,'select public.apply_workspace_command('+str(w['revision'])+',\'{"action":"import","text":"SQL"}\');',OWNER)
                 w=workspace(target);sql(target,'select public.apply_workspace_command('+str(w['revision'])+','+literal(json.dumps(dict(action='verify',ids=[f['id'] for f in w['facts']],verified=True)))+'::jsonb);',OWNER)
+                w=workspace(target);sql(target,'select public.apply_workspace_command('+str(w['revision'])+',\'{"action":"vacancy","text":"SQL role"}\');',OWNER)
                 sql(target,'update public.profile_facts set id=repeat(chr(1),100) where user_id='+literal(OWNER)+' and position=1;')
                 w=workspace(target);issued=issue(target,folder,w)
                 stage='shared-100-version-cap-rollback-only'
@@ -243,7 +248,7 @@ def main():
                 stage='actual-short-lived-receipt-expiry-then-historical-restore'
                 w=workspace(target);short=issue(target,folder,w,clockOffset=-598);first=checked_accept(target,folder,short,w)['version'];expires=json.loads(short['receipt']['payload'])['expiresAt']
                 while time.time()<expires+0.02:time.sleep(0.02)
-                bridge(target,folder,dict(op='verify-current',state=w,receipt=short['receipt']),refused=True)
+                bridge(target,folder,dict(op='verify-current',state=w,receipt=short['receipt']),refused=True,expected_error='AI_REWRITE_REVIEW_INVALID')
                 sql(target,(ROOT/DISABLE).read_text());sql(target,"update private.letter_signing_config set signing_key=decode('"+'cd'*32+"','hex');")
                 history=workspace(target);bridge(target,folder,dict(op='collection',versions=history['versions'],ownerId=OWNER))
                 for _ in range(2):
@@ -265,7 +270,7 @@ def main():
             if sql(restored,'select to_jsonb(public.rewrite_storage_ready('+literal(KEY_ID)+','+literal(CONFIGURATION)+'));',OWNER) is not False:raise ValueError('Restored construction opened')
             stage='same-count-historical-corruption-refused-privately'
             sql(restored,"alter table public.resume_versions disable trigger rewrite_version_frozen;update public.resume_versions set text='corrupt' where extra ? 'ai_rewrite';alter table public.resume_versions enable trigger rewrite_version_frozen;")
-            bridge(restored,folder,dict(op='collection',versions=workspace(restored)['versions'],ownerId=OWNER),refused=True)
+            bridge(restored,folder,dict(op='collection',versions=workspace(restored)['versions'],ownerId=OWNER),refused=True,expected_error='INVALID_REWRITE_VERSION')
             if compare(reference,manifest(restored,folder/'corrupt.json'))!=['public.resume_versions']:raise ValueError('Fingerprint missed historical drift')
         print('PASS: owned PG17 source-only rewrite protocol; first-install legacy collision/late-DDL rollback; closed default; actual nested HMAC/current source/ranges/render/ACK;12writers1row/audit; ordinary-after-AI/immutable ACL;Unicode/CRLF/refusal/manual parity;atomic audit failure;observed revoked/config/expiry/revision waiters and independent owner;closed key-rotation/history/restore/reapply;selected20table populated native dump/restore/RLS/same-count corruption. Not CLI migration packaging/live Supabase/provider/model/semantic acceptance.')
         return 0
