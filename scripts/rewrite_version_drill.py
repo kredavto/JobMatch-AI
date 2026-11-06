@@ -215,6 +215,7 @@ def main():
                 stage='audit-fault-atomic-save-and-closed-rollback-history'
                 w=workspace(target);sql(target,'select public.apply_workspace_command('+str(w['revision'])+',\'{"action":"import","text":"SQL"}\');',OWNER)
                 w=workspace(target);sql(target,'select public.apply_workspace_command('+str(w['revision'])+','+literal(json.dumps(dict(action='verify',ids=[f['id'] for f in w['facts']],verified=True)))+'::jsonb);',OWNER)
+                sql(target,'update public.profile_facts set id=repeat(chr(1),100) where user_id='+literal(OWNER)+' and position=1;')
                 w=workspace(target);issued=issue(target,folder,w)
                 stage='shared-100-version-cap-rollback-only'
                 cap_before=manifest(target,folder/(target['PGDATABASE']+'-cap-before.json'));count=len(w['versions'])

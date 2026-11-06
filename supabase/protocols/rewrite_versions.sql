@@ -2,6 +2,7 @@
 -- Apply only in the explicitly opted-in disposable PG17 drill until separately packaged.
 -- No schema.sql/provider installation, key/config activation or hosted acceptance claimed.
 begin;
+set local row_security=off;
 set local lock_timeout='2s';
 lock table public.workspaces,public.resume_versions in share row exclusive mode;
 do $$begin
