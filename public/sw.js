@@ -1,5 +1,5 @@
 /* Only public, fixed assets enter Cache Storage. No API, document or draft caching. */
-const CACHE = 'jobmatch-public-v1';
+const CACHE = 'jobmatch-public-v2';
 const ASSETS = ['/offline.html', '/icon.svg', '/icon-192.png', '/icon-512.png'];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(ASSETS.map(path => new Request(path, {credentials: 'omit', cache: 'reload'})))).then(() => self.skipWaiting()));

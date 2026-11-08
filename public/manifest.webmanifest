@@ -1,11 +1,11 @@
 {
-  "name": "JobMatch AI",
+  "name": "JobMatch",
   "short_name": "JobMatch",
   "lang": "ru",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#f4f7fb",
-  "theme_color": "#13263e",
+  "background_color": "#f6f7f2",
+  "theme_color": "#176553",
   "icons": [
     {
       "src": "/icon.svg",
@@ -28,5 +28,5 @@
   ],
   "id": "/",
   "scope": "/",
-  "description": "Адаптация резюме с опорой на подтвержденные факты"
+  "description": "Резюме и сопроводительное письмо под вашу вакансию"
 }
