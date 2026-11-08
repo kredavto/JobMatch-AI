@@ -1,1 +1,23 @@
-{"framework":"nextjs","regions":["fra1"],"functions":{"app/api/import/route.ts":{"maxDuration":30},"app/api/service/route.ts":{"maxDuration":30}}}
+{
+  "framework": "nextjs",
+  "regions": [
+    "fra1"
+  ],
+  "functions": {
+    "app/api/import/route.ts": {
+      "maxDuration": 30
+    },
+    "app/api/service/route.ts": {
+      "maxDuration": 30
+    },
+    "app/api/mvp/import/route.ts": {
+      "maxDuration": 30
+    },
+    "app/api/mvp/vacancy/route.ts": {
+      "maxDuration": 30
+    },
+    "app/api/mvp/export/route.ts": {
+      "maxDuration": 30
+    }
+  }
+}

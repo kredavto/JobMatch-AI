@@ -1,4 +1,4 @@
-name: Application checks
+name: Simple MVP checks
 on:
   pull_request:
   push:
@@ -22,8 +22,8 @@ jobs:
       - run: npm ci --no-audit --no-fund
       - run: npm run lint
       - run: npm run typecheck
-      - run: npm test
+      - run: npm run test:mvp
       - run: npm run build
       - run: npx playwright install --with-deps chromium
       # No production keys or mailboxes: live-account tests are deliberately skipped.
-      - run: npm run test:e2e
+      - run: npm run test:mvp:e2e

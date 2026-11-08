@@ -9,18 +9,22 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "lint": "eslint .",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:mvp": "vitest run tests/mvp.test.ts tests/documents.test.ts tests/resume-docx.test.ts tests/pdf-lifecycle.test.ts tests/body.test.ts",
+    "test:mvp:e2e": "playwright test --config playwright.mvp.config.ts"
   },
   "dependencies": {
     "@napi-rs/canvas": "0.1.80",
+    "@pdf-lib/fontkit": "1.1.1",
+    "jszip": "3.10.2",
     "mammoth": "^1.11.0",
     "next": "16.4.3",
+    "pdf-lib": "1.17.1",
     "pdfjs-dist": "^5.4.624",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "yauzl": "3.2.0",
-    "zod": "^4.3.6",
-    "jszip": "3.10.2"
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.14.0",

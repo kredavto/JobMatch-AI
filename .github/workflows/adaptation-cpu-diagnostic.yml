@@ -1,14 +1,6 @@
 name: Exact-main adaptation CPU diagnostic (synthetic only)
 on:
-  pull_request:
-    paths:
-      - 'evaluation/adaptation/**'
-      - 'evaluation/cpu/**'
-      - 'evaluation/cpu-model.json'
-      - 'lib/**'
-      - 'scripts/*adaptation*'
-      - 'package*.json'
-      - '.github/workflows/adaptation-cpu-diagnostic.yml'
+  # Legacy model evaluation is manual after the simple-MVP product reset.
   workflow_dispatch:
 permissions:
   contents: read

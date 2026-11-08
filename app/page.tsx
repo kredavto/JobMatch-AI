@@ -1,70 +1,219 @@
 'use client';
-import {useEffect,useState,useCallback,useRef} from 'react';
-import {ExportSchema} from '../lib/export-schema';
-import {validateAnalysisResponse} from '../lib/analysis-response';
-import {RULES_REVISION} from '../lib/match-config';
-import ResumeDownload from './resume-download';
-import MatchMetadataPanel from './match-metadata-panel';
-import {evidenceIssue} from '../lib/evidence-review';
-import CoverLetterPanel from './cover-letter-panel';
-import CareerPanel from './career-panel';
-import AiReviewPanel from './ai-review-panel';
-import AiResumeAdaptationPanel from './ai-resume-adaptation-panel';
-import VacancyPanel from './vacancy-panel';
-import SkillConfirmationList from './skill-confirmation-list';
-import StructuredFactPanel from './structured-fact-panel';
-import {addedClarification} from './structured-fact';
-import VersionComparison from './version-comparison';
-import ApplicationList, {type NoteDrafts} from './application-list';
-import ApplicationReminder from './application-reminder';
-import AnalyticsPanel from './analytics-panel';
-import {ui,tabIds,type TabId} from '../lib/i18n';
-import {requestJson,RequestError,validatedWorkspace,validatedAuthAck} from '../lib/client-api';
-import {match,renderVersion,type Edit} from '../lib/engine';
-import {validateHistoryPage,type FactHistory} from '../lib/history-schema';
-import type {Workspace} from '../lib/db';
-type Analysis=ReturnType<typeof match>;
-const tabs=tabIds;
-const labels=ui.match;
-function download(name:string,text:string,type='text/plain;charset=utf-8'){const url=URL.createObjectURL(new Blob([text],{type}));const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
-export default function Page(){
- const [state,setState]=useState<Workspace|null>(null),[ready,setReady]=useState(false),[tab,setTab]=useState<TabId>('overview'),[error,setError]=useState(''),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false),[register,setRegister]=useState(true);
- const [email,setEmail]=useState(''),[password,setPassword]=useState(''),[consent,setConsent]=useState(false),[resume,setResume]=useState(''),[vacancy,setVacancy]=useState(''),[goal,setGoal]=useState(''),[fact,setFact]=useState(''),[analysis,setAnalysis]=useState<Analysis|null>(null),[edits,setEdits]=useState<Edit[]>([]),[selected,setSelected]=useState<string[]>([]),[history,setHistory]=useState<string[][]>([]),[application,setApplication]=useState(''),[deleteWord,setDeleteWord]=useState(''),[resumeVersionId,setResumeVersionId]=useState('');
- const [noteDrafts,setNoteDrafts]=useState<NoteDrafts>({});
- const headingRef=useRef<HTMLHeadingElement>(null);const signedIn=!!state;
- useEffect(()=>{if(signedIn)headingRef.current?.focus();},[tab,signedIn]);
- const [factHistory,setFactHistory]=useState<FactHistory[]>([]),[historyCursor,setHistoryCursor]=useState<number|null>(null),[historyLoaded,setHistoryLoaded]=useState(false);
- async function loadFactHistory(more=false){setBusy(true);setError('');try{const before=more&&historyCursor?historyCursor:undefined;const raw=await requestJson<unknown>('/api/fact-history'+(before?'?before='+before:''),{headers:state?.ownerId?{'x-jobmatch-owner':state.ownerId}:{}});let data;try{data=validateHistoryPage(raw,before);}catch{throw new Error('История не прошла проверку. Загруженные снимки оставлены без изменений. Повторите загрузку.');}setFactHistory(previous=>more?[...previous,...data.rows]:data.rows);setHistoryCursor(data.next);setHistoryLoaded(true);}catch(e){if(e instanceof RequestError&&[401,409].includes(e.status)){setSessionExpired(true);setNeedsReload(true);}setError(e instanceof Error?e.message:'Не удалось загрузить историю');}finally{setBusy(false);}}
- const [sessionExpired,setSessionExpired]=useState(false);const ownerRef=useRef<string|undefined>(undefined);
- const [showServerComparison,setShowServerComparison]=useState(false),[loadFailed,setLoadFailed]=useState(false),[needsReload,setNeedsReload]=useState(false);
- const load=useCallback(async(preserveDrafts=false)=>{try{
- let s:Workspace;
- try{s=validatedWorkspace(await requestJson<Workspace>('/api/service'));}catch(e){if(!(e instanceof RequestError)||e.status!==401)throw e;validatedAuthAck(await requestJson('/api/service',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'refresh',...(preserveDrafts&&ownerRef.current?{expectedOwnerId:ownerRef.current}:{})})}));s=validatedWorkspace(await requestJson<Workspace>('/api/service'));}
- if(preserveDrafts&&(s.ownerId!==ownerRef.current))throw new RequestError('Аккаунт изменился. Войдите повторно в исходный аккаунт. Черновик не перенесен.',401);
- ownerRef.current=s.ownerId;setSessionExpired(false);setError('');setState(s);if(!preserveDrafts){setResume(s.original);setVacancy(s.vacancy);setGoal(s.goal);}setAnalysis(null);setEdits([]);setSelected([]);setHistory([]);setNeedsReload(false);setLoadFailed(false);
- setShowServerComparison(preserveDrafts);if(preserveDrafts)setNotice('Актуальные данные загружены. Ваш текст резюме, вакансии и цели оставлен в полях. Сравните его с серверной версией перед сохранением. Анализ нужно выполнить заново.');
- }catch(e){if(e instanceof RequestError&&(e.status===401||(preserveDrafts&&e.status===409))){if(preserveDrafts){setSessionExpired(true);setNeedsReload(true);setError('Сессия завершена или аккаунт изменился. Войдите повторно в исходный аккаунт. Черновик остается в этой вкладке.');}else{setState(null);setLoadFailed(false);setError('');}}else{setError(e instanceof Error?e.message:'Сервер недоступен');setLoadFailed(true);}}finally{setReady(true);setBusy(false);}},[]);
- useEffect(()=>{let active=true;void Promise.resolve().then(()=>{if(active)return load();});return()=>{active=false;};},[load]);
- async function act(action:string,extra:Record<string,unknown>={},acceptWorkspace?:(workspace:Workspace)=>boolean){if(needsReload&&!['logout','export','delete','login','register'].includes(action)){setError('Сначала загрузите актуальные данные.');return null;}setBusy(true);setError('');setNotice('');if(action==='analyze'){setAnalysis(null);setEdits([]);setSelected([]);setHistory([]);}try{const data=await requestJson<Workspace & {confirmationRequired?:boolean;analysis:Analysis;edits:Edit[];error?:string}>('/api/service',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,revision:state?.revision,...extra,...(state?.ownerId?{expectedOwnerId:state.ownerId}:{})})});if(action==='login'||action==='register'){const ack=validatedAuthAck(data,action==='register');if('confirmationRequired' in ack){setNotice('Если для адреса требуется подтверждение, проверьте письмо и папку «Спам». Если аккаунт уже создан, войдите с прежним паролем. Повторная регистрация не меняет пароль.');setRegister(false);return data;}const s=validatedWorkspace(await requestJson<Workspace>('/api/service'));if(state&&(!state.ownerId||s.ownerId!==state.ownerId))throw new RequestError('Аккаунт изменился. Войдите повторно в исходный аккаунт. Черновик не перенесен.',409);ownerRef.current=s.ownerId;setNeedsReload(false);setLoadFailed(false);setSessionExpired(false);setState(s);setAnalysis(null);setEdits([]);setSelected([]);setHistory([]);setFactHistory([]);setHistoryLoaded(false);setHistoryCursor(null);if(state){setShowServerComparison(true);setNotice('Вход восстановлен. Черновики резюме, вакансии и цели оставлены в полях. Сравните их с серверной версией перед сохранением.');}else{setResume(s.original);setVacancy(s.vacancy);setGoal(s.goal);}}else if(action==='logout'||action==='delete'){validatedAuthAck(data);ownerRef.current=undefined;setSessionExpired(false);setLoadFailed(false);setNeedsReload(false);setShowServerComparison(false);setState(null);setFactHistory([]);setHistoryLoaded(false);setHistoryCursor(null);setAnalysis(null);setResume('');setVacancy('');setGoal('');setFact('');setApplication('');setNoteDrafts({});setDeleteWord('');setResumeVersionId('');setEdits([]);setSelected([]);setHistory([]);setPassword('');}else if(action==='analyze'){let validated;try{if(!state)throw new Error();validated=validateAnalysisResponse(data,state);}catch{throw new RequestError('Результат анализа не соответствует сохраненным фактам или вакансии. Загрузите актуальные данные и повторите анализ.',502);}setAnalysis(validated.analysis);setEdits(validated.edits);setSelected([]);setHistory([]);setTab('editor');}else if(action==='export'){const parsed=ExportSchema.safeParse(data);if(!parsed.success)throw new RequestError('Экспорт не прошел проверку. Файл не создан. Повторите скачивание.',502);download('jobmatch-personal-data.json',JSON.stringify(parsed.data,null,2),'application/json');setNotice('Файл профиля, версий, откликов, журнала и согласия подготовлен. Полную историю фактов скачайте отдельно.');}else {const workspace=validatedWorkspace(data);if(acceptWorkspace&&!acceptWorkspace(workspace))throw new RequestError('Ответ сервера не подтвердил добавление неподтверждённого уточнения. Загрузите актуальные данные; автоматического повтора нет.',502);setState(workspace);if(action==='fact'){setResume(current=>current===state?.original?workspace.original:current);setVacancy(current=>current===state?.vacancy?workspace.vacancy:current);}else if(action==='import'||action==='demo'){setResume(workspace.original);setVacancy(workspace.vacancy);}if(['import','demo','fact','verify','vacancy'].includes(action)){setAnalysis(null);setEdits([]);setSelected([]);}setNotice('Сохранено');}return data;}catch(e){if(e instanceof RequestError&&e.status===401&&state){setSessionExpired(true);setNeedsReload(true);}if(e instanceof RequestError&&(e.status===409||e.status===0||e.status>=500))setNeedsReload(true);setError(e instanceof Error?e.message:'Не удалось выполнить действие');return null;}finally{if(action==='login'||action==='register')setPassword('');setBusy(false);}}
- function choose(ids:string[]){setHistory([...history,selected]);setSelected(ids);}
- async function upload(file:File){setBusy(true);setError('');try{const f=new FormData();f.set('file',file);const r=await fetch('/api/import',{method:'POST',headers:state?.ownerId?{'x-jobmatch-owner':state.ownerId}:{},body:f,cache:'no-store',signal:AbortSignal.timeout(30000)});const d=await r.json();if(!r.ok)throw new RequestError(typeof d?.error==='string'?d.error:'Ошибка импорта',r.status);if(typeof d?.text!=='string'||!d.text.trim()||d.text.length>100000)throw new Error('Некорректный ответ импорта. Исходный текст оставлен в поле.');setResume(d.text);setNotice('Текст извлечен. Проверьте его и нажмите «Сохранить мастер-профиль».');}catch(e){if(e instanceof RequestError&&[401,409].includes(e.status)){setSessionExpired(true);setNeedsReload(true);}setError(e instanceof Error?e.message:'Ошибка импорта');}finally{setBusy(false);}}
- if(!ready)return <main id="main-content" tabIndex={-1} className="loading">{ui.common.loading}</main>;
- if(!state&&loadFailed)return <main id="main-content" tabIndex={-1} className="loading"><h1>{ui.common.loadFailed}</h1><p role="alert">{error}</p><button disabled={busy} onClick={()=>{setBusy(true);void load();}}>{ui.common.retry}</button></main>;
- if(!state)return <main id="main-content" tabIndex={-1} className="auth"><section><div className="brand">J<span>↗</span> JobMatch AI</div><div className="eyebrow">ВАШ ОПЫТ. ТОЧНОЕ СООТВЕТСТВИЕ.</div><h1>Покажите то,<br/>что действительно<br/><em>умеете.</em></h1><p>Адаптируйте резюме под вакансию.<br/>С опорой на факты, без выдуманных достижений.</p><div className="pills"><span>✓ Подтверждение каждой правки</span><span>✓ Без передачи внешнему AI</span></div><small>Самостоятельный сервис. Не является продуктом hh.ru.<br/>Рабочий MVP · серверный анализ · ручной перенос</small></section><form className="card login" onSubmit={e=>{e.preventDefault();void act(register?'register':'login',{email,password,consent});}}><span className="eyebrow">НАЧНИТЕ С ВАШЕГО ОПЫТА</span><h2>{register?ui.auth.create:ui.auth.welcome}</h2><label>{ui.auth.email}<input type="email" required value={email} onChange={e=>setEmail(e.target.value)} autoComplete="email"/></label><label>{ui.auth.password}<input type="password" required minLength={12} maxLength={128} value={password} onChange={e=>setPassword(e.target.value)} autoComplete={register?'new-password':'current-password'}/></label>{register&&<label className="check"><input type="checkbox" required checked={consent} onChange={e=>setConsent(e.target.checked)}/>Согласен на хранение и обработку резюме в PostgreSQL (Supabase, Германия) этой установки. Данные не передаются внешнему AI. Экспорт и удаление доступны в настройках.</label>}<p className="muted">{ui.auth.passwordHint}</p>{notice&&<p role="status" className="notice">{notice}</p>}{error&&<p role="alert" className="error">{error}</p>}<button disabled={busy} className="primary">{busy?ui.auth.wait:register?ui.auth.signUp:ui.auth.signIn}</button><button type="button" className="ghost" onClick={()=>setRegister(!register)}>{register?ui.auth.existing:ui.auth.newAccount}</button><a href="/recover">Забыли пароль?</a><a href="/confirm-email">Повторить письмо подтверждения</a></form></main>;
- const confirmed=state.facts.filter(f=>f.verified).length;
- const preview=renderVersion(state.original,edits.filter(e=>selected.includes(e.id)),state.facts);
- const sent=state.applications.filter(a=>a.events.some(e=>e.status!=='Планируется'));
- const interviews=sent.filter(a=>a.events.some(e=>['Интервью','Оффер'].includes(e.status)));
- return <div className="shell"><aside><div className="brand">J<span>↗</span> JobMatch AI</div><div className="workspace">ЛИЧНОЕ ПРОСТРАНСТВО</div><nav aria-label={ui.common.sections}>{tabs.map((t,i)=><button key={t} aria-current={tab===t?'page':undefined} className={tab===t?'active':''} onClick={()=>setTab(t)}><span aria-hidden="true">{['◫','♙','⌕','≡','▤','▦','◴','⚙'][i]}</span>{ui.navigation[t]}</button>)}</nav><div className="aside-bottom"><strong>Факты прежде всего</strong><p>Никаких выдуманных навыков.<br/>Каждая правка под вашим контролем.</p><span className="badge">● Ручной режим hh.ru</span></div></aside><main id="main-content" tabIndex={-1} className="content"><header><span>{ui.common.workspace} / {ui.navigation[tab]}</span><button className="ghost" disabled={busy} onClick={()=>act('logout')}>{ui.common.logout}</button></header><div className="heading"><div><div className="eyebrow">JOBMATCH WORKSPACE</div><h1 ref={headingRef} tabIndex={-1}>{tab==='overview'?ui.common.overviewTitle:ui.navigation[tab]}</h1><p>Ваш реальный опыт — в фокусе нужной вакансии.</p></div><span className="badge">Анализ правилами · без LLM</span></div>{error&&<div role="alert" className="error">{error}</div>}{notice&&<div role="status" className="notice">{notice}</div>}{busy&&<div role="status" className="notice">Обрабатываем…</div>}{sessionExpired&&<section className="card" aria-label="Повторный вход"><h2>Восстановить вход</h2><p>Войдите в тот же аккаунт. Черновики остаются только в памяти этой вкладки; не закрывайте и не перезагружайте ее. После входа изменения не отправляются автоматически.</p><form onSubmit={e=>{e.preventDefault();if(!state.ownerId){setError('Не удалось определить исходный аккаунт. Скопируйте черновик перед перезагрузкой.');return;}void act('login',{email,password});}}><label>Почта исходного аккаунта<input type="email" required autoComplete="username" value={email} onChange={e=>setEmail(e.target.value)}/></label><label>Пароль для повторного входа<input type="password" required minLength={12} maxLength={128} autoComplete="current-password" value={password} onChange={e=>setPassword(e.target.value)}/></label><button className="primary" disabled={busy}>Войти повторно</button></form></section>}{(needsReload||showServerComparison)&&<section className="card" aria-label="Восстановление синхронизации"><h2>Проверьте актуальные данные</h2><p>Изменения могли сохраниться или поступить из другой вкладки. Автоматический повтор записи отключен. Несохраненный текст остается в этой вкладке до ее закрытия.</p><button disabled={busy} onClick={()=>{setBusy(true);void load(true);}}>Загрузить актуальные данные</button><details><summary>Сохраненные на сервере тексты</summary><h3>Резюме</h3><pre>{state.original}</pre><h3>Вакансия</h3><pre>{state.vacancy}</pre><h3>Цель</h3><pre>{state.goal}</pre></details></section>}
- {tab==='overview'&&<><section className="hero"><div><span className="eyebrow">ОТ ПРОФИЛЯ К ТОЧНОЙ ПОДАЧЕ</span><h2>Не больше слов.<br/>Больше релевантного опыта.</h2><p>Добавьте резюме, подтвердите факты и сравните<br/>их с требованиями интересующей вакансии.</p><button className="primary" onClick={()=>setTab('profile')}>Начать с профиля ↗</button></div><div className="hero-orbit"><div>✓<small>Каждый факт<br/>под вашим контролем</small></div></div></section><div className="stats"><article className="card"><span>Подтвержденные факты</span><strong>{confirmed}<small> / {state.facts.length}</small></strong></article><article className="card"><span>Версии резюме</span><strong>{state.versions.length}</strong></article><article className="card"><span>Отправленные отклики</span><strong>{sent.length}</strong></article><article className="card"><span>Интервью / офферы</span><strong>{interviews.length}</strong></article></div><section className="card"><h2>Ваш маршрут</h2><div className="steps">{['Подтвердите опыт','Добавьте вакансию','Проверьте правки','Сохраните версию'].map((s,i)=><div key={s}><b>0{i+1}</b><h3>{s}</h3><p>{['Импорт TXT, DOCX или текстового PDF','Ссылка проверяется, текст вставляется вручную','Сопоставление с evidence и причинами','Скачайте и перенесите на hh.ru'][i]}</p></div>)}</div></section><section className="card"><h2>Посмотреть на примере</h2><p>Вымышленный кандидат и три вакансии. Демонстрация заменит текущий мастер-профиль, но сохранит версии.</p><button disabled={busy||!!state.original} onClick={async()=>{if(await act('demo'))setTab('profile');}}>Загрузить демо-профиль</button>{state.original&&<small>Демо доступно в пустом профиле.</small>}</section></>}
- {tab==='profile'&&<><section className="card"><h2>Цель поиска</h2><label>Должность, уровень, город, формат, зарплата, отрасль<input value={goal} onChange={e=>setGoal(e.target.value)} placeholder="Менеджер B2B · Москва · удаленно"/></label><button disabled={busy} onClick={()=>act('goal',{text:goal})}>Сохранить цель</button><p className="muted">Цель хранится для ориентира. География, зарплата и график пока проверяются вручную.</p></section><section className="card"><h2>Исходное резюме</h2><label>Загрузить TXT, DOCX, PDF · до 4 МБ<input type="file" accept=".txt,.docx,.pdf" disabled={busy} onChange={e=>{if(e.target.files?.[0])void upload(e.target.files[0]);e.target.value='';}}/></label><label>Проверьте текст после импорта<textarea rows={12} value={resume} onChange={e=>setResume(e.target.value)} placeholder="Каждый факт — с новой строки"/></label><button className="primary" disabled={busy||!resume.trim()} onClick={()=>act('import',{text:resume})}>Сохранить мастер-профиль</button><p className="muted">Повторный импорт сбрасывает подтверждения. Отдельные версии сохраняются. Сканированные PDF требуют ручного ввода.</p></section><StructuredFactPanel key={state.ownerId} ownerId={state.ownerId} revision={state.revision} facts={state.facts} disabled={busy||needsReload||resume!==state.original||vacancy!==state.vacancy||goal!==state.goal} onAdd={async(text,basis)=>{if(busy||needsReload||state.ownerId!==basis.ownerId||state.revision!==basis.revision||resume!==state.original||vacancy!==state.vacancy||goal!==state.goal||state.facts.some(f=>f.text===text))return false;const before=state;return !!await act('fact',{text},after=>ownerRef.current===basis.ownerId&&addedClarification(before,after,text));}}/><section className="card"><h2>База фактов <span className="badge">{confirmed} подтверждено</span></h2><p>Одиночная отметка сохраняет ваше подтверждение всей строки. В массовом выборе отметки — черновик до нажатия кнопки сохранения. Это не независимая проверка.</p>{!state.facts.length&&<p>Сначала импортируйте резюме.</p>}<SkillConfirmationList key={state.ownerId} facts={state.facts} disabled={busy||needsReload} onConfirm={async(ids,verified)=>!!await act('verify',{ids,verified})}/><label>Уточнение или дополнительный факт<input value={fact} onChange={e=>setFact(e.target.value)} placeholder="Опишите реальный опыт; подтвердите после добавления"/></label><button disabled={busy||!fact.trim()} onClick={async()=>{if(await act('fact',{text:fact}))setFact('');}}>Добавить неподтвержденный факт</button></section><section className="card"><h2>История фактов</h2><p>Снимки фиксируются при изменении состава фактов или подтверждений. Дата снимка не является датой независимой проверки. Старые подтверждения не восстанавливаются автоматически.</p><button disabled={busy} onClick={()=>loadFactHistory()}>Обновить историю фактов</button>{historyLoaded&&!factHistory.length&&<p>Записей пока нет. Они появятся после сохранения профиля.</p>}{factHistory.map(h=><details key={h.id}><summary>Ревизия {h.workspace_revision} · {new Date(h.captured_at).toLocaleString('ru-RU')} · {h.kind==='baseline'?'Исходный снимок':'Изменение'}</summary>{h.facts.map(f=><p key={f.id}>{f.text}<small>{f.source} · {f.verified?'Подтвержден пользователем':'Не подтвержден'} · {f.id}</small></p>)}{!h.facts.length&&<p>Пустой профиль</p>}<button onClick={()=>download('jobmatch-facts-'+h.id+'.json',JSON.stringify(h,null,2),'application/json')}>Скачать снимок JSON</button></details>)}{historyCursor&&<button disabled={busy} onClick={()=>loadFactHistory(true)}>Загрузить более ранние снимки</button>}<p className="muted">История хранится отдельно от текущего профиля и удаляется вместе с аккаунтом. Полная нормализация остальных сущностей еще в разработке.</p></section></>}
- {tab==='vacancy'&&<VacancyPanel key={state.ownerId} ownerId={state.ownerId} draft={vacancy} setDraft={setVacancy} busy={busy||needsReload} profileDirty={resume!==state.original} canAnalyze={!!state.original&&resume===state.original&&vacancy===state.vacancy&&!!state.vacancy} onSave={()=>act('vacancy',{text:vacancy})} onAnalyze={()=>act('analyze')}/>}
- {tab==='editor'&&(!analysis?<section className="card empty"><h2>Начнем с анализа</h2><p>Импортируйте профиль, подтвердите факты и сохраните вакансию.</p><button onClick={()=>setTab('vacancy')}>К вакансии →</button></section>:<><div className="stats"><article className="card"><span>Match Score</span><strong>{analysis.score}<small> / 100</small></strong><p>Внутренняя эвристика, не ATS-score hh.ru</p></article><article className="card"><span>Обязательные без полного подтверждения</span><strong>{analysis.blockers.length}</strong></article><article className="card"><span>Покрытие анализом</span><strong>{analysis.coverage}%</strong><p>Неизвестные требования показаны отдельно</p></article><article className="card"><span>После перестановки</span><strong>{analysis.score}<small> → {analysis.score}</small></strong><p>Факты не изменились — балл не растет</p></article></div><section className="card"><h2>Требования и доказательства</h2><div className="table-wrap" tabIndex={0} role="region" aria-label="Таблица соответствия, горизонтальная прокрутка"><table><caption className="sr-only">Сопоставление требований вакансии с подтвержденными фактами профиля</caption><thead><tr><th scope="col">Цитата вакансии</th><th scope="col">Статус</th><th scope="col">Доказательства / причина</th></tr></thead><tbody>{analysis.rows.map(r=><tr key={r.requirement.id}><td>{r.requirement.quote}{r.requirement.must&&<small>Обязательное</small>}</td><td><span className={'status '+r.status}>{labels[r.status]}</span><small>Уверенность правила: {Math.round(r.confidence*100)}%</small></td><td>{r.evidence_ids.join(', ')||'—'}<small>{r.reason}</small></td></tr>)}</tbody></table></div><details><summary>Как рассчитан балл</summary><p>Редакция правил: {RULES_REVISION}</p><p>matched = 1, partial = 0,5, missing/unknown = 0. Веса применяются к среднему внутри категории. Категории без требований исключаются, активные веса перенормируются. Ясность автоматически не оценивается. Уверенность — эвристика, не вероятность.</p>{analysis.parts.map(p=><p key={p.category}>{p.category}: вес {p.weight}%, требований {p.count}, результат {p.value===null?'не оценено':Math.round(p.value*100)+'%'}</p>)}</details></section>{state.facts.some(f=>f.verified&&evidenceIssue(f.text))&&<section className="card" aria-label="Уточнение доказательств"><h2>Факты, требующие уточнения</h2><p>Подтверждение строки означает, что вы подтвердили ее содержание. Отрицание или план обучения не доказывает владение навыком. Эти строки не используются для повышения балла и переноса в начало резюме.</p>{state.facts.filter(f=>f.verified&&evidenceIssue(f.text)).map(f=><details key={f.id}><summary>{f.text}</summary><p>{evidenceIssue(f.text)}</p><small>Evidence: {f.id} · {f.source}</small></details>)}<p>Правило консервативное и проверяет строку целиком. Разделите разные утверждения и уточните противоречия в профиле. Исходный текст и ваше подтверждение не изменяются автоматически.</p><button onClick={()=>setTab('profile')}>Уточнить факты в профиле</button></section>}<section className="card"><h2>Предлагаемые изменения</h2><p>Выберите факты для переноса в начало. Исходные формулировки сохраняются дословно.</p>{edits.map(e=><label className="fact" key={e.id}><input type="checkbox" checked={selected.includes(e.id)} onChange={ev=>choose(ev.target.checked?[...selected,e.id]:selected.filter(id=>id!==e.id))}/><span>{e.text}<small>{e.reason} · {e.evidence_ids.join(', ')}</small></span></label>)}{!edits.length&&<p>Подтвержденных релевантных фактов пока недостаточно. Добавьте уточнения в профиль.</p>}<div className="actions"><button onClick={()=>choose(edits.map(e=>e.id))}>Принять все подтвержденные</button><button onClick={()=>choose([])}>Восстановить оригинал</button><button disabled={!history.length} onClick={()=>{setSelected(history.at(-1)||[]);setHistory(history.slice(0,-1));}}>Отменить действие</button></div></section><div className="compare"><section className="card"><h2>Исходное резюме</h2><pre>{state.original}</pre></section><section className="card"><h2>Новая версия</h2>{selected.length>0&&<div className="notice">Перенесено в начало: {selected.length} фактов. Остальные строки сохранены.</div>}<pre>{preview.split("\n").map((line,i)=><span key={i}>{edits.some(e=>selected.includes(e.id)&&e.text===line)?<mark>{line}</mark>:line}{"\n"}</span>)}</pre></section></div><section className="card"><h2>Подтвердите сохранение</h2><p>Будет создана отдельная версия. Профиль и опубликованное резюме hh.ru не изменятся.</p><button className="primary" disabled={busy} onClick={async()=>{if(await act('version',{ids:selected}))setTab('versions');}}>Подтверждаю · сохранить версию</button></section><AiResumeAdaptationPanel facts={state.facts} original={state.original} vacancy={state.vacancy} revision={state.revision} ownerId={state.ownerId} disabled={needsReload||busy||resume!==state.original||vacancy!==state.vacancy}/><AiReviewPanel key={String(state.ownerId)+state.revision} facts={state.facts} vacancy={state.vacancy} revision={state.revision} ownerId={state.ownerId} disabled={needsReload||busy||resume!==state.original||vacancy!==state.vacancy}/><CoverLetterPanel key={state.revision} facts={state.facts} vacancy={state.vacancy} sourceDirty={resume!==state.original||vacancy!==state.vacancy} disabled={busy||needsReload}/><CareerPanel facts={state.facts} vacancy={state.vacancy} onProfile={()=>setTab('profile')}/></>)}
- {tab==='versions'&&<VersionComparison versions={state.versions}/>}
- {tab==='versions'&&<section className="card"><h2>История резюме</h2>{!state.versions.length&&<p>Сохраненные версии появятся после анализа и подтверждения правок.</p>}{state.versions.slice().reverse().map((v,i)=><details key={v.id} open={i===0}><summary>Версия {state.versions.length-i} · {new Date(v.created).toLocaleString('ru-RU')} · {v.score}/100</summary><pre>{v.text}</pre><small>Ревизия профиля: {v.profile_revision??"не сохранена (старая версия)"} · Движок: {v.engine_version??"не сохранен"}</small><MatchMetadataPanel metadata={v.match_metadata}/>{v.evidence_snapshot&&<details><summary>Подтвержденные факты этой версии</summary>{v.evidence_snapshot.map(f=><p key={f.id}>{f.text}<small>{f.id} · {f.source}</small></p>)}</details>}<small>Evidence: {v.evidence_ids.join(', ')||'Оригинал'}</small><div className="actions"><button onClick={()=>download('jobmatch-resume.txt',v.text)}>Скачать TXT</button><ResumeDownload id={v.id} ownerId={state.ownerId}/><button onClick={()=>download('jobmatch-version.json',JSON.stringify(v,null,2),'application/json')}>Скачать JSON + evidence</button><button onClick={async()=>{try{await navigator.clipboard.writeText(v.text);setNotice('Текст скопирован');}catch{setError('Копирование недоступно. Скачайте TXT.');}}}>Скопировать для hh.ru</button><button disabled={busy} onClick={()=>act('restore',{id:v.id})}>Восстановить как новую версию</button></div></details>)}<h3>Перенос на hh.ru</h3><ol><li>Откройте <a href="https://hh.ru/applicant/resumes" target="_blank" rel="noreferrer">список своих резюме</a>.</li><li>Выберите резюме и откройте редактирование.</li><li>Перенесите выбранные фрагменты в соответствующие поля.</li><li>Проверьте даты, работодателей, образование и подтвердите сохранение на hh.ru.</li></ol></section>}
- {tab==='applications'&&<ApplicationReminder applications={state.applications}/>}
- {tab==='applications'&&<section className="card"><h2>Движение к следующей работе</h2><p>Статусы обновляются вручную. Приложение не отправляет отклики.</p><label>Вакансия / компания<input value={application} onChange={e=>setApplication(e.target.value)}/></label><label>Версия резюме для отклика<select value={resumeVersionId} onChange={e=>setResumeVersionId(e.target.value)}><option value="">Без привязки</option>{state.versions.map((v,i)=><option key={v.id} value={v.id}>Версия {i+1} · {new Date(v.created).toLocaleDateString("ru-RU")}</option>)}</select></label><button disabled={busy||!application.trim()} onClick={async()=>{if(await act('application',{title:application,status:'Планируется',resumeVersionId:resumeVersionId||null}))setApplication('');}}>Добавить в трекер</button><ApplicationList applications={state.applications} versions={state.versions} busy={busy} drafts={noteDrafts} onDraft={(id,value)=>setNoteDrafts(previous=>{const next={...previous};if(value)next[id]=value;else delete next[id];return next;})} onUpdate={update=>act('application',update)}/></section>}
- {tab==='analytics'&&<AnalyticsPanel applications={state.applications} versions={state.versions}/>}
- {tab==='settings'&&<><section className="card"><h2>Приложение на устройстве</h2><p>Откройте меню браузера и выберите «Установить приложение» или «На экран Домой», если этот пункт доступен. Для установки и первого открытия нужен интернет.</p><p>При потере сети доступен только справочный офлайн-экран. Резюме, история и ответы API не сохраняются в офлайн-кэше приложения. Не закрывайте вкладку с несохраненным текстом; автоматической отправки изменений нет.</p></section><section className="card"><h2>Данные и интеграции</h2><p>Резюме и версии хранятся в PostgreSQL (Supabase, Германия); приложение размещено на Vercel. Внешние LLM и интеграция hh.ru отключены. Вход защищен Supabase Auth; пароль hh.ru не нужен.</p><p>Текущий движок — консервативные правила, не генеративная модель. PDF-сканы, семантическая проверка опыта и автоматическая оценка условий не поддерживаются.</p><button disabled={busy} onClick={()=>act('export')}>Экспорт профиля, версий и откликов</button><p><a href={"/api/fact-history?export=1"+(state.ownerId?"&expectedOwnerId="+encodeURIComponent(state.ownerId):"")} download>Скачать полную историю фактов (NDJSON)</a></p><p className="muted">Для полного архива скачайте оба файла. JSON содержит журнал действий до указанного exported_at; это не единый транзакционный снимок с историей фактов. В конце истории должна быть строка complete: true; иначе файл неполный. Лимит истории: 5000 снимков или 50 МиБ; для большего объема нужен расширенный экспорт.</p></section><section className="card danger"><h2>Удалить аккаунт и данные</h2><p>Удалятся профиль, версии, отклики, сессии и журнал аккаунта из активной базы. Скачанные вами файлы останутся на вашем устройстве.</p><label>Введите УДАЛИТЬ<input value={deleteWord} onChange={e=>setDeleteWord(e.target.value)}/></label><button disabled={busy||deleteWord!=='УДАЛИТЬ'} onClick={()=>act('delete',{confirm:deleteWord})}>Удалить безвозвратно</button></section></>}
- <footer>JobMatch AI · Проверяемый MVP · Match Score не является оценкой hh.ru и не гарантирует интервью.</footer></main></div>;
+
+import {useEffect, useRef, useState} from 'react';
+
+type Vacancy = {title: string; company: string; url: string; text: string; skills: string[]};
+type Result = {title: string; text: string; coverLetter: string; mode: 'automatic' | 'ai'; matchedSkills: string[]; missingSkills: string[]};
+type Stage = 'import' | 'vacancy' | 'adapt' | 'export';
+
+function Icon({name}: {name: 'file' | 'link' | 'spark' | 'download' | 'check'}) {
+  return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    {name === 'file' && <><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/></>}
+    {name === 'link' && <><path d="m10 13 4-4M8 16l-1 1a4 4 0 0 1-6-6l4-4a4 4 0 0 1 6 0M16 8l1-1a4 4 0 0 1 6 6l-4 4a4 4 0 0 1-6 0" transform="translate(0 1) scale(.95)"/></>}
+    {name === 'spark' && <><path d="m12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5zM20 2v4M18 4h4"/></>}
+    {name === 'download' && <><path d="M12 3v12m-5-5 5 5 5-5M4 16v4h16v-4"/></>}
+    {name === 'check' && <path d="m5 12 4 4L19 6"/>}
+  </svg>;
+}
+
+async function responseJson<T>(response: Response): Promise<T> {
+  const data = await response.json().catch(() => null);
+  if (!response.ok) throw new Error(typeof data?.error === 'string' ? data.error : typeof data?.message === 'string' ? data.message : 'Не удалось выполнить запрос. Попробуйте ещё раз.');
+  if (!data) throw new Error('Сервер вернул пустой ответ. Попробуйте ещё раз.');
+  return data as T;
+}
+
+export default function Home() {
+  const [resume, setResume] = useState<{text: string; filename: string} | null>(null);
+  const [url, setUrl] = useState('');
+  const [vacancy, setVacancy] = useState<Vacancy | null>(null);
+  const [result, setResult] = useState<Result | null>(null);
+  const [format, setFormat] = useState<'docx' | 'pdf'>('docx');
+  const [busy, setBusy] = useState<Partial<Record<Stage, boolean>>>({});
+  const [errors, setErrors] = useState<Partial<Record<Stage, string>>>({});
+  const [downloaded, setDownloaded] = useState(false);
+  const controllers = useRef<Partial<Record<Stage, AbortController>>>({});
+  const fileInput = useRef<HTMLInputElement>(null);
+  const downloadUrls = useRef(new Set<string>());
+
+  useEffect(() => {
+    const active = controllers.current;
+    const urls = downloadUrls.current;
+    return () => {
+      Object.values(active).forEach(controller => controller?.abort());
+      urls.forEach(value => URL.revokeObjectURL(value));
+    };
+  }, []);
+
+  function cancel(stage: Stage) {
+    controllers.current[stage]?.abort();
+    delete controllers.current[stage];
+    setBusy(previous => ({...previous, [stage]: false}));
+    setErrors(previous => ({...previous, [stage]: undefined}));
+  }
+
+  function invalidateResult() {
+    cancel('adapt');
+    cancel('export');
+    setResult(null);
+    setDownloaded(false);
+  }
+
+  async function run(stage: Stage, work: (signal: AbortSignal) => Promise<void>) {
+    if (controllers.current[stage]) return;
+    const controller = new AbortController();
+    controllers.current[stage] = controller;
+    setBusy(previous => ({...previous, [stage]: true}));
+    setErrors(previous => ({...previous, [stage]: undefined}));
+    const timer = window.setTimeout(() => {
+      if (controllers.current[stage] === controller && !controller.signal.aborted) {
+        setErrors(previous => ({...previous, [stage]: 'Сервер не ответил вовремя. Повторите действие.'}));
+        controller.abort();
+      }
+    }, 40_000);
+    try {
+      await work(controller.signal);
+    } catch (error) {
+      if (!controller.signal.aborted) setErrors(previous => ({...previous, [stage]: error instanceof Error ? error.message : 'Нет связи с сервером. Попробуйте ещё раз.'}));
+    } finally {
+      window.clearTimeout(timer);
+      if (controllers.current[stage] === controller) {
+        delete controllers.current[stage];
+        setBusy(previous => ({...previous, [stage]: false}));
+      }
+    }
+  }
+
+  async function importResume(file: File) {
+    cancel('import');
+    invalidateResult();
+    setResume(null);
+    if (!/\.(pdf|docx)$/i.test(file.name)) {
+      setErrors(previous => ({...previous, import: 'Выберите PDF или Word (.docx). Старый формат .doc не поддерживается.'}));
+      return;
+    }
+    if (file.size > 4_000_000 || file.size === 0) {
+      setErrors(previous => ({...previous, import: 'Нужен непустой файл размером до 4 МБ.'}));
+      return;
+    }
+    await run('import', async signal => {
+      const data = await responseJson<{text: string; filename: string}>(await fetch('/api/mvp/import', {
+        method: 'POST', headers: {'Content-Type': 'application/octet-stream', 'X-Filename': encodeURIComponent(file.name)}, body: file, signal,
+      }));
+      if (!signal.aborted) setResume(data);
+    });
+  }
+
+  async function loadVacancy() {
+    if (controllers.current.vacancy) return;
+    let parsed: URL;
+    try {
+      parsed = new URL(url.trim());
+      if (parsed.protocol !== 'https:') throw new Error();
+    } catch {
+      setErrors(previous => ({...previous, vacancy: 'Введите полную ссылку на вакансию, начиная с https://.'}));
+      return;
+    }
+    invalidateResult();
+    setVacancy(null);
+    await run('vacancy', async signal => {
+      const data = await responseJson<Vacancy>(await fetch('/api/mvp/vacancy', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({url: parsed.href}), signal}));
+      if (!signal.aborted) setVacancy(data);
+    });
+  }
+
+  async function adapt() {
+    if (!resume || !vacancy || controllers.current.adapt) return;
+    cancel('export');
+    setResult(null);
+    setDownloaded(false);
+    await run('adapt', async signal => {
+      const data = await responseJson<Result>(await fetch('/api/mvp/adapt', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({resume: resume.text, vacancy}), signal}));
+      if (!signal.aborted) setResult(data);
+    });
+  }
+
+  async function download() {
+    if (!result) return;
+    setDownloaded(false);
+    await run('export', async signal => {
+      const response = await fetch('/api/mvp/export', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({text: result.text, title: result.title, format}), signal});
+      if (!response.ok) await responseJson(response);
+      const expected = format === 'pdf' ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+      if (!response.headers.get('content-type')?.startsWith(expected)) throw new Error('Сервер не вернул файл. Повторите скачивание.');
+      const blob = await response.blob();
+      if (!blob.size || blob.size > 16_000_000) throw new Error('Не удалось получить файл. Выберите другой формат.');
+      if (signal.aborted) return;
+      const objectUrl = URL.createObjectURL(blob);
+      downloadUrls.current.add(objectUrl);
+      const link = document.createElement('a');
+      link.href = objectUrl;
+      link.download = `${result.title.replace(/[<>:"/\\|?*\u0000-\u001f]/g, '').slice(0, 100) || 'Резюме'}.${format}`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => { URL.revokeObjectURL(objectUrl); downloadUrls.current.delete(objectUrl); }, 60_000);
+      setDownloaded(true);
+    });
+  }
+
+  const error = (stage: Stage) => errors[stage] ? <p className="error" role="alert">{errors[stage]}</p> : null;
+
+  return <div className="mvp-shell">
+    <header className="topbar">
+      <div className="brand" aria-label="JobMatch"><span className="brand-mark"><Icon name="spark"/></span>Job<span>Match</span></div>
+      <span className="header-note"><span className="status-dot"/>Без аккаунта JobMatch</span>
+    </header>
+    <main id="main-content">
+      <section className="intro" aria-labelledby="page-title">
+        <div className="eyebrow">ВАШ СЛЕДУЮЩИЙ КАРЬЕРНЫЙ ШАГ</div>
+        <h1 id="page-title">Ваш опыт.<br/><span>Нужные акценты.</span></h1>
+        <p>Резюме под конкретную вакансию.<br className="mobile-break"/> Загрузите файл и ссылку, остальное сделает JobMatch.</p>
+      </section>
+      <div className="workflow">
+        <div className="source-grid">
+          <section className="source-card" aria-labelledby="resume-heading" aria-busy={!!busy.import}>
+            <div className="section-heading"><span className="step">01</span><h2 id="resume-heading">Ваше резюме</h2><Icon name="file"/></div>
+            <div className={`upload-area ${resume ? 'ready' : ''}`}>
+              <span className="file-icon"><Icon name={resume ? 'check' : 'file'}/></span>
+              <strong>{busy.import ? 'Читаем ваше резюме…' : resume ? resume.filename : 'Начнём с вашего опыта'}</strong>
+              <p>{resume ? 'Файл загружен и готов к адаптации' : 'PDF с текстовым слоем или Word (.docx), до 4 МБ'}</p>
+              <input ref={fileInput} hidden type="file" tabIndex={-1} aria-label="Файл резюме" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onChange={event => {const file = event.target.files?.[0]; event.target.value = ''; if (file) void importResume(file);}}/>
+              <button className="button secondary" disabled={!!busy.import} onClick={() => fileInput.current?.click()}><Icon name="file"/>{busy.import ? 'Загружаем…' : 'Загрузить резюме'}</button>
+            </div>
+            {error('import')}
+          </section>
+          <section className="source-card" aria-labelledby="vacancy-heading" aria-busy={!!busy.vacancy}>
+            <div className="section-heading"><span className="step">02</span><h2 id="vacancy-heading">Ваша вакансия</h2><Icon name="link"/></div>
+            <div className="vacancy-form">
+              <label htmlFor="vacancy-url">Ссылка на вакансию</label>
+              <input id="vacancy-url" type="url" inputMode="url" autoComplete="off" placeholder="https://company.ru/careers/vacancy" value={url} onChange={event => {cancel('vacancy'); setUrl(event.target.value); setVacancy(null); invalidateResult();}} onKeyDown={event => {if (event.key === 'Enter' && url.trim()) {event.preventDefault(); void loadVacancy();}}} aria-describedby="vacancy-hint"/>
+              <p id="vacancy-hint">Загрузим название и требования с публичной страницы. Интеграция с hh.ru пока не подключена.</p>
+              <button className="button secondary" disabled={!url.trim() || !!busy.vacancy} onClick={() => void loadVacancy()}><Icon name="link"/>{busy.vacancy ? 'Загружаем…' : 'Загрузить вакансию'}</button>
+              {vacancy && <div className="vacancy-loaded" role="status"><Icon name="check"/><div><strong>{vacancy.title}</strong>{vacancy.company && <span>{vacancy.company}</span>}</div></div>}
+            </div>
+            {error('vacancy')}
+          </section>
+        </div>
+        <section className="adapt-row" aria-labelledby="adapt-heading" aria-busy={!!busy.adapt}>
+          <div className="adapt-description"><span className="step">03</span><div><h2 id="adapt-heading">Теперь соединим главное</h2><p>Название, навыки и сопроводительное письмо под вакансию.</p></div></div>
+          <button className="button primary" disabled={!resume || !vacancy || !!busy.import || !!busy.vacancy || !!busy.adapt} onClick={() => void adapt()}><Icon name="spark"/>{busy.adapt ? 'Адаптируем резюме…' : 'Адаптировать резюме'}<span aria-hidden="true">↗</span></button>
+        </section>
+        {error('adapt')}
+      </div>
+      <section className={`result-section ${result ? 'has-result' : ''}`} aria-labelledby="result-heading">
+        <div className="result-header">
+          <div className="result-title"><span className="step">04</span><div><h2 id="result-heading">{result ? 'Готово к следующему шагу' : 'Ваше обновлённое резюме'}</h2><p>{result ? (result.mode === 'ai' ? 'ИИ-адаптация завершена' : 'Автоматическая адаптация') : 'Появится здесь после адаптации'}</p></div></div>
+          <div className="download-controls"><label className="sr-only" htmlFor="download-format">Формат скачивания</label><select id="download-format" value={format} onChange={event => {cancel('export'); setDownloaded(false); setFormat(event.target.value as 'docx' | 'pdf');}}><option value="docx">Word (.docx)</option><option value="pdf">PDF</option></select><button className="button download" disabled={!result || !!busy.export} onClick={() => void download()}><Icon name="download"/>{busy.export ? 'Готовим файл…' : 'Скачать резюме'}</button></div>
+        </div>
+        {error('export')}
+        {downloaded && <p className="download-status" role="status">Файл готов. Если скачивание не началось, нажмите «Скачать резюме» ещё раз.</p>}
+        {result ? <div className="result-grid">
+          <article className="resume-preview"><div className="document-label">АДАПТИРОВАННОЕ РЕЗЮМЕ</div><h3>{result.title}</h3><pre>{result.text}</pre></article>
+          <div className="cover-letter"><div className="document-label">ФИНАЛЬНЫЙ ШТРИХ</div><h3>Сопроводительное письмо</h3><p>Выделите и скопируйте текст письма для отклика.</p><label className="sr-only" htmlFor="cover-letter">Текст сопроводительного письма</label><textarea id="cover-letter" readOnly value={result.coverLetter} rows={14}/><div className="manual-note"><strong>Дальше на hh.ru</strong><p>Перенесите резюме в свой аккаунт, сохраните и откликнитесь на вакансию с этим письмом. Отправка отклика остаётся за вами.</p></div></div>
+        </div> : <div className="result-placeholder"><span className="preview-sheet" aria-hidden="true"><i/><i/><i/><i/></span><p>Одно резюме. Одна вакансия.<br/><strong>Всё нужное для вашего отклика.</strong></p></div>}
+      </section>
+    </main>
+    <footer><span>JobMatch <span className="footer-dot">·</span> Меньше рутины. Больше возможностей.</span><span>Файл обрабатывается на сервере без сохранения. Скачайте результат перед закрытием вкладки.</span></footer>
+  </div>;
 }
