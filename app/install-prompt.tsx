@@ -61,7 +61,7 @@ export default function InstallPrompt() {
     <div className="install-summary"><div><strong>JobMatch на главном экране</strong><p>Запускайте приложение одним нажатием на значок.</p></div>
       <button className="install-close" aria-label="Скрыть подсказку об установке" onClick={() => setDismissed(true)}>×</button>
     </div>
-    <button className="button secondary install-action" disabled={pending} onClick={() => void install()} aria-describedby={details ? 'install-instructions' : undefined}>{pending ? 'Открываем установку…' : 'Создать ярлык приложения'}</button>
+    <button className="button secondary install-action" disabled={pending} onClick={() => void install()} aria-describedby={details ? 'install-instructions' : undefined}>{pending ? 'Открываем установку…' : 'Скачать приложение на смартфон'}</button>
     {details && <p id="install-instructions" className="install-instructions" role="status">{device === 'ios'
       ? <>Откройте эту страницу в Safari: <strong>Поделиться → На экран Домой → Добавить</strong>. Если есть переключатель «Открывать как веб-приложение», оставьте его включённым.</>
       : <>Если системное окно не появилось, откройте меню браузера <strong>⋮ → Установить приложение</strong> или <strong>Добавить на главный экран</strong>. Во встроенном браузере сначала выберите «Открыть в Chrome». Названия пунктов зависят от браузера.</>} После установки открывайте JobMatch с главного экрана. Для работы нужен интернет; закрытие приложения не сохраняет загруженное резюме.</p>}
