@@ -29,3 +29,30 @@ describe('simple MVP',()=>{
  it('adapts and exports without DB, authentication or confirmation payloads',async()=>{vi.stubEnv('JOBMATCH_AI_ENABLED','false');const response=await adapt(request('adapt',{resume:source,vacancy}));expect(response.status).toBe(200);const data=await response.json();for(const format of ['docx','pdf']){const file=await download(request('export',{text:data.text,title:data.title,format}));expect(file.status).toBe(200);expect(file.headers.get('content-disposition')).toContain('.'+format);}});
  it('rejects cross-site writes and invalid payloads',async()=>{const cross=await adapt(new Request('http://localhost/api/mvp/adapt',{method:'POST',headers:{origin:'https://evil.example','content-type':'application/json'},body:'{}'}));expect(cross.status).toBe(403);expect((await adapt(request('adapt',{}))).status).toBe(400);});
 });
+
+describe('MVP response boundary',()=>{
+ it('preserves original resume whitespace and accepts actual automatic results',async()=>{
+  const {responseJson,ImportedResumeSchema,AdaptedResumeSchema}=await import('../mvp/responses');
+  const text='  '+source+'\n';
+  expect(await responseJson(Response.json({text,filename:'resume.docx'}),ImportedResumeSchema)).toEqual({text,filename:'resume.docx'});
+  const result=adaptResume(source,vacancy);
+  expect(await responseJson(Response.json(result),AdaptedResumeSchema)).toEqual(result);
+ });
+ it('rejects malformed successful responses rather than enabling the next action',async()=>{
+  const {responseJson,ImportedResumeSchema,VacancySchema,AdaptedResumeSchema}=await import('../mvp/responses');
+  for(const body of [null,{},[],{text:source},{text:'short',filename:'a.docx'},{text:123,filename:'a.docx'}])await expect(responseJson(Response.json(body),ImportedResumeSchema)).rejects.toThrow('Повторите действие');
+  await expect(responseJson(new Response('<html>Error</html>'),ImportedResumeSchema)).rejects.toThrow('Повторите действие');
+  await expect(responseJson(Response.json({...vacancy,title:null}),VacancySchema)).rejects.toThrow();
+  await expect(responseJson(Response.json({...adaptResume(source,vacancy),mode:'success'}),AdaptedResumeSchema)).rejects.toThrow();
+ });
+ it('keeps useful API errors but refuses non-string or oversized error bodies',async()=>{
+  const {responseJson,ImportedResumeSchema}=await import('../mvp/responses');
+  await expect(responseJson(Response.json({error:'Сервис занят.'},{status:429}),ImportedResumeSchema)).rejects.toThrow('Сервис занят.');
+  await expect(responseJson(Response.json({error:{detail:'private'}},{status:500}),ImportedResumeSchema)).rejects.toThrow('Не удалось выполнить запрос');
+ });
+ it('rejects too-short documents at import, before adaptation',async()=>{
+  const data=await resumeDocx('Краткий текст');
+  const response=await upload(new Request('https://app.test/api/mvp/import',{method:'POST',headers:{'x-filename':'short.docx','x-forwarded-for':'short-document-regression'},body:new Uint8Array(data)}));
+  expect(response.status).toBe(422);expect(await response.json()).toEqual({error:'В файле слишком мало текста для адаптации. Загрузите полное резюме.'});
+ });
+});

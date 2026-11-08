@@ -27,3 +27,22 @@ test('stale vacancy response cannot restore changed input',async({page})=>{
  await page.route('**/api/mvp/vacancy',async route=>{await wait;await route.fulfill({json:vacancy}).catch(()=>{});});
  await page.goto('/');await page.getByLabel('Ссылка на вакансию').fill(vacancy.url);await page.getByRole('button',{name:'Загрузить вакансию',exact:true}).click();await page.getByLabel('Ссылка на вакансию').fill('https://example.com/new');release();await expect(page.locator('.vacancy-loaded')).toHaveCount(0);await expect(page.getByRole('button',{name:'Адаптировать резюме',exact:true})).toBeDisabled();
 });
+
+test('malformed import or adaptation response stays recoverable without showing a result',async({page})=>{
+ let validImport=false,validAdapt=false;
+ await page.route('**/api/mvp/import',route=>route.fulfill({json:validImport?{text:source,filename:'resume.docx'}:{text:123}}));
+ await page.route('**/api/mvp/vacancy',route=>route.fulfill({json:vacancy}));
+ await page.route('**/api/mvp/adapt',route=>route.fulfill({json:validAdapt?{title:vacancy.title,text:source,coverLetter:'Синтетическое письмо',mode:'automatic',matchedSkills:[],missingSkills:[]}:{mode:'ai'}}));
+ await page.goto('/');
+ const file={name:'resume.docx',mimeType:'application/vnd.openxmlformats-officedocument.wordprocessingml.document',buffer:Buffer.from('synthetic mocked import')};
+ await page.getByLabel('Файл резюме').setInputFiles(file);
+ await expect(page.getByRole('alert')).toContainText('Не удалось прочитать ответ сервера');
+ await expect(page.getByRole('button',{name:'Адаптировать резюме',exact:true})).toBeDisabled();
+ validImport=true;await page.getByLabel('Файл резюме').setInputFiles(file);
+ await expect(page.getByText('Файл загружен и готов к адаптации')).toBeVisible();
+ await page.getByLabel('Ссылка на вакансию').fill(vacancy.url);await page.getByRole('button',{name:'Загрузить вакансию',exact:true}).click();
+ await page.getByRole('button',{name:'Адаптировать резюме',exact:true}).click();
+ await expect(page.getByRole('alert')).toContainText('Не удалось прочитать ответ сервера');await expect(page.locator('.resume-preview')).toHaveCount(0);
+ validAdapt=true;await page.getByRole('button',{name:'Адаптировать резюме',exact:true}).click();
+ await expect(page.getByLabel('Текст сопроводительного письма')).toHaveValue('Синтетическое письмо');await expect(page.getByRole('alert')).toHaveCount(0);
+});

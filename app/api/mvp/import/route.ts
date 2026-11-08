@@ -12,6 +12,7 @@ export async function POST(request:Request){
   if(filename.length>240||!/^.+\.(pdf|docx)$/i.test(filename)||/[\u0000-\u001f/\\]/.test(filename))throw new UserError('Загрузите PDF или Word (.docx). Старый .doc сначала сохраните как .docx.');
   active++;acquired=true;const data=await boundedBody(request,MAX_FILE_BYTES);
   let text:string;try{text=await extractDocument(filename,Buffer.from(data));}catch(error){if(error instanceof UserError&&/OCR|вставьте текст/i.test(error.message))throw new UserError('Не удалось извлечь текст. Загрузите DOCX или PDF с текстовым слоем, не скан.',422);throw error;}
+  if(text.trim().length<20)throw new UserError('В файле слишком мало текста для адаптации. Загрузите полное резюме.',422);
   return Response.json({text,filename},{headers:privateHeaders});
  }catch(error){return errorResponse(error);}finally{if(acquired)active--;}
 }

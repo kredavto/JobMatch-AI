@@ -3,6 +3,7 @@
 import {useEffect, useRef, useState} from 'react';
 import InstallPrompt from './install-prompt';
 import AiStatus from './ai-status';
+import {responseJson,ImportedResumeSchema,VacancySchema,AdaptedResumeSchema} from '../mvp/responses';
 
 type Vacancy = {title: string; company: string; url: string; text: string; skills: string[]};
 type Result = {title: string; text: string; coverLetter: string; mode: 'automatic' | 'ai'; matchedSkills: string[]; missingSkills: string[]};
@@ -16,13 +17,6 @@ function Icon({name}: {name: 'file' | 'link' | 'spark' | 'list' | 'check'}) {
     {name === 'list' && <><path d="M9 6h12M9 12h12M9 18h12M3 6h1M3 12h1M3 18h1"/></>}
     {name === 'check' && <path d="m5 12 4 4L19 6"/>}
   </svg>;
-}
-
-async function responseJson<T>(response: Response): Promise<T> {
-  const data = await response.json().catch(() => null);
-  if (!response.ok) throw new Error(typeof data?.error === 'string' ? data.error : typeof data?.message === 'string' ? data.message : 'Не удалось выполнить запрос. Попробуйте ещё раз.');
-  if (!data) throw new Error('Сервер вернул пустой ответ. Попробуйте ещё раз.');
-  return data as T;
 }
 
 export default function Home() {
@@ -92,9 +86,9 @@ export default function Home() {
       return;
     }
     await run('import', async signal => {
-      const data = await responseJson<{text: string; filename: string}>(await fetch('/api/mvp/import', {
+      const data = await responseJson(await fetch('/api/mvp/import', {
         method: 'POST', headers: {'Content-Type': 'application/octet-stream', 'X-Filename': encodeURIComponent(file.name)}, body: file, signal,
-      }));
+      }),ImportedResumeSchema);
       if (!signal.aborted) setResume(data);
     });
   }
@@ -112,7 +106,7 @@ export default function Home() {
     invalidateResult();
     setVacancy(null);
     await run('vacancy', async signal => {
-      const data = await responseJson<Vacancy>(await fetch('/api/mvp/vacancy', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({url: parsed.href}), signal}));
+      const data = await responseJson(await fetch('/api/mvp/vacancy', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({url: parsed.href}), signal}),VacancySchema);
       if (!signal.aborted) setVacancy(data);
     });
   }
@@ -121,7 +115,7 @@ export default function Home() {
     if (!resume || !vacancy || controllers.current.adapt) return;
     setResult(null);
     await run('adapt', async signal => {
-      const data = await responseJson<Result>(await fetch('/api/mvp/adapt', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({resume: resume.text, vacancy}), signal}));
+      const data = await responseJson(await fetch('/api/mvp/adapt', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({resume: resume.text, vacancy}), signal}),AdaptedResumeSchema);
       if (!signal.aborted) setResult(data);
     });
   }
