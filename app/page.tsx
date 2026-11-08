@@ -2,6 +2,7 @@
 
 import {useEffect, useRef, useState} from 'react';
 import InstallPrompt from './install-prompt';
+import AiStatus from './ai-status';
 
 type Vacancy = {title: string; company: string; url: string; text: string; skills: string[]};
 type Result = {title: string; text: string; coverLetter: string; mode: 'automatic' | 'ai'; matchedSkills: string[]; missingSkills: string[]};
@@ -139,6 +140,7 @@ export default function Home() {
         <h1 id="page-title">Ваш опыт.<br/><span>Нужные акценты.</span></h1>
         <p>Резюме под конкретную вакансию.<br className="mobile-break"/> Загрузите исходный файл и ссылку на вакансию.</p>
       </section>
+      <AiStatus/>
       <div className="workflow">
         <div className="source-grid">
           <section className="source-card" aria-labelledby="resume-heading" aria-busy={!!busy.import}>

@@ -10,12 +10,13 @@
     "test": "vitest run",
     "lint": "eslint .",
     "test:e2e": "playwright test",
-    "test:mvp": "vitest run tests/mvp.test.ts tests/documents.test.ts tests/resume-docx.test.ts tests/pdf-lifecycle.test.ts tests/body.test.ts tests/service-worker.test.ts",
+    "test:mvp": "vitest run tests/mvp.test.ts tests/documents.test.ts tests/resume-docx.test.ts tests/pdf-lifecycle.test.ts tests/body.test.ts tests/service-worker.test.ts tests/ai-gateway.test.ts",
     "test:mvp:e2e": "playwright test --config playwright.mvp.config.ts"
   },
   "dependencies": {
     "@napi-rs/canvas": "0.1.80",
     "@pdf-lib/fontkit": "1.1.1",
+    "@vercel/oidc": "^4.0.7",
     "jszip": "3.10.2",
     "mammoth": "^1.11.0",
     "next": "16.4.3",

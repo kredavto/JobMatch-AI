@@ -23,3 +23,11 @@ Seven fixture browser checks cover the happy path/deduplication, CAPTCHA, shared
 ## Explicit risk consent
 
 `app/hh-automation-consent.tsx` is prepared but intentionally not mounted while live automation is unavailable. It uses a readable warning, an unchecked checkbox and an enable button disabled until acceptance. Consent is versioned and passed explicitly to the workflow. It acknowledges blocking risk; it does not grant hh permission, guarantee safety or remove service obligations. A future live host must bind this grant to the real activation and preserve it appropriately; the in-memory fixture object is not an audited production consent system. No registration is added.
+
+## Ограничение мобильной PWA
+
+Вход на hh.ru в соседней вкладке не даёт JobMatch доступа к её DOM, cookies или списку резюме: действует same-origin policy. Установка ярлыка не меняет эту границу. Публичный callback после обычного входа или session bridge без API в проверенной документации HH не найден. Нельзя считать закрытие вкладки или кнопку «Я вошёл» подтверждением входа.
+
+Реальный вариант без API — отдельное локальное расширение настольного браузера с разрешением `activeTab` и явным нажатием пользователя на странице «Мои резюме». Оно может передать точному origin JobMatch только видимые названия, ID и ссылки, без cookies/паролей, скрытых запросов и действий в аккаунте. Такой компонент пока не создан и актуальный DOM страницы не проверен. Обычный мобильный Chrome его не устанавливает; Safari iOS требует отдельного компонента. Это отдельный продуктовый выбор, а не завершённая интеграция PWA. Мобильная альтернатива без него — импорт скачанного пользователем файла.
+
+Источники: [same-origin policy](https://developer.mozilla.org/en-US/docs/Web/Security/Defenses/Same-origin_policy), [HH Developers](https://dev.hh.ru/), [activeTab](https://developer.chrome.com/docs/extensions/develop/concepts/activeTab), [Safari extensions](https://developer.apple.com/documentation/SafariServices/safari-web-extensions).
