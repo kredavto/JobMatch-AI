@@ -56,3 +56,26 @@ describe('MVP response boundary',()=>{
   expect(response.status).toBe(422);expect(await response.json()).toEqual({error:'В файле слишком мало текста для адаптации. Загрузите полное резюме.'});
  });
 });
+
+
+describe('resume evidence appears once',()=>{
+ const original='Синтетический кандидат\r\n\r\n2020–2022: Компания А\r\n  Работал инженером Python.  \r\n2022–2024: Компания Б\r\nРаботал инженером Python.\r\nРазрабатывал SQL отчёты.\r\nНе работал с Kubernetes.\r\nОбразование: университет.';
+ const role={title:'Python Engineer',company:'Тест',url:'https://example.com/job',text:'Python и SQL, Kubernetes.',skills:['Python','SQL','Kubernetes']};
+ it('preserves every source occurrence and context without adding another summary',()=>{
+  const result=adaptResume(original,role);
+  expect(result.text).toBe(role.title+'\n\n'+original);
+  expect(result.text.split('Работал инженером Python.')).toHaveLength(3);
+  expect(result.matchedSkills).toEqual(['Python','SQL']);
+  expect(result.coverLetter).toContain('Работал инженером Python.');
+  expect(result.coverLetter).not.toContain('Kubernetes');
+ });
+ it('keeps original context even when the model reorders or repeats selected indices',async()=>{
+  vi.stubEnv('JOBMATCH_AI_ENABLED','true');vi.stubEnv('JOBMATCH_AI_SELF_HOSTED','true');
+  vi.stubEnv('JOBMATCH_AI_PROVIDER','ollama');vi.stubEnv('JOBMATCH_AI_ENDPOINT','https://own.example/api/chat');
+  vi.stubEnv('JOBMATCH_AI_MODEL','own');vi.stubEnv('JOBMATCH_AI_TOKEN','test-token-sixteen-plus');
+  vi.stubGlobal('fetch',vi.fn(async()=>Response.json({done:true,message:{content:JSON.stringify({indices:[5,2,2,6]})}})));
+  const result=await adaptWithOwnModel(original,role,new AbortController().signal);
+  expect(result.mode).toBe('ai');expect(result.text).toBe(role.title+'\n\n'+original);
+  expect(result.coverLetter).toContain('Разрабатывал SQL отчёты.');expect(result.coverLetter).not.toContain('Kubernetes');
+ });
+});

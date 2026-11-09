@@ -93,7 +93,7 @@ export async function adaptWithOwnModel(resume:string,vacancy:Vacancy,signal:Abo
   const company=vacancy.company?` в компании «${vacancy.company}»`:'';
   const coverLetter=[`Здравствуйте!\n\nОткликаюсь на вакансию «${vacancy.title}»${company}.`,passages.length?'Из моего опыта:\n'+passages.slice(0,3).map(line=>'• '+line).join('\n'):'Направляю резюме для рассмотрения моей кандидатуры.','Готов обсудить задачи позиции и мой опыт. Спасибо за внимание!'].join('\n\n');
   // A valid empty selection is an AI result, not a fabricated matching skill.
-  return {...result,text:[vacancy.title,passages.length?'Релевантный опыт и навыки\n'+passages.join('\n'):'',resume.trim()].filter(Boolean).join('\n\n'),coverLetter,mode:'ai' as const};
+  return {...result,coverLetter,mode:'ai' as const};
  }catch(error){
   if(error instanceof UserError)throw error;
   if(deadline.aborted)throw new UserError('ИИ не ответил вовремя. Автоматический повтор не выполнялся; попробуйте позже.',504);

@@ -15,9 +15,9 @@ export function adaptResume(resume:string,vacancy:Vacancy){
  const unique=[...new Set(relevant)].slice(0,5);
  // The only new qualification statements are exact positive quotations from the source.
  // The job title is an application target, never a claim about past employment.
- // Preserve source verbatim; the new first heading is the requested target title.
- const source=[...lines];
- const sections=[vacancy.title,unique.length?'Релевантный опыт и навыки\n'+unique.join('\n'):'',source.join('\n').trim()].filter(Boolean);
+ // Keep source context and ordering intact, without quoting its lines twice.
+ // Selected evidence belongs in the cover letter, not a duplicate resume block.
+ const sections=[vacancy.title,resume.trim()].filter(Boolean);
  const company=vacancy.company?` в компании «${vacancy.company}»`:'';
  const coverLetter=[`Здравствуйте!\n\nОткликаюсь на вакансию «${vacancy.title}»${company}.`,unique.length?'Релевантные сведения из моего резюме:\n'+unique.slice(0,3).map(line=>'• '+line).join('\n'):'Направляю резюме для рассмотрения моей кандидатуры.','Буду рад обсудить задачи позиции и мой опыт. Спасибо за внимание к моей кандидатуре!'].join('\n\n');
  return {title:vacancy.title,text:sections.join('\n\n'),coverLetter,mode:'automatic' as const,matchedSkills,missingSkills};
