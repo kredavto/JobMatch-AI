@@ -1,3 +1,4 @@
+import {prioritizeEvidence,evidenceNote} from './evidence';
 import type {Vacancy} from './contracts';
 const normalize=(text:string)=>text.normalize('NFKC').toLowerCase().replaceAll('ё','е').replace(/\s+/g,' ').trim();
 const negative=/(?:\b(?:no|not|without|learning|studying)\b|(?:^|\s)(?:не|нет|без|изучаю|планирую|хочу освоить)(?:\s|$))/i;
@@ -17,8 +18,9 @@ export function adaptResume(resume:string,vacancy:Vacancy){
  // The job title is an application target, never a claim about past employment.
  // Keep source context and ordering intact, without quoting its lines twice.
  // Selected evidence belongs in the cover letter, not a duplicate resume block.
- const sections=[vacancy.title,resume.trim()].filter(Boolean);
+ const body=prioritizeEvidence(resume.trim(),unique);
+ const sections=[vacancy.title,body.text].filter(Boolean);
  const company=vacancy.company?` в компании «${vacancy.company}»`:'';
  const coverLetter=[`Здравствуйте!\n\nОткликаюсь на вакансию «${vacancy.title}»${company}.`,unique.length?'Релевантные сведения из моего резюме:\n'+unique.slice(0,3).map(line=>'• '+line).join('\n'):'Направляю резюме для рассмотрения моей кандидатуры.','Буду рад обсудить задачи позиции и мой опыт. Спасибо за внимание к моей кандидатуре!'].join('\n\n');
- return {title:vacancy.title,text:sections.join('\n\n'),coverLetter,mode:'automatic' as const,matchedSkills,missingSkills};
+ return {adaptationNote:evidenceNote(body.reorderedGroups),title:vacancy.title,text:sections.join('\n\n'),coverLetter,mode:'automatic' as const,matchedSkills,missingSkills};
 }

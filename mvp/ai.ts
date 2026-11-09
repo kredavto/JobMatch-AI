@@ -1,3 +1,4 @@
+import {prioritizeEvidence,evidenceNote} from './evidence';
 import {z} from 'zod';
 import {getVercelOidcTokenSync} from '@vercel/oidc';
 import {aiConfig} from '../lib/ai-provider';
@@ -92,8 +93,9 @@ export async function adaptWithOwnModel(resume:string,vacancy:Vacancy,signal:Abo
   const passages=[...new Set(chosen.indices)].map(index=>lines[index]).filter(line=>!negative.test(line));
   const company=vacancy.company?` в компании «${vacancy.company}»`:'';
   const coverLetter=[`Здравствуйте!\n\nОткликаюсь на вакансию «${vacancy.title}»${company}.`,passages.length?'Из моего опыта:\n'+passages.slice(0,3).map(line=>'• '+line).join('\n'):'Направляю резюме для рассмотрения моей кандидатуры.','Готов обсудить задачи позиции и мой опыт. Спасибо за внимание!'].join('\n\n');
+  const body=prioritizeEvidence(resume.trim(),passages);
   // A valid empty selection is an AI result, not a fabricated matching skill.
-  return {...result,coverLetter,mode:'ai' as const};
+  return {...result,text:[vacancy.title,body.text].join('\n\n'),adaptationNote:evidenceNote(body.reorderedGroups),coverLetter,mode:'ai' as const};
  }catch(error){
   if(error instanceof UserError)throw error;
   if(deadline.aborted)throw new UserError('ИИ не ответил вовремя. Автоматический повтор не выполнялся; попробуйте позже.',504);

@@ -6,7 +6,7 @@ import AiStatus from './ai-status';
 import {responseJson,ImportedResumeSchema,VacancySchema,AdaptedResumeSchema} from '../mvp/responses';
 
 type Vacancy = {title: string; company: string; url: string; text: string; skills: string[]};
-type Result = {title: string; text: string; coverLetter: string; mode: 'automatic' | 'ai'; matchedSkills: string[]; missingSkills: string[]};
+type Result = {adaptationNote?: string; title: string; text: string; coverLetter: string; mode: 'automatic' | 'ai'; matchedSkills: string[]; missingSkills: string[]};
 type Stage = 'import' | 'vacancy' | 'adapt';
 
 function Icon({name}: {name: 'file' | 'link' | 'spark' | 'list' | 'check'}) {
@@ -177,7 +177,7 @@ export default function Home() {
         </div>
         <p id="hh-resume-unavailable" className="hh-picker-notice" role="status"><strong>hh.ru не подключён.</strong> Войдите на настоящей странице hh.ru в новой вкладке. JobMatch пока не умеет подтверждать эту сессию, поэтому вход на сайте сам по себе не открывает список резюме здесь. После подключения и подтверждённой авторизации станет доступен выбор. Загруженный файл служит источником данных; резюме из аккаунта будет целью для переноса результата.</p>
         {result ? <div className="result-grid">
-          <article className="resume-preview"><div className="document-label">АДАПТИРОВАННОЕ РЕЗЮМЕ</div><h3>{result.title}</h3><pre>{result.text}</pre></article>
+          <article className="resume-preview"><div className="document-label">АДАПТИРОВАННОЕ РЕЗЮМЕ</div><h3>{result.title}</h3><pre>{result.text}</pre>{result.adaptationNote && <p>{result.adaptationNote}</p>}</article>
           <div className="cover-letter"><div className="document-label">ФИНАЛЬНЫЙ ШТРИХ</div><h3>Сопроводительное письмо</h3><p>Выделите и скопируйте текст письма для отклика.</p><label className="sr-only" htmlFor="cover-letter">Текст сопроводительного письма</label><textarea id="cover-letter" readOnly value={result.coverLetter} rows={14}/><div className="manual-note"><strong>Дальше на hh.ru</strong><p>Пока hh.ru не подключён, перенос текста резюме и отправка отклика с этим письмом выполняются вручную в вашем аккаунте.</p></div></div>
         </div> : <div className="result-placeholder"><span className="preview-sheet" aria-hidden="true"><i/><i/><i/><i/></span><p>Одно резюме. Одна вакансия.<br/><strong>Всё нужное для вашего отклика.</strong></p></div>}
       </section>

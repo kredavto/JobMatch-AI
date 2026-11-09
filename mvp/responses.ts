@@ -7,6 +7,7 @@ export const ImportedResumeSchema=z.object({
 });
 export const AdaptedResumeSchema=z.object({
  title:z.string().min(1).max(300),text:z.string().min(1).max(120000),
+ adaptationNote:z.string().max(1000).optional(),
  coverLetter:z.string().min(1).max(120000),mode:z.enum(['automatic','ai']),
  matchedSkills:z.array(z.string().min(1).max(100)).max(160),
  missingSkills:z.array(z.string().min(1).max(100)).max(160)

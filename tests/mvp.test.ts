@@ -79,3 +79,38 @@ describe('resume evidence appears once',()=>{
   expect(result.coverLetter).toContain('Разрабатывал SQL отчёты.');expect(result.coverLetter).not.toContain('Kubernetes');
  });
 });
+
+
+describe('context-preserving body adaptation',()=>{
+ const role={...vacancy,title:'Python Engineer',text:'Python development and SQL reports.',skills:['Python','SQL']};
+ const original='Синтетический кандидат\n\nКомпания А, 2020–2022\n• Готовил презентации клиентам.\n• Разрабатывал отчёты на Python.\n• Вёл архив документов.\n\nКомпания Б, 2022–2024\n• Координировал встречи команды.\n• Готовил SQL отчёты.\n\nОбразование: университет.';
+ it('prioritizes exact evidence within each employer, keeping all claims once',()=>{
+  const result=adaptResume(original,role);
+  expect(result.text).toContain('Компания А, 2020–2022\n• Разрабатывал отчёты на Python.\n• Готовил презентации клиентам.\n• Вёл архив документов.');
+  expect(result.text).toContain('Компания Б, 2022–2024\n• Готовил SQL отчёты.\n• Координировал встречи команды.');
+  expect(result.text.split('\n').slice(2).sort()).toEqual(original.split('\n').sort());
+  expect(result.adaptationNote).toContain('внутри 2 списков');
+ });
+ it('does not reorder nested bullets or detach continuation text',async()=>{
+  const {prioritizeEvidence}=await import('../mvp/evidence');
+  for(const source of ['• Первый пункт.\n  • Работа с Python.\n\nДата', '• Первый пункт.\n• Работа с Python.\nПродолжение с ограничениями.']){
+   expect(prioritizeEvidence(source,['• Работа с Python.']).text).toBe(source);
+  }
+ });
+ it('keeps CRLF and repeated facts at separate employers',async()=>{
+  const {prioritizeEvidence}=await import('../mvp/evidence');
+  const group='• Вёл документацию.\r\n• Работал с Python.';
+  const source='Компания А\r\n'+group+'\r\n\r\nКомпания Б\r\n'+group;
+  const result=prioritizeEvidence(source,['• Работал с Python.']);
+  expect(result.reorderedGroups).toBe(2);
+  expect(result.text.split('\r\n').sort()).toEqual(source.split('\r\n').sort());
+ });
+ it('uses the model selection for body prioritization, not automatic skill matches',async()=>{
+  vi.stubEnv('JOBMATCH_AI_ENABLED','true');vi.stubEnv('JOBMATCH_AI_PROVIDER','ollama');vi.stubEnv('JOBMATCH_AI_SELF_HOSTED','true');
+  vi.stubEnv('JOBMATCH_AI_ENDPOINT','https://own.example/api/chat');vi.stubEnv('JOBMATCH_AI_MODEL','own');vi.stubEnv('JOBMATCH_AI_TOKEN','test-token-sixteen-plus');
+  vi.stubGlobal('fetch',vi.fn(async()=>Response.json({done:true,message:{content:'{"indices":[4]}'}})));
+  const result=await adaptWithOwnModel(original,role,new AbortController().signal);
+  expect(result.text).toContain('Компания А, 2020–2022\n• Вёл архив документов.\n• Готовил презентации клиентам.\n• Разрабатывал отчёты на Python.');
+  expect(result.text.split('\n').slice(2).sort()).toEqual(original.split('\n').sort());
+ });
+});
