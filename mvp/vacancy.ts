@@ -18,8 +18,19 @@ export function publicIPv4(ip:string){
  const [a,b,c]=ip.split('.').map(Number);
  return !(a===0||a===10||a===127||a>=224||(a===100&&b>=64&&b<=127)||(a===169&&b===254)||(a===172&&b>=16&&b<=31)||(a===192&&(b===168||b===0||b===2))||(a===198&&(b===18||b===19||b===51&&c===100))||(a===203&&b===0&&c===113));
 }
+async function lookupWithSignal(hostname:string,signal:AbortSignal){
+ signal.throwIfAborted();
+ return new Promise<{address:string;family:number}[]>((resolve,reject)=>{
+  const aborted=()=>reject(signal.reason);
+  signal.addEventListener('abort',aborted,{once:true});
+  lookup(hostname,{all:true,family:4}).then(
+   addresses=>{signal.removeEventListener('abort',aborted);if(signal.aborted)reject(signal.reason);else resolve(addresses);},
+   error=>{signal.removeEventListener('abort',aborted);reject(error);}
+  );
+ });
+}
 async function page(url:URL,signal:AbortSignal):Promise<{status:number;location?:string;html:string}>{
- const addresses=await lookup(url.hostname,{all:true,family:4});
+ const addresses=await lookupWithSignal(url.hostname,signal);
  if(!addresses.length||addresses.some(a=>!publicIPv4(a.address)))throw new UserError('Эта ссылка недоступна для загрузки.',400);
  const address=addresses[0].address;
  return new Promise((resolve,reject)=>{
