@@ -3,11 +3,11 @@
 import {useEffect, useRef, useState} from 'react';
 import InstallPrompt from './install-prompt';
 import AiStatus from './ai-status';
-import {responseJson,ImportedResumeSchema,VacancySchema,AdaptedResumeSchema} from '../mvp/responses';
+import {responseJson,VacancySchema,AdaptedResumeSchema} from '../mvp/responses';
 
 type Vacancy = {title: string; company: string; url: string; text: string; skills: string[]};
 type Result = {adaptationNote?: string; title: string; text: string; coverLetter: string; mode: 'automatic' | 'ai'; matchedSkills: string[]; missingSkills: string[]};
-type Stage = 'import' | 'vacancy' | 'adapt';
+type Stage = 'vacancy' | 'adapt';
 
 function Icon({name}: {name: 'file' | 'link' | 'spark' | 'list' | 'check'}) {
   return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -20,14 +20,13 @@ function Icon({name}: {name: 'file' | 'link' | 'spark' | 'list' | 'check'}) {
 }
 
 export default function Home() {
-  const [resume, setResume] = useState<{text: string; filename: string} | null>(null);
+  const [resume] = useState<{text: string; filename: string} | null>(null);
   const [url, setUrl] = useState('');
   const [vacancy, setVacancy] = useState<Vacancy | null>(null);
   const [result, setResult] = useState<Result | null>(null);
   const [busy, setBusy] = useState<Partial<Record<Stage, boolean>>>({});
   const [errors, setErrors] = useState<Partial<Record<Stage, string>>>({});
   const controllers = useRef<Partial<Record<Stage, AbortController>>>({});
-  const fileInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const active = controllers.current;
@@ -73,26 +72,6 @@ export default function Home() {
     }
   }
 
-  async function importResume(file: File) {
-    cancel('import');
-    invalidateResult();
-    setResume(null);
-    if (!/\.(pdf|docx)$/i.test(file.name)) {
-      setErrors(previous => ({...previous, import: 'Выберите PDF или Word (.docx). Старый формат .doc не поддерживается.'}));
-      return;
-    }
-    if (file.size > 4_000_000 || file.size === 0) {
-      setErrors(previous => ({...previous, import: 'Нужен непустой файл размером до 4 МБ.'}));
-      return;
-    }
-    await run('import', async signal => {
-      const data = await responseJson(await fetch('/api/mvp/import', {
-        method: 'POST', headers: {'Content-Type': 'application/octet-stream', 'X-Filename': encodeURIComponent(file.name)}, body: file, signal,
-      }),ImportedResumeSchema);
-      if (!signal.aborted) setResume(data);
-    });
-  }
-
   async function loadVacancy() {
     if (controllers.current.vacancy) return;
     let parsed: URL;
@@ -132,21 +111,20 @@ export default function Home() {
       <section className="intro" aria-labelledby="page-title">
         <div className="eyebrow">ВАШ СЛЕДУЮЩИЙ КАРЬЕРНЫЙ ШАГ</div>
         <h1 id="page-title">Ваш опыт.<br/><span>Нужные акценты.</span></h1>
-        <p>Резюме под конкретную вакансию.<br className="mobile-break"/> Загрузите исходный файл и ссылку на вакансию.</p>
+        <p>Резюме под конкретную вакансию.<br className="mobile-break"/> Войдите в hh.ru, выберите резюме из списка и добавьте ссылку на вакансию.</p>
       </section>
       <AiStatus/>
       <div className="workflow">
         <div className="source-grid">
-          <section className="source-card" aria-labelledby="resume-heading" aria-busy={!!busy.import}>
-            <div className="section-heading"><span className="step">01</span><h2 id="resume-heading">Ваше резюме</h2><Icon name="file"/></div>
-            <div className={`upload-area ${resume ? 'ready' : ''}`}>
-              <span className="file-icon"><Icon name={resume ? 'check' : 'file'}/></span>
-              <strong>{busy.import ? 'Читаем ваше резюме…' : resume ? resume.filename : 'Начнём с вашего опыта'}</strong>
-              <p>{resume ? 'Файл загружен и готов к адаптации' : 'PDF с текстовым слоем или Word (.docx), до 4 МБ'}</p>
-              <input ref={fileInput} hidden type="file" tabIndex={-1} aria-label="Файл резюме" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onChange={event => {const file = event.target.files?.[0]; event.target.value = ''; if (file) void importResume(file);}}/>
-              <button className="button secondary" disabled={!!busy.import} onClick={() => fileInput.current?.click()}><Icon name="file"/>{busy.import ? 'Загружаем…' : 'Загрузить резюме'}</button>
+          <section className="source-card" aria-labelledby="resume-heading">
+            <div className="section-heading"><span className="step">01</span><h2 id="resume-heading">Ваше резюме из hh.ru</h2><Icon name="list"/></div>
+            <div className="upload-area">
+              <strong>Сначала авторизация в hh.ru</strong>
+              <p>Источником опыта будет выбранное резюме из вашего аккаунта.</p>
+              <a className="button secondary" href="https://hh.ru/account/login" target="_blank" rel="noopener noreferrer"><Icon name="link"/>Войти в hh.ru<span className="sr-only"> (новая вкладка)</span></a>
+              <button type="button" className="button resume-picker" disabled aria-describedby="hh-resume-unavailable"><Icon name="list"/>Выбрать резюме из списка</button>
             </div>
-            {error('import')}
+            <p id="hh-resume-unavailable" className="hh-picker-notice" role="status"><strong>Подключение hh.ru ещё не готово.</strong> Сейчас ссылка открывает настоящий сайт hh.ru, но не авторизует JobMatch. Выбор резюме и адаптация станут доступны после подключения безопасной авторизации и получения списка резюме. Пароль hh.ru в JobMatch вводить не нужно.</p>
           </section>
           <section className="source-card" aria-labelledby="vacancy-heading" aria-busy={!!busy.vacancy}>
             <div className="section-heading"><span className="step">02</span><h2 id="vacancy-heading">Ваша вакансия</h2><Icon name="link"/></div>
@@ -162,7 +140,7 @@ export default function Home() {
         </div>
         <section className="adapt-row" aria-labelledby="adapt-heading" aria-busy={!!busy.adapt}>
           <div className="adapt-description"><span className="step">03</span><div><h2 id="adapt-heading">Теперь соединим главное</h2><p>Название, навыки и сопроводительное письмо под вакансию.</p></div></div>
-          <button className="button primary" disabled={!resume || !vacancy || !!busy.import || !!busy.vacancy || !!busy.adapt} onClick={() => void adapt()}><Icon name="spark"/>{busy.adapt ? 'Адаптируем резюме…' : 'Адаптировать резюме'}<span aria-hidden="true">↗</span></button>
+          <button className="button primary" disabled={!resume || !vacancy || !!busy.vacancy || !!busy.adapt} onClick={() => void adapt()}><Icon name="spark"/>{busy.adapt ? 'Адаптируем резюме…' : 'Адаптировать резюме'}<span aria-hidden="true">↗</span></button>
         </section>
         {error('adapt')}
       </div>
@@ -170,18 +148,12 @@ export default function Home() {
         <div className="result-header">
           <div className="result-title"><span className="step">04</span><div><h2 id="result-heading">Резюме для отклика</h2><p>{result ? (result.mode === 'ai' ? 'ИИ-адаптация завершена' : 'Автоматическая адаптация') : 'Появится здесь после адаптации'}</p></div></div>
         </div>
-        <div className="resume-picker-controls hh-account-controls" aria-label="Вход в hh.ru и выбор резюме">
-          <a className="button secondary" href="https://hh.ru/account/login" target="_blank" rel="noopener noreferrer"><Icon name="link"/>Войти в hh.ru<span className="sr-only"> (новая вкладка)</span></a>
-          <span className="hh-account-arrow" aria-hidden="true">→</span>
-          <button type="button" className="button resume-picker" disabled aria-describedby="hh-resume-unavailable"><Icon name="list"/>Выбрать резюме из списка</button>
-        </div>
-        <p id="hh-resume-unavailable" className="hh-picker-notice" role="status"><strong>hh.ru не подключён.</strong> Войдите на настоящей странице hh.ru в новой вкладке. JobMatch пока не умеет подтверждать эту сессию, поэтому вход на сайте сам по себе не открывает список резюме здесь. После подключения и подтверждённой авторизации станет доступен выбор. Загруженный файл служит источником данных; резюме из аккаунта будет целью для переноса результата.</p>
         {result ? <div className="result-grid">
           <article className="resume-preview"><div className="document-label">АДАПТИРОВАННОЕ РЕЗЮМЕ</div><h3>{result.title}</h3><pre>{result.text}</pre>{result.adaptationNote && <p>{result.adaptationNote}</p>}</article>
           <div className="cover-letter"><div className="document-label">ФИНАЛЬНЫЙ ШТРИХ</div><h3>Сопроводительное письмо</h3><p>Выделите и скопируйте текст письма для отклика.</p><label className="sr-only" htmlFor="cover-letter">Текст сопроводительного письма</label><textarea id="cover-letter" readOnly value={result.coverLetter} rows={14}/><div className="manual-note"><strong>Дальше на hh.ru</strong><p>Пока hh.ru не подключён, перенос текста резюме и отправка отклика с этим письмом выполняются вручную в вашем аккаунте.</p></div></div>
         </div> : <div className="result-placeholder"><span className="preview-sheet" aria-hidden="true"><i/><i/><i/><i/></span><p>Одно резюме. Одна вакансия.<br/><strong>Всё нужное для вашего отклика.</strong></p></div>}
       </section>
     </main>
-    <footer><span>JobMatch <span className="footer-dot">·</span> Меньше рутины. Больше возможностей.</span><span>Файл обрабатывается на сервере без сохранения. Результат хранится только во вкладке.</span></footer>
+    <footer><span>JobMatch <span className="footer-dot">·</span> Меньше рутины. Больше возможностей.</span><span>Резюме из hh.ru станет доступно после подключения авторизации. Результат хранится только во вкладке.</span></footer>
   </div>;
 }
