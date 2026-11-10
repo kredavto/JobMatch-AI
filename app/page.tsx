@@ -3,6 +3,7 @@
 import {useEffect, useRef, useState} from 'react';
 import InstallPrompt from './install-prompt';
 import AiStatus from './ai-status';
+import HHResumePicker from './hh-resume-picker';
 import {responseJson,VacancySchema,AdaptedResumeSchema} from '../mvp/responses';
 
 type Vacancy = {title: string; company: string; url: string; text: string; skills: string[]};
@@ -20,7 +21,7 @@ function Icon({name}: {name: 'file' | 'link' | 'spark' | 'list' | 'check'}) {
 }
 
 export default function Home() {
-  const [resume] = useState<{text: string; filename: string} | null>(null);
+  const [resume, setResume] = useState<{text: string; filename: string} | null>(null);
   const [url, setUrl] = useState('');
   const [vacancy, setVacancy] = useState<Vacancy | null>(null);
   const [result, setResult] = useState<Result | null>(null);
@@ -118,20 +119,14 @@ export default function Home() {
         <div className="source-grid">
           <section className="source-card" aria-labelledby="resume-heading">
             <div className="section-heading"><span className="step">01</span><h2 id="resume-heading">Ваше резюме из hh.ru</h2><Icon name="list"/></div>
-            <div className="upload-area">
-              <strong>Сначала авторизация в hh.ru</strong>
-              <p>Источником опыта будет выбранное резюме из вашего аккаунта.</p>
-              <a className="button secondary" href="https://hh.ru/account/login" target="_blank" rel="noopener noreferrer"><Icon name="link"/>Войти в hh.ru<span className="sr-only"> (новая вкладка)</span></a>
-              <button type="button" className="button resume-picker" disabled aria-describedby="hh-resume-unavailable"><Icon name="list"/>Выбрать резюме из списка</button>
-            </div>
-            <p id="hh-resume-unavailable" className="hh-picker-notice" role="status"><strong>Подключение hh.ru ещё не готово.</strong> Сейчас ссылка открывает настоящий сайт hh.ru, но не авторизует JobMatch. Выбор резюме и адаптация станут доступны после подключения безопасной авторизации и получения списка резюме. Пароль hh.ru в JobMatch вводить не нужно.</p>
+            <HHResumePicker onSelect={value=>{invalidateResult();setResume(value);}}/>
           </section>
           <section className="source-card" aria-labelledby="vacancy-heading" aria-busy={!!busy.vacancy}>
             <div className="section-heading"><span className="step">02</span><h2 id="vacancy-heading">Ваша вакансия</h2><Icon name="link"/></div>
             <div className="vacancy-form">
               <label htmlFor="vacancy-url">Ссылка на вакансию</label>
               <input id="vacancy-url" type="url" inputMode="url" autoComplete="off" placeholder="https://company.ru/careers/vacancy" value={url} onChange={event => {cancel('vacancy'); setUrl(event.target.value); setVacancy(null); invalidateResult();}} onKeyDown={event => {if (event.key === 'Enter' && url.trim()) {event.preventDefault(); void loadVacancy();}}} aria-describedby="vacancy-hint"/>
-              <p id="vacancy-hint">Загрузим название и требования с публичной страницы. Интеграция с hh.ru пока не подключена.</p>
+              <p id="vacancy-hint">Загрузим название и требования с публичной страницы. Импорт вакансий hh.ru в этом шаге пока недоступен.</p>
               <button className="button secondary" disabled={!url.trim() || !!busy.vacancy} onClick={() => void loadVacancy()}><Icon name="link"/>{busy.vacancy ? 'Загружаем…' : 'Загрузить вакансию'}</button>
               {vacancy && <div className="vacancy-loaded" role="status"><Icon name="check"/><div><strong>{vacancy.title}</strong>{vacancy.company && <span>{vacancy.company}</span>}</div></div>}
             </div>
@@ -154,6 +149,6 @@ export default function Home() {
         </div> : <div className="result-placeholder"><span className="preview-sheet" aria-hidden="true"><i/><i/><i/><i/></span><p>Одно резюме. Одна вакансия.<br/><strong>Всё нужное для вашего отклика.</strong></p></div>}
       </section>
     </main>
-    <footer><span>JobMatch <span className="footer-dot">·</span> Меньше рутины. Больше возможностей.</span><span>Резюме из hh.ru станет доступно после подключения авторизации. Результат хранится только во вкладке.</span></footer>
+    <footer><span>JobMatch <span className="footer-dot">·</span> Меньше рутины. Больше возможностей.</span><span>Резюме читается только после официальной авторизации hh.ru. Результат хранится только во вкладке.</span></footer>
   </div>;
 }
