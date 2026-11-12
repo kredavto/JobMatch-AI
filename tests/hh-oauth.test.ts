@@ -1,6 +1,6 @@
 import {createHash} from 'node:crypto';
 import {afterEach,beforeEach,describe,expect,it,vi} from 'vitest';
-import {startHH,callbackHH,hhSession,listHHResumes,selectHHResume,logoutHH} from '../mvp/hh';
+import {startHH,callbackHH,hhSession,listHHResumes,selectHHResume,logoutHH,readHHVacancy} from '../mvp/hh';
 import {GET as resumeListRoute} from '../app/api/mvp/hh/resumes/route';
 const origin='https://preview.example',access='synthetic-access-token';
 function request(path:string,method='GET',cookie?:string,site=origin){return new Request(origin+'/api/mvp/hh/'+path,{method,headers:{...(method==='POST'?{origin:site}:{}),...(cookie?{cookie}:{})}});}
@@ -63,5 +63,28 @@ describe('HH access refusal diagnostics (synthetic only)',()=>{
  it('does not misreport a 403 identity check as a logged-out session',async()=>{
   const {cookie}=await login();vi.mocked(fetch).mockClear();vi.mocked(fetch).mockResolvedValueOnce(Response.json({errors:[{type:'forbidden'}]},{status:403}));
   await expect(hhSession(request('session','GET',cookie))).rejects.toMatchObject({status:403,message:expect.stringContaining('проверка аккаунта')});expect(fetch).toHaveBeenCalledTimes(1);
+ });
+});
+
+describe('HH diagnostic transport isolation',()=>{
+ it('uses exactly the same session Bearer for identity, resume list and vacancy reads',async()=>{
+  const {cookie}=await login();vi.mocked(fetch).mockClear();
+  await listHHResumes(request('resumes','GET',cookie));
+  vi.mocked(fetch).mockResolvedValueOnce(Response.json({auth_type:'applicant'})).mockResolvedValueOnce(Response.json({id:'12345'}));
+  await readHHVacancy(request('vacancy','POST',cookie),'12345');
+  expect(vi.mocked(fetch).mock.calls.map(([url])=>url)).toEqual(['https://api.hh.ru/me','https://api.hh.ru/resumes/mine','https://api.hh.ru/me','https://api.hh.ru/vacancies/12345']);
+  for(const [,options] of vi.mocked(fetch).mock.calls)expect(new Headers(options?.headers).get('authorization')).toBe('Bearer '+access);
+ });
+ it('logs only failed calls when opted in and keeps diagnostics out of the public response',async()=>{
+  vi.stubEnv('JOBMATCH_HH_DIAGNOSTICS_ENABLED','true');const log=vi.spyOn(console,'warn').mockImplementation(()=>{});
+  const {cookie}=await login();expect(log).not.toHaveBeenCalled();vi.mocked(fetch).mockClear();
+  const id='01234567-89ab-cdef-0123-456789abcdef';
+  vi.mocked(fetch).mockResolvedValueOnce(Response.json({auth_type:'applicant',private:'DO_NOT_LOG_ME'})).mockResolvedValueOnce(Response.json({request_id:id,errors:[{type:'oauth',value:'bad_authorization',captcha_url:'https://secret.example'}],access_token:access},{status:403,headers:{'content-type':'application/json; secret='+access}}));
+  const response=await resumeListRoute(request('resumes','GET',cookie)),body=await response.text();
+  expect(response.status).toBe(403);expect(log).toHaveBeenCalledTimes(1);const line=log.mock.calls[0][0] as string,data=JSON.parse(line);
+  expect(data).toMatchObject({status:403,operation:'resume_list',request_id:id,content_type:'application/json',errors:[{type:'oauth',value:'bad_authorization'}]});
+  for(const forbidden of [access,cookie,'DO_NOT_LOG_ME','https://secret.example'])expect(line).not.toContain(forbidden);
+  for(const forbidden of [id,'bad_authorization','request_id','time_utc','resume_list'])expect(body).not.toContain(forbidden);
+  expect(fetch).toHaveBeenCalledTimes(2);
  });
 });

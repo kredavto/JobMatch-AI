@@ -3,6 +3,7 @@ import {z} from 'zod';
 import {UserError} from '../lib/errors';
 import {boundedBody} from '../lib/body';
 import {privateHeaders} from './http';
+import {logHHRefusal} from './hh-diagnostics';
 const SESSION='__Host-jm-hh-session',STATE='__Host-jm-hh-state';
 const unavailable=()=>new UserError('Подключение hh.ru ещё не настроено владельцем приложения.',503);
 export function hhConfig(){
@@ -23,11 +24,10 @@ function assertOrigin(request:Request){const {origin}=hhConfig();if(request.head
 const sessionSchema=z.object({token:z.string().min(1).max(1600),exp:z.number()});
 function token(request:Request){const value=cookie(request,SESSION);if(!value)throw new UserError('Сначала авторизуйтесь в hh.ru.',401);const session=sessionSchema.parse(unseal(value,'session'));if(session.exp<=Date.now())throw new UserError('Сессия hh.ru истекла. Войдите снова.',401);return session.token;}
 // Never forward provider text, request IDs, captcha URLs or arbitrary error values.
-async function forbiddenHH(response:Response,signal:AbortSignal,path:string):Promise<UserError>{
+function forbiddenHH(raw:unknown,path:string):UserError{
  const operation=path==='/me'?'проверка аккаунта':path.startsWith('/resumes/mine')?'список резюме':path.startsWith('/resumes/')?'чтение резюме':path.startsWith('/vacancies/')?'чтение вакансии':'авторизация';
  let captcha=false;
  try{
-  const raw:unknown=JSON.parse(new TextDecoder().decode(await boundedBody({headers:response.headers,body:response.body,signal},16000)));
   const parsed=z.object({errors:z.array(z.object({type:z.string().optional(),value:z.string().optional()})).max(20)}).safeParse(raw);
   if(parsed.success)captcha=parsed.data.errors.some(error=>error.type==='captcha_required'||error.value==='captcha_required');
  }catch{/* An unreadable or oversized error stays a generic access refusal. */}
@@ -39,7 +39,11 @@ async function upstream(path:string,request:Request,access?:string,body?:URLSear
  const config=hhConfig(),signal=AbortSignal.any([request.signal,AbortSignal.timeout(15000)]);
  try{
  const response=await fetch('https://api.hh.ru'+path,{method:body?'POST':'GET',redirect:'error',cache:'no-store',signal,headers:{'HH-User-Agent':config.userAgent,...(access?{Authorization:'Bearer '+access}:{}),...(body?{'Content-Type':'application/x-www-form-urlencoded'}:{})},body:body?.toString()});
- if(!response.ok){if(options.vacancy&&response.status===404)throw new UserError('Вакансия не найдена или больше недоступна.',404);if(response.status===401)throw new UserError('Сессия hh.ru истекла или отозвана. Войдите снова.',401);if(response.status===403)throw await forbiddenHH(response,signal,path);if(response.status===429)throw new UserError('hh.ru временно ограничил запросы. Попробуйте позже.',429);throw new UserError('hh.ru временно недоступен. Попробуйте позже.',502);}
+ if(!response.ok){
+ let raw:unknown;
+ if(response.status===403||process.env.JOBMATCH_HH_DIAGNOSTICS_ENABLED==='true'){try{raw=JSON.parse(new TextDecoder().decode(await boundedBody({headers:response.headers,body:response.body,signal},16000)));}catch{/* Keep malformed/oversized refusals generic. */}}
+ logHHRefusal(response,path,raw,[access??'',config.clientSecret,config.clientId,config.key.toString('hex')]);
+ if(options.vacancy&&response.status===404)throw new UserError('Вакансия не найдена или больше недоступна.',404);if(response.status===401)throw new UserError('Сессия hh.ru истекла или отозвана. Войдите снова.',401);if(response.status===403)throw forbiddenHH(raw,path);if(response.status===429)throw new UserError('hh.ru временно ограничил запросы. Попробуйте позже.',429);throw new UserError('hh.ru временно недоступен. Попробуйте позже.',502);}
  return JSON.parse(new TextDecoder().decode(await boundedBody({headers:response.headers,body:response.body,signal},options.maxBytes??500000)));
  }catch(error){if(error instanceof UserError)throw error;throw new UserError('Не удалось получить ответ hh.ru. Повторите позже.',502);}
 }
