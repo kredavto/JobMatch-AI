@@ -26,7 +26,7 @@ Use the stable preview hostname for login. Other deployment hostnames fail the e
 - Access token encrypted with AES-256-GCM in a Secure, HttpOnly, SameSite=Lax, host-only cookie for at most one hour. No refresh token retained. Reauthorize after expiry.
 - Local disconnect clears JobMatch cookies, not the HH account's authorization grant; revoke that grant on HH if needed.
 - GET /resumes/mine, then GET /resumes/{id} only after membership in the user's current list. No arbitrary URL fetching, no resume writes, no negotiations/applications.
-- Selection extracts title, experience, skills and primary education. Dedicated contact, photo, birth-date and salary fields are excluded. User-entered free text may still include personal details; review it before AI processing. AI adaptation remains a separate explicit action.
+- Selection extracts title, experience, skills and primary education. Dedicated contact, photo, birth-date and salary fields are excluded. User-entered free text may still include personal details. Public adaptation is local-only on the JobMatch server: resume and vacancy text is not sent to external AI providers. HH API agreement clause 4.6 prohibits sharing service data with third parties; client labels, URLs and consent cannot establish redistribution rights. All public AI routes remain closed until a server-enforced provenance/rights design is reviewed (see SECURITY.md).
 - Upstream requests do not follow redirects, have bounded time/body size, do not log payloads/tokens, and do not echo upstream errors.
 
 ## Verification and remaining limits

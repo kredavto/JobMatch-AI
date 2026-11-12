@@ -1,6 +1,5 @@
 import {afterEach,beforeEach,describe,expect,it,vi} from 'vitest';
 import {adaptWithOwnModel,aiCapability,GROQ_MODEL} from '../mvp/ai';
-import {GET} from '../app/api/mvp/capabilities/route';
 vi.mock('@vercel/oidc',()=>({getVercelOidcTokenSync:vi.fn(()=>{throw new Error('Must not obtain Gateway credentials');})}));
 const source='Разрабатывал REST API на Python и FastAPI.\nПисал pytest-тесты для REST API.\nНе работал с Kubernetes в проектах.\nСейчас изучаю Docker; практического опыта пока нет.';
 const vacancy={title:'Python-разработчик',company:'Синтетический тест',url:'https://example.com/job',text:'Нужен Python, FastAPI и pytest.',skills:[]};
@@ -12,7 +11,7 @@ beforeEach(()=>{
 });
 afterEach(()=>{vi.unstubAllEnvs();vi.unstubAllGlobals();vi.restoreAllMocks();vi.useRealTimers();});
 describe('Groq adapter: mocked transport only, no live readiness claim',()=>{
- it('reports recipient and unverified state, never a secret',async()=>{const response=await GET();const body=await response.text();expect(body).toContain('configured_unverified');expect(body).toContain('Groq, не в API OpenAI');expect(body).not.toContain('synthetic-not-a-real-key');expect(response.headers.get('cache-control')).toContain('no-store');expect(fetch).not.toHaveBeenCalled();});
+ it('reports recipient and unverified state, never a secret',async()=>{const body=JSON.stringify(await aiCapability());expect(body).toContain('configured_unverified');expect(body).toContain('Groq, не в API OpenAI');expect(body).not.toContain('synthetic-not-a-real-key');expect(fetch).not.toHaveBeenCalled();});
  it('keeps disabled AI automatic without network',async()=>{vi.stubEnv('JOBMATCH_AI_ENABLED','false');expect((await aiCapability()).state).toBe('not_configured');expect((await run()).mode).toBe('automatic');expect(fetch).not.toHaveBeenCalled();});
  it('requires the Groq approval gate even with other provider approvals',async()=>{vi.stubEnv('JOBMATCH_AI_GROQ_APPROVED','false');vi.stubEnv('JOBMATCH_AI_GATEWAY_APPROVED','true');expect((await aiCapability()).state).toBe('needs_approval');await expect(run()).rejects.toMatchObject({status:503});expect(fetch).not.toHaveBeenCalled();});
  it.each(['','   ','bad\nkey','bad key','x'.repeat(4097)])('fails closed for missing or invalid key %j',async key=>{vi.stubEnv('GROQ_API_KEY',key);vi.stubEnv('AI_GATEWAY_API_KEY','synthetic-other-provider');expect((await aiCapability()).state).toBe('credentials_missing');await expect(run()).rejects.toMatchObject({status:503});expect(fetch).not.toHaveBeenCalled();});

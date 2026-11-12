@@ -10,7 +10,7 @@
     "test": "vitest run",
     "lint": "eslint .",
     "test:e2e": "playwright test",
-    "test:mvp": "vitest run tests/mvp.test.ts tests/mvp-vacancy-cancellation.test.ts tests/documents.test.ts tests/resume-docx.test.ts tests/pdf-lifecycle.test.ts tests/body.test.ts tests/service-worker.test.ts tests/ai-gateway.test.ts tests/ai-groq.test.ts tests/hh-oauth.test.ts",
+    "test:mvp": "vitest run tests/mvp.test.ts tests/mvp-vacancy-cancellation.test.ts tests/documents.test.ts tests/resume-docx.test.ts tests/pdf-lifecycle.test.ts tests/body.test.ts tests/service-worker.test.ts tests/ai-gateway.test.ts tests/ai-groq.test.ts tests/hh-oauth.test.ts tests/mvp-local-only.test.ts tests/ai-resume-adaptation-route.test.ts",
     "test:mvp:e2e": "playwright test --config playwright.mvp.config.ts"
   },
   "dependencies": {

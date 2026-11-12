@@ -71,3 +71,8 @@ Both JSON actions and multipart upload use a 15-second total read deadline. Abor
 
 ### PDF lifecycle (0.29)
 An explicit 15-second cooperative deadline covers loading-task and asynchronous text extraction, followed by at most one second waiting for destroy. Cleanup is requested exactly once and its rejections are handled without overwriting the extraction result. Continuations check expiration between page operations. This does not forcibly terminate CPU work or guarantee resource reclamation if PDF.js destroy hangs; module import/native initialization is outside the deadline. Hard CPU/memory budgets and parser sandboxing remain unimplemented.
+
+### Public AI egress hold (2026-11-12)
+The public MVP adaptation endpoint always runs the deterministic adapter on the JobMatch server. It does not import or invoke an AI provider, even when provider environment variables enable Groq, Gateway, or a remote/self-hosted Ollama endpoint. Capabilities and result notes disclose this local-only mode. Client URLs, source labels and consent cannot prove provenance or redistribution rights. This deliberately protects unmarked/copied HH text as well as recognizable HH URLs under clause 4.6 of https://dev.hh.ru/admin/developer_agreement.
+
+The older `/api/ai-review` and `/api/ai-resume-adaptation` endpoints also refuse requests (503) before authentication, saved workspace reads or inference; a stored workspace is not a trusted source boundary. Provider implementations remain for isolated synthetic mocked tests, not public requests. Reopening external inference requires a reviewed server-enforced provenance/rights design, not another approval flag. This is an AI-egress safeguard, not a claim of compliance for every other HH integration or hosting arrangement.
