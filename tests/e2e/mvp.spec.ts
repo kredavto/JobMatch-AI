@@ -86,3 +86,79 @@ test('403 list refusal clears selected data but keeps identity and does not repe
  await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
  expect(lists).toBe(2);expect(starts).toBe(0);expect(sessions).toBe(1);
 });
+
+test('HH vacancy 403 blocks clicks, Enter and changed HH URLs but not public pages or explicit recovery',async({page})=>{
+ let hhReads=0,publicReads=0;
+ await page.route('**/api/mvp/vacancy',route=>{
+  const url=new URL(route.request().postDataJSON().url);
+  if(url.hostname.endsWith('hh.ru')){hhReads++;return route.fulfill({status:403,json:{error:'hh.ru отказал в доступе (чтение вакансии).'}});}
+  publicReads++;return route.fulfill({json:vacancy});
+ });
+ await page.goto('/');const input=page.getByLabel('Ссылка на вакансию'),load=page.getByRole('button',{name:'Загрузить вакансию',exact:true});
+ await input.fill('https://hh.ru/vacancy/12345');await load.click();
+ await expect(load).toBeDisabled();await input.press('Enter');expect(hhReads).toBe(1);
+ await input.fill('https://spb.hh.ru/vacancy/54321');await input.press('Enter');await expect(load).toBeDisabled();expect(hhReads).toBe(1);
+ await input.fill(vacancy.url);await expect(load).toBeEnabled();await load.click();await expect(page.locator('.vacancy-loaded')).toContainText(vacancy.title);expect(publicReads).toBe(1);
+ await input.fill('https://hh.ru/vacancy/54321');await expect(load).toBeDisabled();
+ await page.reload();await input.fill('https://hh.ru/vacancy/54321');await input.press('Enter');await expect(load).toBeDisabled();expect(hhReads).toBe(1);
+ await page.getByRole('button',{name:'Разрешить повтор после проверки доступа'}).click();await expect(load).toBeEnabled();expect(hhReads).toBe(1);
+ await input.press('Enter');await expect(load).toBeDisabled();expect(hhReads).toBe(2);
+});
+
+test('late aborted vacancy refusal cannot block a newer URL',async({page})=>{
+ let release!:()=>void;const waiting=new Promise<void>(resolve=>{release=resolve;});
+ await page.route('**/api/mvp/vacancy',async route=>{
+  if(route.request().postDataJSON().url.includes('hh.ru')){await waiting;await route.fulfill({status:403,json:{error:'Late refusal'}}).catch(()=>{});}
+  else await route.fulfill({json:vacancy});
+ });
+ await page.goto('/');const input=page.getByLabel('Ссылка на вакансию'),load=page.getByRole('button',{name:'Загрузить вакансию',exact:true});
+ await input.fill('https://hh.ru/vacancy/12345');await load.click();await input.fill(vacancy.url);await load.click();release();
+ await expect(page.locator('.vacancy-loaded')).toContainText(vacancy.title);
+ await expect(page.getByRole('button',{name:'Разрешить повтор после проверки доступа'})).toHaveCount(0);
+});
+
+test('late resume JSON after timeout cannot replace a newer selection even if transport ignores abort',async({page})=>{
+ await page.clock.install();
+ await page.addInitScript(()=>{
+  const original=window.fetch.bind(window);let selectCount=0;
+  Object.assign(window,{releaseOldSelection:()=>{}});
+  window.fetch=async(input,init)=>{
+   if(String(input).endsWith('/hh/select')){
+    selectCount++;
+    if(selectCount===1)return {ok:true,status:200,json:()=>new Promise(resolve=>{Object.assign(window,{releaseOldSelection:()=>resolve({text:'OLD_PRIVATE_RESUME must never be selected.',filename:'Old'})});})} as Response;
+    return new Response(JSON.stringify({text:'NEW_RESUME Selected newer experience.',filename:'New'}),{status:200,headers:{'content-type':'application/json'}});
+   }
+   return original(input,init);
+  };
+ });
+ await page.route('**/api/mvp/hh/session',route=>route.fulfill({json:{configured:true,authenticated:true}}));
+ await page.route('**/api/mvp/hh/resumes',route=>route.fulfill({json:{items:[{id:'old',title:'Old'},{id:'new',title:'New'}]}}));
+ await page.route('**/api/mvp/vacancy',route=>route.fulfill({json:vacancy}));
+ let sentResume='';
+ await page.route('**/api/mvp/adapt',route=>{sentResume=route.request().postDataJSON().resume;return route.fulfill({status:503,json:{error:'Synthetic stop'}});});
+ await page.goto('/');await page.getByRole('button',{name:'Выбрать резюме из списка',exact:true}).click();
+ await page.getByRole('button',{name:'Old',exact:true}).click();await page.clock.fastForward(21000);
+ await expect(page.locator('.error[role=alert]')).toContainText('не ответил вовремя');
+ await page.getByRole('button',{name:'New',exact:true}).click();await expect(page.getByRole('button',{name:'New',exact:true})).toHaveAttribute('aria-pressed','true');
+ await page.evaluate(()=>{(window as unknown as {releaseOldSelection:()=>void}).releaseOldSelection();});
+ await expect(page.getByRole('button',{name:'Old',exact:true})).toHaveAttribute('aria-pressed','false');
+ await expect(page.getByRole('button',{name:'New',exact:true})).toHaveAttribute('aria-pressed','true');
+ await page.getByLabel('Ссылка на вакансию').fill(vacancy.url);await page.getByRole('button',{name:'Загрузить вакансию',exact:true}).click();
+ await page.getByRole('button',{name:'Адаптировать резюме',exact:true}).click();await expect.poll(()=>sentResume).toContain('NEW_RESUME');expect(sentResume).not.toContain('OLD_PRIVATE_RESUME');
+});
+
+
+test('initial HH session 403 blocks retry and login without repeating requests',async({page})=>{
+ let sessions=0,starts=0,resumeReads=0;
+ await page.route('**/api/mvp/hh/session',route=>{sessions++;return route.fulfill({status:403,json:{error:'hh.ru отказал в доступе (проверка аккаунта).'}});});
+ await page.route('**/api/mvp/hh/start',route=>{starts++;return route.abort();});
+ await page.route('**/api/mvp/hh/resumes',route=>{resumeReads++;return route.abort();});
+ await page.goto('/');
+ await expect(page.locator('.error[role=alert]')).toContainText('отказал в доступе');
+ await expect(page.locator('#hh-resume-unavailable')).toContainText('отказал в доступе');
+ await expect(page.getByRole('button',{name:'Проверить подключение снова'})).toHaveCount(0);
+ await expect(page.getByRole('button',{name:'Войти в hh.ru',exact:true})).toBeDisabled();
+ await expect(page.getByRole('button',{name:'Выбрать резюме из списка',exact:true})).toBeDisabled();
+ await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
+ expect(sessions).toBe(1);expect(starts).toBe(0);expect(resumeReads).toBe(0);
+});

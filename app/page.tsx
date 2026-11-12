@@ -9,6 +9,9 @@ import {responseJson,VacancySchema,AdaptedResumeSchema} from '../mvp/responses';
 type Vacancy = {title: string; company: string; url: string; text: string; skills: string[]};
 type Result = {adaptationNote?: string; title: string; text: string; coverLetter: string; mode: 'automatic' | 'ai'; matchedSkills: string[]; missingSkills: string[]};
 type Stage = 'vacancy' | 'adapt';
+const HH_BLOCK_KEY='jobmatch.hh-vacancy-blocked';
+function isHHUrl(value:string){try{return /^(?:[a-z0-9-]+\.)?hh\.ru$/.test(new URL(value.trim()).hostname);}catch{return false;}}
+
 
 function Icon({name}: {name: 'file' | 'link' | 'spark' | 'list' | 'check'}) {
   return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -27,9 +30,12 @@ export default function Home() {
   const [result, setResult] = useState<Result | null>(null);
   const [busy, setBusy] = useState<Partial<Record<Stage, boolean>>>({});
   const [errors, setErrors] = useState<Partial<Record<Stage, string>>>({});
+  const [hhBlocked,setHHBlocked]=useState(false);
+  const hhBlockedRef=useRef(false);
   const controllers = useRef<Partial<Record<Stage, AbortController>>>({});
 
   useEffect(() => {
+    try{if(sessionStorage.getItem(HH_BLOCK_KEY)==='true'){hhBlockedRef.current=true;setHHBlocked(true);}}catch{}
     const active = controllers.current;
     return () => {
       Object.values(active).forEach(controller => controller?.abort());
@@ -83,10 +89,17 @@ export default function Home() {
       setErrors(previous => ({...previous, vacancy: 'Введите полную ссылку на вакансию, начиная с https://.'}));
       return;
     }
+    if(isHHUrl(parsed.href)&&hhBlockedRef.current)return;
     invalidateResult();
     setVacancy(null);
     await run('vacancy', async signal => {
-      const data = await responseJson(await fetch('/api/mvp/vacancy', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({url: parsed.href}), signal}),VacancySchema);
+      const response = await fetch('/api/mvp/vacancy', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({url: parsed.href}), signal});
+      if(signal.aborted)return;
+      if(response.status===403&&isHHUrl(parsed.href)){
+        hhBlockedRef.current=true;setHHBlocked(true);
+        try{sessionStorage.setItem(HH_BLOCK_KEY,'true');}catch{}
+      }
+      const data=await responseJson(response,VacancySchema);
       if (!signal.aborted) setVacancy(data);
     });
   }
@@ -126,8 +139,9 @@ export default function Home() {
             <div className="vacancy-form">
               <label htmlFor="vacancy-url">Ссылка на вакансию</label>
               <input id="vacancy-url" type="url" inputMode="url" autoComplete="off" placeholder="https://company.ru/careers/vacancy" value={url} onChange={event => {cancel('vacancy'); setUrl(event.target.value); setVacancy(null); invalidateResult();}} onKeyDown={event => {if (event.key === 'Enter' && url.trim()) {event.preventDefault(); void loadVacancy();}}} aria-describedby="vacancy-hint"/>
-              <p id="vacancy-hint">Загрузим название и требования с публичной страницы. Вакансии hh.ru доступны после входа через официальную авторизацию.</p>
-              <button className="button secondary" disabled={!url.trim() || !!busy.vacancy} onClick={() => void loadVacancy()}><Icon name="link"/>{busy.vacancy ? 'Загружаем…' : 'Загрузить вакансию'}</button>
+              <p id="vacancy-hint">Загрузим название и требования с публичной страницы. Для hh.ru нужны официальный вход и разрешённый API-доступ. Успешный вход не гарантирует чтение вакансий.</p>
+              <button className="button secondary" disabled={!url.trim() || !!busy.vacancy || (hhBlocked&&isHHUrl(url))} onClick={() => void loadVacancy()}><Icon name="link"/>{busy.vacancy ? 'Загружаем…' : 'Загрузить вакансию'}</button>
+              {hhBlocked&&<div role="status"><p>hh.ru отказал в доступе. Повторный импорт hh.ru остановлен, другие публичные сайты доступны. Сначала проверьте разрешения API. Разрешение новой попытки само по себе не отправляет запрос.</p><button className="button secondary" disabled={!!busy.vacancy} onClick={()=>{hhBlockedRef.current=false;setHHBlocked(false);try{sessionStorage.removeItem(HH_BLOCK_KEY);}catch{}setErrors(previous=>({...previous,vacancy:undefined}));}}>Разрешить повтор после проверки доступа</button></div>}
               {vacancy && <div className="vacancy-loaded" role="status"><Icon name="check"/><div><strong>{vacancy.title}</strong>{vacancy.company && <span>{vacancy.company}</span>}</div></div>}
             </div>
             {error('vacancy')}
