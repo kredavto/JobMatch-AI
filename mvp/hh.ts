@@ -22,11 +22,24 @@ const headers=()=>new Headers({...privateHeaders,'Referrer-Policy':'no-referrer'
 function assertOrigin(request:Request){const {origin}=hhConfig();if(request.headers.get('origin')!==origin||new URL(request.url).origin!==origin)throw new UserError('Откройте приложение и повторите действие.',403);}
 const sessionSchema=z.object({token:z.string().min(1).max(1600),exp:z.number()});
 function token(request:Request){const value=cookie(request,SESSION);if(!value)throw new UserError('Сначала авторизуйтесь в hh.ru.',401);const session=sessionSchema.parse(unseal(value,'session'));if(session.exp<=Date.now())throw new UserError('Сессия hh.ru истекла. Войдите снова.',401);return session.token;}
+// Never forward provider text, request IDs, captcha URLs or arbitrary error values.
+async function forbiddenHH(response:Response,signal:AbortSignal,path:string):Promise<UserError>{
+ const operation=path==='/me'?'проверка аккаунта':path.startsWith('/resumes/mine')?'список резюме':path.startsWith('/resumes/')?'чтение резюме':path.startsWith('/vacancies/')?'чтение вакансии':'авторизация';
+ let captcha=false;
+ try{
+  const raw:unknown=JSON.parse(new TextDecoder().decode(await boundedBody({headers:response.headers,body:response.body,signal},16000)));
+  const parsed=z.object({errors:z.array(z.object({type:z.string().optional(),value:z.string().optional()})).max(20)}).safeParse(raw);
+  if(parsed.success)captcha=parsed.data.errors.some(error=>error.type==='captcha_required'||error.value==='captcha_required');
+ }catch{/* An unreadable or oversized error stays a generic access refusal. */}
+ return new UserError(captcha
+  ?'hh.ru отказал в доступе ('+operation+'): требуется CAPTCHA. Автоматические запросы остановлены; проверку нужно пройти на стороне hh.ru.'
+  :'hh.ru отказал в доступе ('+operation+'). Проверьте разрешения приложения в hh.ru. Повторный вход сам по себе не подтверждает доступ.',403);
+}
 async function upstream(path:string,request:Request,access?:string,body?:URLSearchParams,options:{maxBytes?:number;vacancy?:boolean}={}){
  const config=hhConfig(),signal=AbortSignal.any([request.signal,AbortSignal.timeout(15000)]);
  try{
  const response=await fetch('https://api.hh.ru'+path,{method:body?'POST':'GET',redirect:'error',cache:'no-store',signal,headers:{'HH-User-Agent':config.userAgent,...(access?{Authorization:'Bearer '+access}:{}),...(body?{'Content-Type':'application/x-www-form-urlencoded'}:{})},body:body?.toString()});
- if(!response.ok){if(options.vacancy&&response.status===404)throw new UserError('Вакансия не найдена или больше недоступна.',404);if(response.status===401||response.status===403)throw new UserError('hh.ru не подтвердил доступ. Войдите снова или проверьте разрешения приложения.',401);if(response.status===429)throw new UserError('hh.ru временно ограничил запросы. Попробуйте позже.',429);throw new UserError('hh.ru временно недоступен. Попробуйте позже.',502);}
+ if(!response.ok){if(options.vacancy&&response.status===404)throw new UserError('Вакансия не найдена или больше недоступна.',404);if(response.status===401)throw new UserError('Сессия hh.ru истекла или отозвана. Войдите снова.',401);if(response.status===403)throw await forbiddenHH(response,signal,path);if(response.status===429)throw new UserError('hh.ru временно ограничил запросы. Попробуйте позже.',429);throw new UserError('hh.ru временно недоступен. Попробуйте позже.',502);}
  return JSON.parse(new TextDecoder().decode(await boundedBody({headers:response.headers,body:response.body,signal},options.maxBytes??500000)));
  }catch(error){if(error instanceof UserError)throw error;throw new UserError('Не удалось получить ответ hh.ru. Повторите позже.',502);}
 }
@@ -59,7 +72,7 @@ export async function callbackHH(request:Request){
 export async function hhSession(request:Request){
  if(!hhConfigured())return {configured:false,authenticated:false};
  if(!cookie(request,SESSION))return {configured:true,authenticated:false};
- try{await applicant(request,token(request));return {configured:true,authenticated:true};}catch(error){if(error instanceof UserError&&[401,403].includes(error.status))return {configured:true,authenticated:false};throw error;}
+ try{await applicant(request,token(request));return {configured:true,authenticated:true};}catch(error){if(error instanceof UserError&&error.status===401)return {configured:true,authenticated:false};throw error;}
 }
 const idSchema=z.string().regex(/^[a-zA-Z0-9_-]{1,128}$/);
 const itemSchema=z.object({id:idSchema,title:z.string().nullish(),updated_at:z.string().optional()});

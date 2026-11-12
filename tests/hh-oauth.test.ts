@@ -1,6 +1,7 @@
 import {createHash} from 'node:crypto';
 import {afterEach,beforeEach,describe,expect,it,vi} from 'vitest';
 import {startHH,callbackHH,hhSession,listHHResumes,selectHHResume,logoutHH} from '../mvp/hh';
+import {GET as resumeListRoute} from '../app/api/mvp/hh/resumes/route';
 const origin='https://preview.example',access='synthetic-access-token';
 function request(path:string,method='GET',cookie?:string,site=origin){return new Request(origin+'/api/mvp/hh/'+path,{method,headers:{...(method==='POST'?{origin:site}:{}),...(cookie?{cookie}:{})}});}
 function cookies(response:Response){return response.headers.getSetCookie().map(value=>value.split(';')[0]).join('; ');}
@@ -36,4 +37,31 @@ describe('HH OAuth and own resumes (synthetic mocked transport)',()=>{
  });
  it('does not make HH writes or retain a refresh token',async()=>{const {cookie}=await login();await selectHHResume(request('select','POST',cookie),'own-1');for(const [url,init] of vi.mocked(fetch).mock.calls){expect(String(url)).toMatch(/^https:\/\/api\.hh\.ru\/(token|me|resumes)/);expect(init?.method).toBe(String(url).endsWith('/token')?'POST':'GET');expect(init?.redirect).toBe('error');}});
  it('does not follow untrusted URLs or echo provider errors',async()=>{const {cookie}=await login();vi.stubGlobal('fetch',vi.fn(async()=>Response.json({error:'synthetic-secret'},{status:500})));await expect(listHHResumes(request('resumes','GET',cookie))).rejects.toThrow('hh.ru временно недоступен');});
+});
+
+describe('HH access refusal diagnostics (synthetic only)',()=>{
+ it.each([401,403])('preserves HTTP %s on a refused resume list without retrying',async status=>{
+  const {cookie}=await login();vi.mocked(fetch).mockClear();
+  vi.mocked(fetch).mockResolvedValueOnce(Response.json({auth_type:'applicant'})).mockResolvedValueOnce(Response.json({errors:[{type:'forbidden',value:'secret-provider-details'}],request_id:'private-id',access_token:access},{status}));
+  const response=await resumeListRoute(request('resumes','GET',cookie));
+  expect(response.status).toBe(status);
+  const body=await response.text();expect(body).toContain(status===401?'истекла или отозвана':'отказал в доступе (список резюме)');
+  for(const secret of [access,'private-id','secret-provider-details'])expect(body).not.toContain(secret);
+  expect(vi.mocked(fetch).mock.calls.map(([url])=>url)).toEqual(['https://api.hh.ru/me','https://api.hh.ru/resumes/mine']);
+ });
+ it('classifies only a known CAPTCHA marker without forwarding its URL or other data',async()=>{
+  const {cookie}=await login();vi.mocked(fetch).mockClear();
+  vi.mocked(fetch).mockResolvedValueOnce(Response.json({auth_type:'applicant'})).mockResolvedValueOnce(Response.json({errors:[{type:'captcha_required',value:'captcha_required',captcha_url:'https://private.example/secret'}]},{status:403}));
+  const response=await resumeListRoute(request('resumes','GET',cookie));expect(response.status).toBe(403);
+  const body=await response.text();expect(body).toContain('требуется CAPTCHA');expect(body).not.toContain('private.example');expect(fetch).toHaveBeenCalledTimes(2);
+ });
+ it.each([new Response('not-json',{status:403}),new Response('x'.repeat(16001),{status:403}),Response.json({errors:[{type:'unrecognized-secret',value:'captcha_required-secret'}]},{status:403})])('keeps unreadable, oversized and unknown refusals generic',async response=>{
+  const {cookie}=await login();vi.mocked(fetch).mockClear();
+  vi.mocked(fetch).mockResolvedValueOnce(response);
+  await expect(listHHResumes(request('resumes','GET',cookie))).rejects.toMatchObject({status:403,message:expect.stringContaining('отказал в доступе')});expect(fetch).toHaveBeenCalledTimes(1);
+ });
+ it('does not misreport a 403 identity check as a logged-out session',async()=>{
+  const {cookie}=await login();vi.mocked(fetch).mockClear();vi.mocked(fetch).mockResolvedValueOnce(Response.json({errors:[{type:'forbidden'}]},{status:403}));
+  await expect(hhSession(request('session','GET',cookie))).rejects.toMatchObject({status:403,message:expect.stringContaining('проверка аккаунта')});expect(fetch).toHaveBeenCalledTimes(1);
+ });
 });

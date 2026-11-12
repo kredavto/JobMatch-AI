@@ -73,3 +73,9 @@ describe('main vacancy route with applicant HH session (mock transport only)',()
   vi.mocked(fetch).mockClear();expect((await POST(request(cookie,origin,'https://hh.ru/search/vacancy'))).status).toBe(400);expect(fetch).not.toHaveBeenCalled();
  });
 });
+
+it('identifies the vacancy-read step on forbidden access without exposing identifiers',async()=>{
+ vi.mocked(fetch).mockResolvedValueOnce(Response.json({auth_type:'applicant'})).mockResolvedValueOnce(Response.json({errors:[{type:'forbidden',value:'private-detail'}]},{status:403}));
+ const response=await POST(request());expect(response.status).toBe(403);const body=await response.text();
+ expect(body).toContain('чтение вакансии');expect(body).not.toContain('12345');expect(body).not.toContain('private-detail');expect(fetch).toHaveBeenCalledTimes(2);
+});
