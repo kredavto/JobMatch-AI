@@ -126,7 +126,7 @@ export default function Home() {
             <div className="vacancy-form">
               <label htmlFor="vacancy-url">Ссылка на вакансию</label>
               <input id="vacancy-url" type="url" inputMode="url" autoComplete="off" placeholder="https://company.ru/careers/vacancy" value={url} onChange={event => {cancel('vacancy'); setUrl(event.target.value); setVacancy(null); invalidateResult();}} onKeyDown={event => {if (event.key === 'Enter' && url.trim()) {event.preventDefault(); void loadVacancy();}}} aria-describedby="vacancy-hint"/>
-              <p id="vacancy-hint">Загрузим название и требования с публичной страницы. Импорт вакансий hh.ru в этом шаге пока недоступен.</p>
+              <p id="vacancy-hint">Загрузим название и требования с публичной страницы. Вакансии hh.ru доступны после входа через официальную авторизацию.</p>
               <button className="button secondary" disabled={!url.trim() || !!busy.vacancy} onClick={() => void loadVacancy()}><Icon name="link"/>{busy.vacancy ? 'Загружаем…' : 'Загрузить вакансию'}</button>
               {vacancy && <div className="vacancy-loaded" role="status"><Icon name="check"/><div><strong>{vacancy.title}</strong>{vacancy.company && <span>{vacancy.company}</span>}</div></div>}
             </div>
@@ -145,7 +145,7 @@ export default function Home() {
         </div>
         {result ? <div className="result-grid">
           <article className="resume-preview"><div className="document-label">АДАПТИРОВАННОЕ РЕЗЮМЕ</div><h3>{result.title}</h3><pre>{result.text}</pre>{result.adaptationNote && <p>{result.adaptationNote}</p>}</article>
-          <div className="cover-letter"><div className="document-label">ФИНАЛЬНЫЙ ШТРИХ</div><h3>Сопроводительное письмо</h3><p>Выделите и скопируйте текст письма для отклика.</p><label className="sr-only" htmlFor="cover-letter">Текст сопроводительного письма</label><textarea id="cover-letter" readOnly value={result.coverLetter} rows={14}/><div className="manual-note"><strong>Дальше на hh.ru</strong><p>Пока hh.ru не подключён, перенос текста резюме и отправка отклика с этим письмом выполняются вручную в вашем аккаунте.</p></div></div>
+          <div className="cover-letter"><div className="document-label">ФИНАЛЬНЫЙ ШТРИХ</div><h3>Сопроводительное письмо</h3><p>Выделите и скопируйте текст письма для отклика.</p><label className="sr-only" htmlFor="cover-letter">Текст сопроводительного письма</label><textarea id="cover-letter" readOnly value={result.coverLetter} rows={14}/><div className="manual-note"><strong>Дальше на hh.ru</strong><p>Перенос текста резюме и отправка отклика с этим письмом выполняются вручную в вашем аккаунте hh.ru.</p></div></div>
         </div> : <div className="result-placeholder"><span className="preview-sheet" aria-hidden="true"><i/><i/><i/><i/></span><p>Одно резюме. Одна вакансия.<br/><strong>Всё нужное для вашего отклика.</strong></p></div>}
       </section>
     </main>

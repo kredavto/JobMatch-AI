@@ -3,9 +3,9 @@ import {isIP} from 'node:net';
 import {request as httpsRequest} from 'node:https';
 import {z} from 'zod';
 import {UserError} from '../lib/errors';
-import {boundedBody} from '../lib/body';
-import {hhVacancyConfig,vacancyPlainText} from '../lib/hh-vacancy';
+import {vacancyPlainText} from '../lib/hh-vacancy';
 import {hhVacancyId} from '../lib/hh-vacancy-contract';
+import {readHHVacancy} from './hh';
 import {VacancySchema,type Vacancy} from './contracts';
 const HH=/^(?:[a-z0-9-]+\.)?hh\.ru$/;
 export function safeUrl(input:string){
@@ -74,22 +74,20 @@ export function parseVacancy(html:string,url:string):Vacancy{
  if(!parsed.success||description.length<100)throw new UserError('На странице не найден текст вакансии. Нужна прямая публичная ссылка на её описание; страницы входа и каталоги не подходят.',422);
  return parsed.data;
 }
-async function hh(url:URL,signal:AbortSignal):Promise<Vacancy>{
+async function hh(url:URL,request:Request):Promise<Vacancy>{
  let id:string;try{id=hhVacancyId(url.href);}catch{throw new UserError('Нужна ссылка вида https://hh.ru/vacancy/123456.');}
- let config:ReturnType<typeof hhVacancyConfig>;try{config=hhVacancyConfig();}catch{throw new UserError('Импорт hh.ru пока не подключён. Приложение не входит в аккаунт и не отправляет отклики; для работы с hh.ru требуется разрешённая интеграция.',503);}
- const response=await fetch(`https://api.hh.ru/vacancies/${id}`,{headers:{Accept:'application/json','HH-User-Agent':config.agent,Authorization:`Bearer ${config.token}`},signal,redirect:'error',cache:'no-store'});
- if(response.status===404)throw new UserError('Вакансия не найдена или больше недоступна.',404);
- if(!response.ok)throw new UserError('HeadHunter временно не отдал вакансию. Повторите позже.',502);
- const raw=JSON.parse(new TextDecoder().decode(await boundedBody({headers:response.headers,body:response.body,signal},256000)));
+ const raw=await readHHVacancy(request,id);
  const schema=z.object({id:z.string(),name:z.string(),description:z.string(),archived:z.boolean(),employer:z.object({name:z.string()}).nullish(),key_skills:z.array(z.object({name:z.string()})).optional()});
- const data=schema.parse(raw);
+ const parsed=schema.safeParse(raw);
+ if(!parsed.success)throw new UserError('Получен неверный ответ HeadHunter.',502);
+ const data=parsed.data;
  if(data.id!==id)throw new UserError('Получен неверный ответ HeadHunter.',502);
  if(data.archived)throw new UserError('Вакансия в архиве. Выберите актуальную вакансию.',410);
  return VacancySchema.parse({title:text(data.name,300),company:text(data.employer?.name,300),url:`https://hh.ru/vacancy/${id}`,text:text(data.description),skills:skills(data.key_skills?.map(s=>s.name))});
 }
-export async function loadVacancy(input:string,signal:AbortSignal){
- let url=safeUrl(input.trim());const timeout=AbortSignal.any([signal,AbortSignal.timeout(15000)]);
- if(HH.test(url.hostname))return hh(url,timeout);
+export async function loadVacancy(input:string,request:Request){
+ let url=safeUrl(input.trim());const timeout=AbortSignal.any([request.signal,AbortSignal.timeout(15000)]);
+ if(HH.test(url.hostname))return hh(url,new Request(request.url,{headers:request.headers,signal:timeout}));
  try{
   for(let redirects=0;redirects<4;redirects++){
    const response=await page(url,timeout);

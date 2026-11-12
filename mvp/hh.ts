@@ -22,12 +22,12 @@ const headers=()=>new Headers({...privateHeaders,'Referrer-Policy':'no-referrer'
 function assertOrigin(request:Request){const {origin}=hhConfig();if(request.headers.get('origin')!==origin||new URL(request.url).origin!==origin)throw new UserError('Откройте приложение и повторите действие.',403);}
 const sessionSchema=z.object({token:z.string().min(1).max(1600),exp:z.number()});
 function token(request:Request){const value=cookie(request,SESSION);if(!value)throw new UserError('Сначала авторизуйтесь в hh.ru.',401);const session=sessionSchema.parse(unseal(value,'session'));if(session.exp<=Date.now())throw new UserError('Сессия hh.ru истекла. Войдите снова.',401);return session.token;}
-async function upstream(path:string,request:Request,access?:string,body?:URLSearchParams){
+async function upstream(path:string,request:Request,access?:string,body?:URLSearchParams,options:{maxBytes?:number;vacancy?:boolean}={}){
  const config=hhConfig(),signal=AbortSignal.any([request.signal,AbortSignal.timeout(15000)]);
  try{
  const response=await fetch('https://api.hh.ru'+path,{method:body?'POST':'GET',redirect:'error',cache:'no-store',signal,headers:{'HH-User-Agent':config.userAgent,...(access?{Authorization:'Bearer '+access}:{}),...(body?{'Content-Type':'application/x-www-form-urlencoded'}:{})},body:body?.toString()});
- if(!response.ok){if(response.status===401||response.status===403)throw new UserError('hh.ru не подтвердил доступ. Войдите снова или проверьте разрешения приложения.',401);if(response.status===429)throw new UserError('hh.ru временно ограничил запросы. Попробуйте позже.',429);throw new UserError('hh.ru временно недоступен. Попробуйте позже.',502);}
- return JSON.parse(new TextDecoder().decode(await boundedBody({headers:response.headers,body:response.body,signal},500000)));
+ if(!response.ok){if(options.vacancy&&response.status===404)throw new UserError('Вакансия не найдена или больше недоступна.',404);if(response.status===401||response.status===403)throw new UserError('hh.ru не подтвердил доступ. Войдите снова или проверьте разрешения приложения.',401);if(response.status===429)throw new UserError('hh.ru временно ограничил запросы. Попробуйте позже.',429);throw new UserError('hh.ru временно недоступен. Попробуйте позже.',502);}
+ return JSON.parse(new TextDecoder().decode(await boundedBody({headers:response.headers,body:response.body,signal},options.maxBytes??500000)));
  }catch(error){if(error instanceof UserError)throw error;throw new UserError('Не удалось получить ответ hh.ru. Повторите позже.',502);}
 }
 async function applicant(request:Request,access:string){const me=z.object({auth_type:z.literal('applicant')}).safeParse(await upstream('/me',request,access));if(!me.success)throw new UserError('Нужен аккаунт соискателя hh.ru.',403);}
@@ -85,3 +85,12 @@ export async function selectHHResume(request:Request,id:unknown){
  return {text:value,filename:(r.title||'Резюме hh.ru').slice(0,240),id:wanted};
 }
 export function logoutHH(request:Request){assertOrigin(request);const h=headers();h.append('Set-Cookie',setCookie(SESSION,'',0));h.append('Set-Cookie',setCookie(STATE,'',0));return Response.json({ok:true},{headers:h});}
+
+// Only this authenticated, read-only operation is exposed; access tokens stay inside this module.
+export async function readHHVacancy(request:Request,id:string):Promise<unknown>{
+ assertOrigin(request);
+ if(!/^\d{1,15}$/.test(id))throw new UserError('Неверный номер вакансии.',400);
+ const access=token(request);
+ await applicant(request,access);
+ return upstream('/vacancies/'+id,request,access,undefined,{maxBytes:256000,vacancy:true});
+}
