@@ -20,3 +20,31 @@ No file-upload workflow was introduced by this change.
 
 The earlier local commit 04e44fd was not available in this executor or the remote;
 this change was reconstructed from preview 64fdecc in an isolated worktree.
+
+## Verification on 2026-11-18
+
+The reconstructed change passed 790 unit/route tests (58 files), TypeScript and
+ESLint. No live-provider claim is made by these mock-transport tests. Browser E2E
+and deployed integration are separate checks.
+
+The baseline pinned Next.js 16.4.3 build completed compilation and static pages,
+but its built-in advisory checker returned SecurityFatalError. An ordinary retry
+completed with a warning. This did not establish safety. Official release 16.4.5
+lists seven security fixes; e.g. GHSA-pc58-hwjq-p385 includes 16.4.3 in its affected
+range (application-specific exploitability has not been established):
+https://github.com/vercel/next.js/releases/tag/v16.4.5
+https://github.com/vercel/next.js/security/advisories/GHSA-pc58-hwjq-p385
+
+A separate dependency patch pins Next.js and eslint-config-next to 16.4.6, the
+November 9 patch release, using normal npm installation without lifecycle scripts:
+https://github.com/vercel/next.js/releases/tag/v16.4.6
+
+After the 16.4.6 patch: all 790 tests, lint, typecheck and build passed; the Next.js
+warning no longer appeared. Browser E2E could not start Chromium in this executor
+(crashpad startup and process-singleton socket permission failures), including a
+permitted elevated retry; those checks are not passed.
+
+A production-only npm audit still reports existing parser dependency findings:
+`pdfjs-dist` GHSA-hq66-cqwq-w95j (high), and `yauzl` 3.2.0
+GHSA-gmq8-994r-jv83 (moderate). This patch is not a clean security audit or full
+MVP acceptance. No remote push or deployment was performed at this checkpoint.
