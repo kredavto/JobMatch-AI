@@ -56,3 +56,8 @@ test('unsaved text does not survive reload and mobile layout fits',async({page})
  await page.getByLabel('Название профиля',{exact:true}).fill('Временный');await page.getByLabel('Текст вашего резюме',{exact:true}).fill('Синтетический опыт разработки SQL отчётов.');await page.getByRole('button',{name:'Использовать без сохранения'}).click();
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);await page.reload();await expect(page.getByLabel('Текст вашего резюме',{exact:true})).toHaveValue('');
 });
+test('synthetic rewrite preview is read-only and can be rejected without network mutations',async({page})=>{
+ const mutations:string[]=[];page.on('request',r=>{if(r.method()!=='GET')mutations.push(r.url());});
+ await page.goto('/rewrite-demo');await expect(page.getByRole('heading',{name:'Демонстрация проверки черновика'})).toBeVisible();await expect(page.getByRole('region',{name:'Проверка предложений переписывания'})).toContainText('Непроверенный черновик');await expect(page.getByRole('heading',{name:'Исходный факт',exact:true})).toHaveCount(3);await expect(page.getByRole('button',{name:'Применить',exact:true})).toHaveCount(0);await expect(page.locator('input,textarea')).toHaveCount(0);
+ await page.getByRole('button',{name:'Отклонить все предложения',exact:true}).click();await expect(page.getByRole('status')).toContainText('Исходный текст не изменён');expect(mutations).toEqual([]);
+});

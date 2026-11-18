@@ -1,4 +1,5 @@
 'use client';
+import Link from 'next/link';
 
 import {useEffect, useRef, useState} from 'react';
 import InstallPrompt from './install-prompt';
@@ -129,6 +130,7 @@ export default function Home() {
         <p>Резюме под конкретную вакансию.<br className="mobile-break"/> Вставьте текст своего резюме, сохраните профиль и добавьте ссылку на вакансию.</p>
       </section>
       <p className="ai-status" role="status">Адаптация выполняется в вашем браузере: текст резюме не отправляется на сервер и внешним ИИ-сервисам. Это расстановка акцентов и письмо по исходным фактам, не свободное ИИ-переписывание.</p>
+      <p className="ai-status"><Link href="/rewrite-demo">Демонстрация проверки ИИ-черновика на вымышленных данных</Link></p>
       <div className="workflow">
         <div className="source-grid">
           <section className="source-card" aria-labelledby="resume-heading">
