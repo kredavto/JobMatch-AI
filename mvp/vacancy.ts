@@ -5,7 +5,7 @@ import {z} from 'zod';
 import {UserError} from '../lib/errors';
 import {vacancyPlainText} from '../lib/hh-vacancy';
 import {hhVacancyId} from '../lib/hh-vacancy-contract';
-import {readHHVacancy} from './hh';
+import {readHHAppVacancy} from './hh-app-vacancy';
 import {VacancySchema,type Vacancy} from './contracts';
 const HH=/^(?:[a-z0-9-]+\.)?hh\.ru$/;
 export function safeUrl(input:string){
@@ -76,7 +76,7 @@ export function parseVacancy(html:string,url:string):Vacancy{
 }
 async function hh(url:URL,request:Request):Promise<Vacancy>{
  let id:string;try{id=hhVacancyId(url.href);}catch{throw new UserError('Нужна ссылка вида https://hh.ru/vacancy/123456.');}
- const raw=await readHHVacancy(request,id);
+ const raw=await readHHAppVacancy(request,id);
  const schema=z.object({id:z.string(),name:z.string(),description:z.string(),archived:z.boolean(),employer:z.object({name:z.string()}).nullish(),key_skills:z.array(z.object({name:z.string()})).optional()});
  const parsed=schema.safeParse(raw);
  if(!parsed.success)throw new UserError('Получен неверный ответ HeadHunter.',502);
