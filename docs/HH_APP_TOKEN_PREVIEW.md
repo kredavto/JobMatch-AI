@@ -48,3 +48,16 @@ A production-only npm audit still reports existing parser dependency findings:
 `pdfjs-dist` GHSA-hq66-cqwq-w95j (high), and `yauzl` 3.2.0
 GHSA-gmq8-994r-jv83 (moderate). This patch is not a clean security audit or full
 MVP acceptance. No remote push or deployment was performed at this checkpoint.
+
+### Parser patch follow-up
+
+The remaining production dependency advisories were addressed in a separate
+change: `pdfjs-dist` 5.7.284 → 6.2.108 and `yauzl` 3.2.0 → 3.4.0. The installed
+PDF.js range had advanced under its existing caret declaration; it is now pinned.
+Sources: https://github.com/advisories/GHSA-hq66-cqwq-w95j and
+https://github.com/advisories/GHSA-gmq8-994r-jv83. These advisories have deployment
+conditions; their presence was not evidence of exploitation of this application.
+
+The parser patch passed all 790 tests, typecheck, lint and build. Production-only
+`npm audit --omit=dev` reports zero findings after the patch. Development-only
+dependencies and application threat modelling are not covered by that result.
