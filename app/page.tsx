@@ -2,9 +2,10 @@
 
 import {useEffect, useRef, useState} from 'react';
 import InstallPrompt from './install-prompt';
-import AiStatus from './ai-status';
-import HHResumePicker from './hh-resume-picker';
-import {responseJson,VacancySchema,AdaptedResumeSchema} from '../mvp/responses';
+import SkillMatchReview from './skill-match-review';
+import {adaptResume} from '../mvp/adapt';
+import LocalResumePicker from './local-resume-picker';
+import {responseJson,VacancySchema} from '../mvp/responses';
 
 type Vacancy = {title: string; company: string; url: string; text: string; skills: string[]};
 type Result = {adaptationNote?: string; title: string; text: string; coverLetter: string; mode: 'automatic' | 'ai'; matchedSkills: string[]; missingSkills: string[]};
@@ -108,7 +109,7 @@ export default function Home() {
     if (!resume || !vacancy || controllers.current.adapt) return;
     setResult(null);
     await run('adapt', async signal => {
-      const data = await responseJson(await fetch('/api/mvp/adapt', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({resume: resume.text, vacancy}), signal}),AdaptedResumeSchema);
+      const data = adaptResume(resume.text,vacancy);
       if (!signal.aborted) setResult(data);
     });
   }
@@ -125,14 +126,14 @@ export default function Home() {
       <section className="intro" aria-labelledby="page-title">
         <div className="eyebrow">ВАШ СЛЕДУЮЩИЙ КАРЬЕРНЫЙ ШАГ</div>
         <h1 id="page-title">Ваш опыт.<br/><span>Нужные акценты.</span></h1>
-        <p>Резюме под конкретную вакансию.<br className="mobile-break"/> Войдите в hh.ru, выберите резюме из списка и добавьте ссылку на вакансию.</p>
+        <p>Резюме под конкретную вакансию.<br className="mobile-break"/> Вставьте текст своего резюме, сохраните профиль и добавьте ссылку на вакансию.</p>
       </section>
-      <AiStatus/>
+      <p className="ai-status" role="status">Адаптация выполняется в вашем браузере: текст резюме не отправляется на сервер и внешним ИИ-сервисам. Это расстановка акцентов и письмо по исходным фактам, не свободное ИИ-переписывание.</p>
       <div className="workflow">
         <div className="source-grid">
           <section className="source-card" aria-labelledby="resume-heading">
-            <div className="section-heading"><span className="step">01</span><h2 id="resume-heading">Ваше резюме из hh.ru</h2><Icon name="list"/></div>
-            <HHResumePicker onSelect={value=>{invalidateResult();setResume(value);}}/>
+            <div className="section-heading"><span className="step">01</span><h2 id="resume-heading">Ваш профиль резюме</h2><Icon name="list"/></div>
+            <LocalResumePicker onSelect={value=>{invalidateResult();setResume(value);}}/>
           </section>
           <section className="source-card" aria-labelledby="vacancy-heading" aria-busy={!!busy.vacancy}>
             <div className="section-heading"><span className="step">02</span><h2 id="vacancy-heading">Ваша вакансия</h2><Icon name="link"/></div>
@@ -158,11 +159,11 @@ export default function Home() {
           <div className="result-title"><span className="step">04</span><div><h2 id="result-heading">Резюме для отклика</h2><p>{result ? (result.mode === 'ai' ? 'ИИ-адаптация завершена' : 'Автоматическая адаптация') : 'Появится здесь после адаптации'}</p></div></div>
         </div>
         {result ? <div className="result-grid">
-          <article className="resume-preview"><div className="document-label">АДАПТИРОВАННОЕ РЕЗЮМЕ</div><h3>{result.title}</h3><pre>{result.text}</pre>{result.adaptationNote && <p>{result.adaptationNote}</p>}</article>
+          <article className="resume-preview"><SkillMatchReview matchedSkills={result.matchedSkills} missingSkills={result.missingSkills}/><div className="document-label">АДАПТИРОВАННОЕ РЕЗЮМЕ</div><h3>{result.title}</h3><pre>{result.text}</pre>{result.adaptationNote && <p>{result.adaptationNote}</p>}</article>
           <div className="cover-letter"><div className="document-label">ФИНАЛЬНЫЙ ШТРИХ</div><h3>Сопроводительное письмо</h3><p>Выделите и скопируйте текст письма для отклика.</p><label className="sr-only" htmlFor="cover-letter">Текст сопроводительного письма</label><textarea id="cover-letter" readOnly value={result.coverLetter} rows={14}/><div className="manual-note"><strong>Дальше на hh.ru</strong><p>Перенос текста резюме и отправка отклика с этим письмом выполняются вручную в вашем аккаунте hh.ru.</p></div></div>
         </div> : <div className="result-placeholder"><span className="preview-sheet" aria-hidden="true"><i/><i/><i/><i/></span><p>Одно резюме. Одна вакансия.<br/><strong>Всё нужное для вашего отклика.</strong></p></div>}
       </section>
     </main>
-    <footer><span>JobMatch <span className="footer-dot">·</span> Меньше рутины. Больше возможностей.</span><span>Резюме читается только после официальной авторизации hh.ru. Результат хранится только во вкладке.</span></footer>
+    <footer><span>JobMatch <span className="footer-dot">·</span> Меньше рутины. Больше возможностей.</span><span>Профили сохраняются только в этом браузере по вашей команде. Результат хранится только во вкладке.</span></footer>
   </div>;
 }

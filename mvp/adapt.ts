@@ -9,8 +9,8 @@ function contains(text:string,phrase:string){
 }
 export function adaptResume(resume:string,vacancy:Vacancy){
  const lines=[...eligibleEvidence(resume)];
- const candidates=[...new Set([...vacancy.skills,...catalog.filter(skill=>contains(vacancy.text,skill))])];
- const matchedSkills=candidates.filter(skill=>lines.some(line=>contains(line,skill))).slice(0,30);
+ const candidates=[...new Map([...vacancy.skills,...catalog.filter(skill=>contains(vacancy.text,skill))].map(skill=>[normalize(skill),skill.trim()])).values()];
+ const matchedSkills=candidates.filter(skill=>lines.some(line=>contains(line,skill)));
  const missingSkills=candidates.filter(skill=>!matchedSkills.includes(skill));
  const relevant=lines.map(line=>line.trim()).filter(line=>line.length>=12&&line.length<=500&&matchedSkills.some(skill=>contains(line,skill)));
  const unique=[...new Set(relevant)].slice(0,5);
