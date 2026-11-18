@@ -10,3 +10,13 @@ it('writes only explicit profile data and refuses stale-tab overwrite',()=>{cons
 it('does not report a successful write when browser storage fails',()=>{expect(()=>writeProfiles({getItem:()=>null,setItem:()=>{throw new Error('quota');}},null,[profile])).toThrow('quota');});
 it('adapts pasted profile locally without network or invented skills',()=>{const network=vi.spyOn(globalThis,'fetch').mockImplementation(()=>{throw new Error('No network');});try{const result=adaptResume(profile.text,{title:'Engineer',company:'Example',url:'https://hh.ru/vacancy/123',text:'SQL Docker engineer role',skills:['SQL','Docker']});expect(result.matchedSkills).toEqual(['SQL']);expect(result.missingSkills).toEqual(['Docker']);expect(result.text).toContain(profile.text);expect(network).not.toHaveBeenCalled();}finally{network.mockRestore();}});
 it('main workflow does not send resume to API or mount blocked hh applicant picker',()=>{const page=readFileSync('app/page.tsx','utf8');expect(page).toContain('adaptResume(resume.text,vacancy)');expect(page).not.toContain('/api/mvp/adapt');expect(page).not.toContain('HHResumePicker');expect(page).toContain('LocalResumePicker');const picker=readFileSync('app/local-resume-picker.tsx','utf8');expect(picker).not.toContain('fetch(');expect(picker).not.toContain('type="file"');expect(picker).toContain('window.confirm');});
+it('rejects escaped JSON above the read limit before replacing saved data',()=>{
+ const oversized={...profile,text:'\u0001'.repeat(100000)};
+ const setItem=vi.fn();expect(()=>writeProfiles({getItem:()=>null,setItem},null,[oversized])).toThrow();expect(setItem).not.toHaveBeenCalled();
+});
+it('every successful serialization can be read by the same version',()=>{
+ for(const text of ['Синтетический текст резюме с SQL.','Строка\n'.repeat(12000),'"'.repeat(100000),'\\'.repeat(100000)]){
+  const input=[{...profile,text}];expect(readProfiles(serializeProfiles(input))).toEqual([{...profile,text:text.trim()}]);
+ }
+ expect(()=>serializeProfiles([profile,profile])).toThrow();
+});

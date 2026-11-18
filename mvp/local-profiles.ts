@@ -10,7 +10,12 @@ export function readProfiles(raw:string|null):LocalProfile[]{
  if(!data.success||new Set(data.data.profiles.map(p=>p.id)).size!==data.data.profiles.length)throw new Error('Не удалось прочитать сохранённые профили. Данные не изменены.');
  return data.data.profiles;
 }
-export function serializeProfiles(profiles:LocalProfile[]):string{return JSON.stringify(StoreSchema.parse({version:1,profiles}));}
+export function serializeProfiles(profiles:LocalProfile[]):string{
+ const serialized=JSON.stringify(StoreSchema.parse({version:1,profiles}));
+ // Never report a successful save for data that the same version cannot read.
+ readProfiles(serialized);
+ return serialized;
+}
 export function saveProfile(profiles:LocalProfile[],profile:LocalProfile):LocalProfile[]{
  const next=ProfileSchema.parse(profile),existing=profiles.some(p=>p.id===next.id);
  if(!existing&&profiles.length>=5)throw new Error('Можно сохранить до 5 профилей. Измените существующий профиль.');

@@ -20,3 +20,6 @@ it('never renders untrusted proposed HTML as executable markup',()=>{
 it('demo has only a fixed fixture, no request, profile read or API key',()=>{
  for(const path of ['app/rewrite-demo/page.tsx','app/rewrite-preview-panel.tsx','mvp/rewrite-preview.ts']){const code=readFileSync(path,'utf8');for(const forbidden of ['fetch(','localStorage','GROQ_API_KEY','adaptWithOwnModel'])expect(code).not.toContain(forbidden);}
 });
+it('demo navigation does not discard the main tab unsaved profile or result',()=>{
+ const page=readFileSync('app/page.tsx','utf8');expect(page).toContain('<Link href="/rewrite-demo" target="_blank" rel="noopener noreferrer">');
+});
