@@ -3,6 +3,7 @@ import Link from 'next/link';
 
 import {useEffect, useRef, useState} from 'react';
 import InstallPrompt from './install-prompt';
+import ResultText from './result-text';
 import SkillMatchReview from './skill-match-review';
 import {adaptResume} from '../mvp/adapt';
 import LocalResumePicker from './local-resume-picker';
@@ -161,8 +162,8 @@ export default function Home() {
           <div className="result-title"><span className="step">04</span><div><h2 id="result-heading">Резюме для отклика</h2><p>{result ? (result.mode === 'ai' ? 'ИИ-адаптация завершена' : 'Автоматическая адаптация') : 'Появится здесь после адаптации'}</p></div></div>
         </div>
         {result ? <div className="result-grid">
-          <article className="resume-preview"><SkillMatchReview matchedSkills={result.matchedSkills} missingSkills={result.missingSkills}/><div className="document-label">АДАПТИРОВАННОЕ РЕЗЮМЕ</div><h3>{result.title}</h3><pre>{result.text}</pre>{result.adaptationNote && <p>{result.adaptationNote}</p>}</article>
-          <div className="cover-letter"><div className="document-label">ФИНАЛЬНЫЙ ШТРИХ</div><h3>Сопроводительное письмо</h3><p>Выделите и скопируйте текст письма для отклика.</p><label className="sr-only" htmlFor="cover-letter">Текст сопроводительного письма</label><textarea id="cover-letter" readOnly value={result.coverLetter} rows={14}/><div className="manual-note"><strong>Дальше на hh.ru</strong><p>Перенос текста резюме и отправка отклика с этим письмом выполняются вручную в вашем аккаунте hh.ru.</p></div></div>
+          <article className="resume-preview"><SkillMatchReview matchedSkills={result.matchedSkills} missingSkills={result.missingSkills}/><div className="document-label">АДАПТИРОВАННОЕ РЕЗЮМЕ</div><h3>{result.title}</h3><ResultText key={result.text} id="resume-result" label="Текст адаптированного резюме" text={result.text} rows={18}/>{result.adaptationNote && <p>{result.adaptationNote}</p>}</article>
+          <div className="cover-letter"><div className="document-label">ФИНАЛЬНЫЙ ШТРИХ</div><h3>Сопроводительное письмо</h3><p>Скопируйте письмо и проверьте его перед ручным откликом.</p><ResultText key={result.coverLetter} id="cover-letter" label="Текст сопроводительного письма" text={result.coverLetter}/><div className="manual-note"><strong>Дальше на hh.ru</strong><p>Перенос текста резюме и отправка отклика с этим письмом выполняются вручную в вашем аккаунте hh.ru.</p></div></div>
         </div> : <div className="result-placeholder"><span className="preview-sheet" aria-hidden="true"><i/><i/><i/><i/></span><p>Одно резюме. Одна вакансия.<br/><strong>Всё нужное для вашего отклика.</strong></p></div>}
       </section>
     </main>
