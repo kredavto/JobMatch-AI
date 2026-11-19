@@ -15,7 +15,9 @@ export function createPilotBackend(config:{url:string;key:string},fetcher:typeof
    const signal=AbortSignal.timeout(10000);
    const res=await fetcher(config.url+path,{method:path==='/auth/v1/user'?'GET':'POST',headers:{apikey:config.key,...(token?{Authorization:`Bearer ${token}`}:{ }),'Content-Type':'application/json'},body:body===undefined?undefined:JSON.stringify(body),signal,redirect:'error',credentials:'omit',cache:'no-store'});
    if(!res.ok){await res.body?.cancel();throw Error();}
-   return JSON.parse(new TextDecoder().decode(await boundedBody({body:res.body,headers:res.headers,signal},65536)));
+   const text=new TextDecoder().decode(await boundedBody({body:res.body,headers:res.headers,signal},65536));
+   if(path==='/auth/v1/logout?scope=local'&&text.trim()==='')return null;
+   return JSON.parse(text);
   }catch{throw Error('PILOT_UNAVAILABLE');}
  }
  const verify:PilotVerify=async token=>{const u=await call('/auth/v1/user',undefined,token);if(!z.string().uuid().safeParse(u?.id).success||u.is_anonymous===true||!(u.email_confirmed_at||u.phone_confirmed_at)||await call('/rest/v1/rpc/session_is_active',{},token)!==true)throw Error('AUTH');return {id:u.id,token};};

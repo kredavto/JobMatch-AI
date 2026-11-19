@@ -49,6 +49,15 @@ describe('isolated pilot auth',()=>{
  expect(await response.json()).toEqual({ok:true,localSignedOut:true,serverRevoked:false});
  const cookies=response.headers.get('set-cookie')!;expect(cookies).toContain('jm_pilot_access=;');expect(cookies).toContain('jm_pilot_refresh=;');expect(cookies).toContain('Max-Age=0');expect(cookies).not.toContain('jm_access=');
  });
+ it.each([204,200])('accepts empty %s only for pinned logout',async status=>{
+ const fetcher=vi.fn().mockImplementation(async()=>new Response(null,{status}));
+ const backend=createPilotBackend(config,fetcher);
+ const request=new Request('https://local.test/api/pilot-auth',{method:'POST',headers:{origin:'https://local.test','content-type':'application/json',cookie:'jm_pilot_access=synthetic'},body:JSON.stringify({action:'logout'})});
+ const response=await createPilotAuthService(backend)(request);
+ expect(await response.json()).toEqual({ok:true,localSignedOut:true,serverRevoked:true});
+ expect(response.headers.get('set-cookie')).toContain('Max-Age=0');
+ for(const path of ['/auth/v1/user','/auth/v1/token?grant_type=password','/rest/v1/rpc/ai_rewrite_reserve'])await expect(backend.call(path,undefined,'synthetic')).rejects.toThrow('PILOT_UNAVAILABLE');
+ });
  it('UI never invokes legacy service; runtime has no legacy config dependency',()=>{
  expect(readFileSync('app/principal-rewrite-panel.tsx','utf8')).not.toContain('/api/service');
  for(const p of ['mvp/pilot-auth.ts','mvp/pilot-runtime.ts','mvp/pilot-backend.ts'])expect(readFileSync(p,'utf8')).not.toContain("from '../lib/db'");
