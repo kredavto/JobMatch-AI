@@ -1,0 +1,5 @@
+import {expect,it} from 'vitest';
+import {readFileSync,readdirSync,statSync} from 'node:fs';
+function files(path:string):string[]{return readdirSync(path).flatMap(name=>{const p=path+'/'+name;return statSync(p).isDirectory()?files(p):[p];});}
+it('synthetic browser fixture is not imported or exposed by app/public source',()=>{for(const p of [...files('app'),...files('public')].filter(p=>/\.(tsx?|jsx?|html)$/.test(p))){const s=readFileSync(p,'utf8');expect(s).not.toContain('full-resume-browser');expect(s).not.toContain('__pilotRequests');expect(s).not.toContain('VACANCY_MARKER_NOT_FOR_PROVIDER');}});
+it('fixture server requires explicit opt-in, loopback and has no real transport',()=>{const s=readFileSync('tests/fixtures/full-resume-browser/serve.mjs','utf8');expect(s).toContain("process.env.JOBMATCH_SYNTHETIC_BROWSER_HARNESS!=='true'");expect(s).toContain("host:'127.0.0.1'");expect(s).toContain('publicDir:false');expect(s).toContain('envFile:false');const e=readFileSync('tests/fixtures/full-resume-browser/entry.tsx','utf8');expect(e).not.toContain('fetch(');expect(e).not.toContain('GROQ_API_KEY');});

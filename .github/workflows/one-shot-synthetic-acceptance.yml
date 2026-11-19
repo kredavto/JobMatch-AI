@@ -1,0 +1,147 @@
+name: One-shot synthetic MVP and AI gate acceptance
+# One-shot synthetic acceptance; exact event gate, no workflow dispatch.
+# No workflow_dispatch, pull_request_target, secrets, production access or provider calls.
+on:
+  push:
+    branches: [feat/simple-mvp-20261108]
+permissions:
+  contents: read
+concurrency:
+  group: jobmatch-one-shot-synthetic-acceptance-${{ github.sha }}
+  cancel-in-progress: false
+jobs:
+  browser:
+    if: >-
+      github.repository == 'kredavto/JobMatch-AI' &&
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/feat/simple-mvp-20261108' &&
+      github.event.head_commit.message == 'test: one-shot synthetic acceptance 20261120' &&
+      github.run_attempt == 1
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      CI: 'true'
+      NEXT_TELEMETRY_DISABLED: '1'
+      GROQ_API_KEY: ''
+      OPENAI_API_KEY: ''
+      JOBMATCH_HH_APP_ACCESS_TOKEN: ''
+      BASE_URL: ''
+      CHROMIUM_PATH: ''
+    steps:
+      # These v4 SHAs were resolved from official actions repositories on 2026-11-19.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Verify exact checked-out event and local-only candidate
+        env:
+          EXPECTED_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+          test "$(git log -1 --format=%B)" = 'test: one-shot synthetic acceptance 20261120'
+          test -f playwright.mvp.config.ts
+          test -f playwright.full-resume.config.ts
+          test -f tests/e2e/full-resume-pilot.spec.ts
+          test -f tests/fixtures/full-resume-browser/serve.mjs
+          mkdir -p reports
+          # A previous temporary live provider build hook must not reappear.
+          node -e 'if(require("./package.json").scripts.build!=="next build")process.exit(1)'
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24'
+      - run: npm ci --no-audit --no-fund
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - name: Install actual Playwright Chromium and official Ubuntu dependencies
+        run: ./node_modules/.bin/playwright install --with-deps chromium
+      - name: Baseline MVP synthetic browser scenarios
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_FILE: reports/mvp.json
+        run: npm run test:mvp:e2e -- --reporter=list,json
+      - name: Account-bound full resume consent harness (mock Auth only)
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_FILE: reports/full-resume.json
+        run: ./node_modules/.bin/playwright test --config playwright.full-resume.config.ts --reporter=list,json
+      - name: Require executed tests, not skipped or flaky success
+        run: |
+          node <<'JS'
+          const fs=require('node:fs');
+          for(const [name,min] of [['mvp',20],['full-resume',3]]){
+            const report=JSON.parse(fs.readFileSync(`reports/${name}.json`,'utf8'));
+            const s=report.stats;
+            if(!s||s.expected<min||s.unexpected!==0||s.flaky!==0||s.skipped!==0||(report.errors||[]).length)throw Error(`${name}: incomplete acceptance`);
+            console.log(`${name}: ${s.expected} executed, zero failed/flaky/skipped`);
+          }
+          JS
+      - name: Preserve synthetic reports only
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: synthetic-browser-${{ github.sha }}
+          path: reports/*.json
+          if-no-files-found: warn
+          retention-days: 3
+  postgres:
+    if: >-
+      github.repository == 'kredavto/JobMatch-AI' &&
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/feat/simple-mvp-20261108' &&
+      github.event.head_commit.message == 'test: one-shot synthetic acceptance 20261120' &&
+      github.run_attempt == 1
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Verify exact event and required offline SQL fixtures
+        env:
+          EXPECTED_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+          test "$(git log -1 --format=%B)" = 'test: one-shot synthetic acceptance 20261120'
+          test -f tests/fixtures/ai-gate-sql/smoke.py
+          test -f tests/fixtures/ai-gate-sql/local_bootstrap.sql
+          test -f tests/fixtures/ai-gate-sql/migration.sql
+          cmp tests/fixtures/ai-gate-sql/migration.sql supabase/migrations/20261120010000_isolated_ai_pilot.sql
+          mkdir -p reports
+      - name: Install official Ubuntu PostgreSQL binaries (ephemeral runner only)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends postgresql-16 postgresql-client-16
+      - name: Fresh non-root Unix-socket-only SQL and concurrency smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          test "$(id -u)" -ne 0
+          export PATH="/usr/lib/postgresql/16/bin:/usr/bin:/bin"
+          PGROOT="$(mktemp -d /tmp/jm-ai-pg-XXXXXX)"
+          REPORTS="$PWD/reports"
+          mkdir "$PGROOT/socket"
+          cleanup() {
+            env -i PATH="$PATH" HOME="$PGROOT" pg_ctl -D "$PGROOT/data" -m immediate -w stop >/dev/null 2>&1 || true
+            # Only this newly created disposable cluster is removed.
+            rm -rf -- "$PGROOT"
+          }
+          trap cleanup EXIT
+          env -i PATH="$PATH" HOME="$PGROOT" initdb -D "$PGROOT/data" --no-locale --encoding=UTF8 -A trust >"$REPORTS/postgres-init.log" 2>&1
+          env -i PATH="$PATH" HOME="$PGROOT" pg_ctl -D "$PGROOT/data" -l "$REPORTS/postgres-server.log" -o "-k $PGROOT/socket -c listen_addresses='' -c unix_socket_permissions=0700" -w start
+          env -i PATH="$PATH" HOME="$PGROOT" createdb -h "$PGROOT/socket" jobmatch_ai_gate_test
+          # No PG*, DATABASE_URL, Supabase variables, credentials or service files inherited.
+          env -i PATH="$PATH" HOME="$PGROOT" python3 tests/fixtures/ai-gate-sql/smoke.py --socket "$PGROOT/socket" --database jobmatch_ai_gate_test | tee "$REPORTS/postgres-smoke.log"
+      - name: Preserve disposable synthetic SQL report only
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: synthetic-postgres-${{ github.sha }}
+          path: reports/*.log
+          if-no-files-found: warn
+          retention-days: 3
