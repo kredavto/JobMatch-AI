@@ -68,3 +68,38 @@ test('mobile copy fallback selects exact resume without network mutation',async(
  await page.getByRole('button',{name:'Копировать: Текст адаптированного резюме',exact:true}).click();await expect(page.getByText('Текст выделен. Используйте команду «Копировать» в меню устройства. Автоматическое копирование не выполнялось.',{exact:true})).toBeVisible();
  const selection=await page.getByLabel('Текст адаптированного резюме',{exact:true}).evaluate((el:HTMLTextAreaElement)=>({start:el.selectionStart,end:el.selectionEnd,length:el.value.length}));expect(selection).toEqual({start:0,end:selection.length,length:selection.length});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);expect(mutations).toEqual([]);
 });
+
+test('mobile explicit version survives reload and profile deletion, preserves source and sends no resume',async({page})=>{
+ await page.setViewportSize({width:390,height:844});
+ const source='Синтетический пример: составлял отчёты Excel и работал с CRM.';
+ const leaked:string[]=[];page.on('request',r=>{if((r.postData()||'').includes(source))leaked.push(r.url());});
+ await page.route('**/api/mvp/vacancy',route=>route.fulfill({json:vacancy}));await page.goto('/');
+ await page.getByLabel('Название профиля',{exact:true}).fill('Тест версии');await page.getByLabel('Текст вашего резюме',{exact:true}).fill(source);await page.getByRole('button',{name:'Сохранить и выбрать',exact:true}).click();
+ const profiles=await page.evaluate(()=>localStorage.getItem('jobmatch.local-profiles.v1'));
+ await page.getByLabel('Ссылка на вакансию').fill(vacancy.url);await page.getByRole('button',{name:'Загрузить вакансию',exact:true}).click();await page.getByRole('button',{name:'Адаптировать резюме',exact:true}).click();
+ const result=await page.getByLabel('Текст адаптированного резюме',{exact:true}).inputValue();
+ expect(await page.evaluate(()=>localStorage.getItem('jobmatch.local-versions.v1'))).toBeNull();
+ await page.getByText('Сравнить исходник и текущий результат',{exact:true}).click();await expect(page.locator('#current-review-source')).toHaveValue(source);
+ await page.getByRole('button',{name:'Сохранить как отдельную версию',exact:true}).click();expect(await page.evaluate(()=>localStorage.getItem('jobmatch.local-profiles.v1'))).toBe(profiles);
+ await page.getByLabel('Текст вашего резюме',{exact:true}).fill('Изменённый синтетический исходник без прежнего опыта.');await expect(page.getByLabel('Текст адаптированного резюме',{exact:true})).toHaveCount(0);await expect(page.getByRole('button',{name:'Сохранить как отдельную версию',exact:true})).toHaveCount(0);await expect(page.locator('#saved-review-source')).toHaveValue(source);
+ await page.reload();await page.getByLabel('Сохранённые версии',{exact:true}).selectOption({index:1});await expect(page.locator('#saved-review-source')).toHaveValue(source);await expect(page.locator('#saved-review-adapted')).toHaveValue(result);
+ await page.getByLabel('Сохранённые профили',{exact:true}).selectOption({label:'Тест версии'});page.on('dialog',d=>d.accept());await page.getByRole('button',{name:'Удалить профиль',exact:true}).click();await expect(page.locator('#saved-review-source')).toHaveValue(source);
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
+ await page.getByRole('button',{name:'Удалить отдельную версию',exact:true}).click();await page.reload();await expect(page.locator('#version-list option')).toHaveCount(1);expect(leaked).toEqual([]);
+});
+
+test('corrupt version storage is preserved and does not block unsaved profile use',async({page})=>{
+ await page.addInitScript(()=>localStorage.setItem('jobmatch.local-versions.v1','corrupt'));
+ await page.goto('/');await expect(page.getByRole('alert').filter({hasText:'Не удалось прочитать версии'})).toBeVisible();
+ await page.getByLabel('Название профиля',{exact:true}).fill('Синтетика');await page.getByLabel('Текст вашего резюме',{exact:true}).fill('Синтетический опыт работы с Excel.');await page.getByRole('button',{name:'Использовать без сохранения',exact:true}).click();
+ expect(await page.evaluate(()=>localStorage.getItem('jobmatch.local-versions.v1'))).toBe('corrupt');
+});
+
+test('quota failure leaves current comparison and profile intact without reporting save',async({page})=>{
+ await page.route('**/api/mvp/vacancy',route=>route.fulfill({json:vacancy}));await page.goto('/');
+ await page.getByLabel('Название профиля',{exact:true}).fill('Синтетика квоты');await page.getByLabel('Текст вашего резюме',{exact:true}).fill('Синтетический опыт: отчёты Excel и работа с CRM.');await page.getByRole('button',{name:'Использовать без сохранения',exact:true}).click();
+ await page.getByLabel('Ссылка на вакансию').fill(vacancy.url);await page.getByRole('button',{name:'Загрузить вакансию',exact:true}).click();await page.getByRole('button',{name:'Адаптировать резюме',exact:true}).click();
+ const result=await page.getByLabel('Текст адаптированного резюме',{exact:true}).inputValue();
+ await page.evaluate(()=>{const original=Storage.prototype.setItem;Storage.prototype.setItem=function(key,value){if(key==='jobmatch.local-versions.v1')throw new DOMException('Full','QuotaExceededError');original.call(this,key,value);};});
+ await page.getByRole('button',{name:'Сохранить как отдельную версию',exact:true}).click();await expect(page.getByRole('alert').filter({hasText:'Не удалось сохранить версию'})).toBeVisible();await expect(page.getByLabel('Текст адаптированного резюме',{exact:true})).toHaveValue(result);expect(await page.evaluate(()=>localStorage.getItem('jobmatch.local-versions.v1'))).toBeNull();await expect(page.getByRole('status').filter({hasText:'Отдельная версия сохранена'})).toHaveCount(0);
+});

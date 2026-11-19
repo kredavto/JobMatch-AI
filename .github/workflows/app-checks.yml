@@ -2,12 +2,14 @@ name: Simple MVP checks
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [main, feat/simple-mvp-20261108]
   workflow_dispatch:
 permissions:
   contents: read
 jobs:
   app:
+    if: >-
+      github.ref != 'refs/heads/feat/simple-mvp-20261108' || (github.event.repository.private == false && github.event.head_commit.message == 'test: one-shot local versions smoke 20261119')
     # Playwright 1.58.2 supports Ubuntu 24.04; ubuntu-latest has moved to 26.04.
     runs-on: ubuntu-24.04
     timeout-minutes: 20

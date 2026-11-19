@@ -4,6 +4,7 @@ import Link from 'next/link';
 import {useEffect, useRef, useState} from 'react';
 import InstallPrompt from './install-prompt';
 import ResultText from './result-text';
+import LocalVersionReview from './local-version-review';
 import SkillMatchReview from './skill-match-review';
 import {adaptResume} from '../mvp/adapt';
 import LocalResumePicker from './local-resume-picker';
@@ -166,7 +167,8 @@ export default function Home() {
           <div className="cover-letter"><div className="document-label">ФИНАЛЬНЫЙ ШТРИХ</div><h3>Сопроводительное письмо</h3><p>Скопируйте письмо и проверьте его перед ручным откликом.</p><ResultText key={result.coverLetter} id="cover-letter" label="Текст сопроводительного письма" text={result.coverLetter}/><div className="manual-note"><strong>Дальше на hh.ru</strong><p>Перенос текста резюме и отправка отклика с этим письмом выполняются вручную в вашем аккаунте hh.ru.</p></div></div>
         </div> : <div className="result-placeholder"><span className="preview-sheet" aria-hidden="true"><i/><i/><i/><i/></span><p>Одно резюме. Одна вакансия.<br/><strong>Всё нужное для вашего отклика.</strong></p></div>}
       </section>
+      <LocalVersionReview draft={result&&resume?{name:resume.filename,source:resume.text,title:result.title,text:result.text,coverLetter:result.coverLetter}:null}/>
     </main>
-    <footer><span>JobMatch <span className="footer-dot">·</span> Меньше рутины. Больше возможностей.</span><span>Профили сохраняются только в этом браузере по вашей команде. Результат хранится только во вкладке.</span></footer>
+    <footer><span>JobMatch <span className="footer-dot">·</span> Меньше рутины. Больше возможностей.</span><span>Профили сохраняются только в этом браузере по вашей команде. Отдельные версии сохраняются только по вашей команде; без сохранения результат остаётся во вкладке.</span></footer>
   </div>;
 }
