@@ -2,12 +2,14 @@ name: Simple MVP checks
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [main, feat/simple-mvp-20261108]
   workflow_dispatch:
 permissions:
   contents: read
 jobs:
   app:
+    # Temporary one-shot public-repository preview smoke; remove after result.
+    if: github.event_name != 'push' || github.ref == 'refs/heads/main' || (github.event.repository.private == false && github.ref == 'refs/heads/feat/simple-mvp-20261108' && github.event.head_commit.message == 'test: one-shot mobile MVP smoke 20261119')
     # Playwright 1.58.2 supports Ubuntu 24.04; ubuntu-latest has moved to 26.04.
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -15,6 +17,8 @@ jobs:
       NEXT_TELEMETRY_DISABLED: '1'
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: '24'

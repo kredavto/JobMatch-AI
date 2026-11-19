@@ -1,0 +1,7 @@
+# Mobile smoke: 2026-11-19
+
+Baseline preview: 49e8f0f. Existing pinned Playwright 1.58.2 suite uses `playwright.mvp.config.ts`, with mobile cases at 390×844 and 375×812. Synthetic profile/copy case mocks the vacancy. Install tests assert the exact button label `Скачать приложение на смартфон` and mocked prompt/dismissal behavior. They do not install an app on a physical phone and do not test native Safari.
+
+The local executor could not launch `/usr/bin/chromium`: crashpad startup and `process_singleton_posix.cc socket() failed: Operation not permitted`. One permitted retry with a temporary HOME outside the restricted shell reported the same socket restriction. No page was opened by these attempts; they are not passed E2E tests. Switching BASE_URL to localhost would not resolve a browser launch failure.
+
+An existing repository workflow (`app-checks.yml`, standard Ubuntu 24.04, contents:read, no application secrets) is used for a bounded one-shot preview run. Public repository visibility was checked before starting. Standard GitHub-hosted runners are free for public repositories: https://docs.github.com/en/actions/concepts/billing-and-usage . No artifact upload or paid/larger runner is added. Temporary trigger is restricted to the exact preview branch, public visibility and unique commit message, then removed after the result. GitHub CI results will be recorded separately; launching a run is not proof of success.
