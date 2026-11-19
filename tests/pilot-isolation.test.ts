@@ -38,9 +38,16 @@ describe('isolated pilot auth',()=>{
  expect(fetcher.mock.calls.every(([url])=>String(url).startsWith(config.url))).toBe(true);
  });
  it('disabled and foreign-origin requests never authenticate',async()=>{
- expect((await createPilotAuthService()(req({action:'logout'}))).status).toBe(503);
+ expect((await createPilotAuthService()(req({action:'login',email:'test@example.test',password:'synthetic-only-password'}))).status).toBe(503);
  const fetcher=vi.fn();const foreign=new Request('https://local.test',{method:'POST',headers:{origin:'https://evil.test'}});
  expect((await createPilotAuthService(createPilotBackend(config,fetcher))(foreign)).status).toBe(403);expect(fetcher).not.toHaveBeenCalled();
+ });
+ it.each(['reject','timeout'])('clears scoped cookies even if server logout %s fails',async mode=>{
+ const fetcher=vi.fn().mockRejectedValue(mode==='timeout'?new DOMException('fixture','TimeoutError'):Error('fixture'));
+ const request=new Request('https://local.test/api/pilot-auth',{method:'POST',headers:{origin:'https://local.test','content-type':'application/json',cookie:'jm_pilot_access=synthetic; jm_pilot_refresh=synthetic'},body:JSON.stringify({action:'logout'})});
+ const response=await createPilotAuthService(createPilotBackend(config,fetcher))(request);
+ expect(await response.json()).toEqual({ok:true,localSignedOut:true,serverRevoked:false});
+ const cookies=response.headers.get('set-cookie')!;expect(cookies).toContain('jm_pilot_access=;');expect(cookies).toContain('jm_pilot_refresh=;');expect(cookies).toContain('Max-Age=0');expect(cookies).not.toContain('jm_access=');
  });
  it('UI never invokes legacy service; runtime has no legacy config dependency',()=>{
  expect(readFileSync('app/principal-rewrite-panel.tsx','utf8')).not.toContain('/api/service');

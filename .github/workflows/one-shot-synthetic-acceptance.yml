@@ -15,7 +15,7 @@ jobs:
       github.repository == 'kredavto/JobMatch-AI' &&
       github.event_name == 'push' &&
       github.ref == 'refs/heads/feat/simple-mvp-20261108' &&
-      github.event.head_commit.message == 'test: one-shot synthetic acceptance 20261120' &&
+      github.event.head_commit.message == 'test: one-shot final synthetic acceptance 20261120-r2' &&
       github.run_attempt == 1
     runs-on: ubuntu-24.04
     timeout-minutes: 25
@@ -40,7 +40,7 @@ jobs:
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
-          test "$(git log -1 --format=%B)" = 'test: one-shot synthetic acceptance 20261120'
+          test "$(git log -1 --format=%B)" = 'test: one-shot final synthetic acceptance 20261120-r2'
           test -f playwright.mvp.config.ts
           test -f playwright.full-resume.config.ts
           test -f tests/e2e/full-resume-pilot.spec.ts
@@ -90,7 +90,7 @@ jobs:
       github.repository == 'kredavto/JobMatch-AI' &&
       github.event_name == 'push' &&
       github.ref == 'refs/heads/feat/simple-mvp-20261108' &&
-      github.event.head_commit.message == 'test: one-shot synthetic acceptance 20261120' &&
+      github.event.head_commit.message == 'test: one-shot final synthetic acceptance 20261120-r2' &&
       github.run_attempt == 1
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -106,11 +106,11 @@ jobs:
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
-          test "$(git log -1 --format=%B)" = 'test: one-shot synthetic acceptance 20261120'
+          test "$(git log -1 --format=%B)" = 'test: one-shot final synthetic acceptance 20261120-r2'
           test -f tests/fixtures/ai-gate-sql/smoke.py
           test -f tests/fixtures/ai-gate-sql/local_bootstrap.sql
           test -f tests/fixtures/ai-gate-sql/migration.sql
-          cmp tests/fixtures/ai-gate-sql/migration.sql supabase/migrations/20261120010000_isolated_ai_pilot.sql
+          cmp tests/fixtures/ai-gate-sql/migration.sql supabase/migrations/20261119212323_isolated_ai_pilot.sql
           mkdir -p reports
       - name: Install official Ubuntu PostgreSQL binaries (ephemeral runner only)
         run: |

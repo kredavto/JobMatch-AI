@@ -18,7 +18,7 @@ window.fetch=async(input,init)=>{
  const fail=()=>Response.json({error:'synthetic unavailable'},{status:403});
  if(path==='/api/pilot-auth'){
   if(body?.action==='login'){v.subject=body.email==='b@example.test'?ids[1]:ids[0];save(v);return Response.json({ok:true});}
-  if(body?.action==='logout'){v.subject=null;save(v);return Response.json({ok:true});}return fail();
+  if(body?.action==='logout'){v.subject=null;save(v);return Response.json({ok:true,localSignedOut:true,serverRevoked:true});}return fail();
  }
  if(path!=='/api/rewrite-pilot'||!v.subject)return fail();
  const status=()=>({subject:v.subject,consent:v.consents[v.subject!]??null});
