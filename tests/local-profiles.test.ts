@@ -1,6 +1,6 @@
 import {readFileSync} from 'node:fs';
 import {expect,it,vi} from 'vitest';
-import {readProfiles,saveProfile,serializeProfiles,writeProfiles,PROFILE_STORAGE_KEY} from '../mvp/local-profiles';
+import {prepareResumeSelection,readProfiles,saveProfile,serializeProfiles,writeProfiles,PROFILE_STORAGE_KEY} from '../mvp/local-profiles';
 import {adaptResume} from '../mvp/adapt';
 const profile={id:'11111111-1111-4111-8111-111111111111',name:'Разработчик',text:'Создавал отчёты SQL для отдела продаж.'};
 it('round trips versioned bounded profiles and updates without duplicate IDs',()=>{expect(readProfiles(null)).toEqual([]);const profiles=saveProfile([],profile);expect(readProfiles(serializeProfiles(profiles))).toEqual(profiles);expect(saveProfile(profiles,{...profile,name:'Новое имя'})).toHaveLength(1);});
@@ -19,4 +19,14 @@ it('every successful serialization can be read by the same version',()=>{
   const input=[{...profile,text}];expect(readProfiles(serializeProfiles(input))).toEqual([{...profile,text:text.trim()}]);
  }
  expect(()=>serializeProfiles([profile,profile])).toThrow();
+});
+it.each(['','   '])('allows an unnamed temporary resume but never a blank save name (%j)',name=>{
+ expect(prepareResumeSelection('  '+profile.text+'  ',name,'temporary')).toEqual({text:profile.text,name:'Резюме без названия'});
+ expect(()=>prepareResumeSelection(profile.text,name,'save')).toThrow('Введите название профиля');
+});
+it('preserves a supplied name and requires a valid resume in both modes',()=>{
+ for(const mode of ['temporary','save'] as const){
+  expect(prepareResumeSelection(profile.text,'  Мой профиль  ',mode)).toEqual({text:profile.text,name:'Мой профиль'});
+  expect(()=>prepareResumeSelection('Коротко','Мой профиль',mode)).toThrow('Текст резюме');
+ }
 });

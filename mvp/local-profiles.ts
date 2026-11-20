@@ -2,6 +2,14 @@ import {z} from 'zod';
 export const PROFILE_STORAGE_KEY='jobmatch.local-profiles.v1';
 export const ProfileSchema=z.object({id:z.string().uuid(),name:z.string().trim().min(1).max(100),text:z.string().trim().min(20).max(100000)}).strict();
 export type LocalProfile=z.infer<typeof ProfileSchema>;
+/** Validate a form action without touching browser storage. */
+export function prepareResumeSelection(text:string,name:string,mode:'temporary'|'save'){
+ const trimmedText=text.trim(),trimmedName=name.trim();
+ if((mode==='save'&&!trimmedName)||trimmedName.length>100)throw Error('Введите название профиля до 100 символов.');
+ if(trimmedText.length<20||trimmedText.length>100000)throw Error('Текст резюме должен содержать от 20 до 100 000 символов.');
+ return {text:trimmedText,name:trimmedName||'Резюме без названия'};
+}
+
 const StoreSchema=z.object({version:z.literal(1),profiles:z.array(ProfileSchema).max(5)}).strict();
 export function readProfiles(raw:string|null):LocalProfile[]{
  if(raw===null)return [];

@@ -103,3 +103,32 @@ test('quota failure leaves current comparison and profile intact without reporti
  await page.evaluate(()=>{const original=Storage.prototype.setItem;Storage.prototype.setItem=function(key,value){if(key==='jobmatch.local-versions.v1')throw new DOMException('Full','QuotaExceededError');original.call(this,key,value);};});
  await page.getByRole('button',{name:'Сохранить как отдельную версию',exact:true}).click();await expect(page.getByRole('alert').filter({hasText:'Не удалось сохранить версию'})).toBeVisible();await expect(page.getByLabel('Текст адаптированного резюме',{exact:true})).toHaveValue(result);expect(await page.evaluate(()=>localStorage.getItem('jobmatch.local-versions.v1'))).toBeNull();await expect(page.getByRole('status').filter({hasText:'Отдельная версия сохранена'})).toHaveCount(0);
 });
+
+test('fresh unnamed resume can adapt without saving; blank explicit save writes nothing',async({page})=>{
+ const source='Синтетическое резюме: работал с Excel и CRM.';
+ await page.addInitScript(()=>{
+  const writes:string[]=[];
+  Object.defineProperty(window,'__profileStorageWrites',{value:writes});
+  const setItem=Storage.prototype.setItem;
+  Storage.prototype.setItem=function(key:string,value:string){if(this===localStorage)writes.push(key);return setItem.call(this,key,value);};
+ });
+ await page.route('**/api/mvp/vacancy',route=>route.fulfill({json:vacancy}));
+ await page.goto('/');
+ const name=page.getByLabel('Название профиля',{exact:true});
+ await expect(name).toHaveValue('');
+ await page.getByLabel('Текст вашего резюме',{exact:true}).fill(source);
+ await page.getByRole('button',{name:'Сохранить и выбрать',exact:true}).click();
+ await expect(page.getByRole('alert')).toHaveText('Введите название профиля до 100 символов.');
+ await expect(page.getByLabel('Сохранённые профили').locator('option')).toHaveCount(1);
+ await page.getByRole('button',{name:'Использовать без сохранения',exact:true}).click();
+ await expect(page.getByText(/Текст выбран для этой вкладки/)).toBeVisible();
+ await expect(name).toHaveValue('');
+ await page.getByLabel('Ссылка на вакансию').fill(vacancy.url);
+ await page.getByRole('button',{name:'Загрузить вакансию',exact:true}).click();
+ await page.getByRole('button',{name:'Адаптировать резюме',exact:true}).click();
+ await expect(page.getByLabel('Текст адаптированного резюме',{exact:true})).toHaveValue(vacancy.title+'\n\n'+source);
+ expect(await page.evaluate(()=>Reflect.get(window,'__profileStorageWrites'))).toEqual([]);
+ expect(await page.evaluate(()=>localStorage.getItem('jobmatch.local-profiles.v1'))).toBeNull();
+ await page.reload();
+ await expect(page.getByLabel('Текст вашего резюме',{exact:true})).toHaveValue('');
+});
