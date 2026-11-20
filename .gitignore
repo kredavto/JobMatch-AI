@@ -12,3 +12,6 @@ __pycache__/
 *.pyc
 
 evaluation/dist/
+
+# Generated at build/dev from pinned npm dependencies.
+/public/resume-assets/

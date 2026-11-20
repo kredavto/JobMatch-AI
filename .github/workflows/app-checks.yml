@@ -2,7 +2,7 @@ name: Simple MVP checks
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [main, feat/simple-mvp-20261108]
   workflow_dispatch:
 permissions:
   contents: read
@@ -24,8 +24,9 @@ jobs:
       - run: npm ci --no-audit --no-fund
       - run: npm run lint
       - run: npm run typecheck
-      - run: npm run test:mvp
+      - run: npm test -- --testTimeout 15000
       - run: npm run build
       - run: npx playwright install --with-deps chromium
       # No production keys or mailboxes: live-account tests are deliberately skipped.
       - run: npm run test:mvp:e2e
+      - run: npx playwright test --config playwright.full-resume.config.ts

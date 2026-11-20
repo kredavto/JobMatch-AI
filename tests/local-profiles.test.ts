@@ -9,7 +9,7 @@ it('caps profiles and text size without silently truncating source',()=>{const p
 it('writes only explicit profile data and refuses stale-tab overwrite',()=>{const setItem=vi.fn();const storage={getItem:()=>null,setItem};expect(writeProfiles(storage,null,[profile])).toBe(serializeProfiles([profile]));expect(setItem).toHaveBeenCalledWith(PROFILE_STORAGE_KEY,serializeProfiles([profile]));expect(()=>writeProfiles({getItem:()=>serializeProfiles([profile]),setItem},null,[])).toThrow('другой вкладке');expect(setItem).toHaveBeenCalledTimes(1);});
 it('does not report a successful write when browser storage fails',()=>{expect(()=>writeProfiles({getItem:()=>null,setItem:()=>{throw new Error('quota');}},null,[profile])).toThrow('quota');});
 it('adapts pasted profile locally without network or invented skills',()=>{const network=vi.spyOn(globalThis,'fetch').mockImplementation(()=>{throw new Error('No network');});try{const result=adaptResume(profile.text,{title:'Engineer',company:'Example',url:'https://hh.ru/vacancy/123',text:'SQL Docker engineer role',skills:['SQL','Docker']});expect(result.matchedSkills).toEqual(['SQL']);expect(result.missingSkills).toEqual(['Docker']);expect(result.text).toContain(profile.text);expect(network).not.toHaveBeenCalled();}finally{network.mockRestore();}});
-it('main workflow does not send resume to API or mount blocked hh applicant picker',()=>{const page=readFileSync('app/page.tsx','utf8');expect(page).toContain('adaptResume(resume.text,vacancy)');expect(page).not.toContain('/api/mvp/adapt');expect(page).not.toContain('HHResumePicker');expect(page).toContain('LocalResumePicker');const picker=readFileSync('app/local-resume-picker.tsx','utf8');expect(picker).not.toContain('fetch(');expect(picker).not.toContain('type="file"');expect(picker).toContain('window.confirm');});
+it('main workflow uses a local file browser, not paste or blocked hh applicant picker',()=>{const page=readFileSync('app/page.tsx','utf8');expect(page).toContain('adaptResume(resume.text,vacancy)');expect(page).not.toContain('/api/mvp/adapt');expect(page).not.toContain('HHResumePicker');expect(page).toContain('LocalResumePicker');const picker=readFileSync('app/local-resume-picker.tsx','utf8');expect(picker).not.toContain('fetch(');expect(picker).toContain('type="file"');expect(picker).not.toContain('<textarea');expect(picker).toContain('parseResumeFile(file,controller.signal)');expect(picker).toContain('window.confirm');});
 it('rejects escaped JSON above the read limit before replacing saved data',()=>{
  const oversized={...profile,text:'\u0001'.repeat(100000)};
  const setItem=vi.fn();expect(()=>writeProfiles({getItem:()=>null,setItem},null,[oversized])).toThrow();expect(setItem).not.toHaveBeenCalled();
@@ -29,4 +29,10 @@ it('preserves a supplied name and requires a valid resume in both modes',()=>{
   expect(prepareResumeSelection(profile.text,'  Мой профиль  ',mode)).toEqual({text:profile.text,name:'Мой профиль'});
   expect(()=>prepareResumeSelection('Коротко','Мой профиль',mode)).toThrow('Текст резюме');
  }
+});
+it('retains compatible legacy data but only file-backed profiles carry validated source filenames',()=>{
+ expect(readProfiles(serializeProfiles([profile]))[0].sourceFilename).toBeUndefined();
+ const uploaded={...profile,sourceFilename:'Кандидат.DOCX'};
+ expect(readProfiles(serializeProfiles([uploaded]))).toEqual([uploaded]);
+ for(const sourceFilename of ['../file.txt','file.exe','file.png\n'])expect(()=>serializeProfiles([{...profile,sourceFilename}])).toThrow();
 });

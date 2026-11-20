@@ -130,9 +130,9 @@ export default function Home() {
       <section className="intro" aria-labelledby="page-title">
         <div className="eyebrow">ВАШ СЛЕДУЮЩИЙ КАРЬЕРНЫЙ ШАГ</div>
         <h1 id="page-title">Ваш опыт.<br/><span>Нужные акценты.</span></h1>
-        <p>Резюме под конкретную вакансию.<br className="mobile-break"/> Вставьте текст своего резюме, сохраните профиль и добавьте ссылку на вакансию.</p>
+        <p>Резюме под конкретную вакансию.<br className="mobile-break"/> Выберите файл резюме и добавьте ссылку на вакансию. Профиль можно сохранить в этом браузере.</p>
       </section>
-      <p className="ai-status" role="status">Адаптация выполняется в вашем браузере: текст резюме не отправляется на сервер и внешним ИИ-сервисам. Это расстановка акцентов и письмо по исходным фактам, не свободное ИИ-переписывание.</p>
+      <p className="ai-status" role="status">Обычная адаптация выполняется в браузере и не отправляет текст резюме на сервер или внешнему ИИ. Это расстановка акцентов и письмо по исходным фактам, не свободное ИИ-переписывание.</p>
       <p className="ai-status"><Link href="/rewrite-demo" target="_blank" rel="noopener noreferrer">Демонстрация проверки ИИ-черновика на вымышленных данных</Link></p>
       <div className="workflow">
         <div className="source-grid">

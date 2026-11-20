@@ -1,6 +1,6 @@
 import {z} from 'zod';
 export const PROFILE_STORAGE_KEY='jobmatch.local-profiles.v1';
-export const ProfileSchema=z.object({id:z.string().uuid(),name:z.string().trim().min(1).max(100),text:z.string().trim().min(20).max(100000)}).strict();
+export const ProfileSchema=z.object({id:z.string().uuid(),name:z.string().trim().min(1).max(100),text:z.string().trim().min(20).max(100000),sourceFilename:z.string().min(1).max(240).regex(/^[^\u0000-\u001f\x7f/\\]+\.(?:docx?|txt|rtf|pdf|png)$/i).optional()}).strict();
 export type LocalProfile=z.infer<typeof ProfileSchema>;
 /** Validate a form action without touching browser storage. */
 export function prepareResumeSelection(text:string,name:string,mode:'temporary'|'save'){
