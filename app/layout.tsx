@@ -4,7 +4,7 @@ import './globals.css';
 
 export const metadata: Metadata = {
   title: 'JobMatch — резюме под вашу вакансию',
-  description: 'Вставьте текст своего резюме, сохраните профиль в этом браузере и добавьте ссылку на вакансию. Подготовьте текст и письмо для ручного отклика без передачи резюме внешнему ИИ.',
+  description: 'Выберите файл резюме и добавьте ссылку на вакансию. Подготовьте адаптированное резюме и сопроводительное письмо для ручного отклика на hh.ru.',
   manifest: '/manifest.webmanifest',
   applicationName: 'JobMatch',
   appleWebApp: {capable: true, title: 'JobMatch', statusBarStyle: 'default'},

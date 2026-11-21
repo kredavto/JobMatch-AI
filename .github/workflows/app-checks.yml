@@ -30,3 +30,13 @@ jobs:
       # No production keys or mailboxes: live-account tests are deliberately skipped.
       - run: npm run test:mvp:e2e
       - run: npx playwright test --config playwright.full-resume.config.ts
+      # Rebuild only after default-off browser checks. This enables the client
+      # panel for the loopback, route-mocked suite; server pilot stays disabled.
+      - name: Build with the pilot panel visible for mocked Home checks
+        run: npm run build
+        env:
+          NEXT_PUBLIC_JOBMATCH_FULL_REWRITE_PILOT: 'true'
+      - name: Verify reviewed apply in the real app with mocked network edges
+        run: npx playwright test --config playwright.reviewed-apply.config.ts
+        env:
+          JOBMATCH_PILOT_ENABLED: 'false'

@@ -57,6 +57,14 @@ test('file profile save, reload, select, adapt, replace and delete without sendi
  await page.getByLabel('Ссылка на вакансию').fill(vacancy.url);await page.getByRole('button',{name:'Загрузить вакансию',exact:true}).click();await expect(page.locator('.vacancy-loaded')).toBeVisible();
  await page.getByRole('button',{name:'Адаптировать резюме',exact:true}).click();await expect(page.getByLabel('Текст сопроводительного письма')).toContainText('Excel');
  await expect(page.getByRole('region',{name:'Сопоставление навыков'})).toContainText('B2B');
+ const handoff=page.locator('.manual-note');
+ await expect(handoff).toContainText('Отклик отправляется вручную');
+ await expect(handoff).toContainText('по прежним откликам работодатели видят последнюю версию приложенного резюме');
+ await expect(handoff).toContainText('Приложить сопроводительное письмо');
+ const instructions=handoff.getByRole('link',{name:'Как откликнуться на hh.ru',exact:true});
+ await expect(instructions).toHaveAttribute('href','https://feedback.hh.ru/knowledge-base/article/1618');
+ await expect(instructions).toHaveAttribute('rel','noreferrer');
+ await expect(page.getByRole('button',{name:'Откликнуться',exact:true})).toHaveCount(0);
  await chooseResume(page,'Изменённый синтетический опыт работы с Excel.','replacement.txt');await expect(page.getByRole('button',{name:'Адаптировать резюме',exact:true})).toBeDisabled();await expect(page.getByLabel('Текст сопроводительного письма')).toHaveCount(0);
  page.once('dialog',dialog=>dialog.accept());await page.getByRole('button',{name:'Удалить профиль',exact:true}).click();await page.reload();await expect(page.getByLabel('Сохранённые профили').locator('option')).toHaveCount(1);expect(disallowed).toEqual([]);
 });

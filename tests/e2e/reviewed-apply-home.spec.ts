@@ -68,3 +68,22 @@ test('actual Home rejects old apply when vacancy link changes while verifying st
  expect(check.writes.map(i=>i.path)).toEqual(['/api/mvp/vacancy','/api/rewrite-pilot']);
  expect(check.offsite).toEqual([]);
 });
+
+
+test('actual Home works when Safari-era AbortSignal statics are unavailable',async({page})=>{
+ await page.addInitScript(()=>{
+  for(const name of ['any','timeout'])Object.defineProperty(AbortSignal,name,{value:undefined,configurable:true});
+ });
+ const errors:string[]=[];page.on('pageerror',error=>errors.push(error.message));
+ const check=await setup(page);
+ expect(await page.evaluate(()=>[typeof AbortSignal.any,typeof AbortSignal.timeout])).toEqual(['undefined','undefined']);
+ const result=page.getByLabel('Текст адаптированного резюме',{exact:true});
+ await expect(result).toHaveValue(/Команда подготовила 17/);
+ const before=await result.inputValue(),beforeStatusReads=check.browserStatusReads();
+ await page.getByRole('button',{name:'Использовать выбранные формулировки',exact:true}).click();
+ await expect(result).toHaveValue(before.replace('Команда подготовила 17 отчётов на SQL.',replacement));
+ expect(check.browserStatusReads()).toBe(beforeStatusReads+1);
+ expect(check.writes.map(request=>request.path)).toEqual(['/api/mvp/vacancy','/api/rewrite-pilot']);
+ expect(check.offsite).toEqual([]);
+ expect(errors).toEqual([]);
+});

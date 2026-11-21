@@ -25,5 +25,9 @@ test('iPhone gets Share instructions, while standalone does not show installatio
 test('public manifest, touch icon and standalone launch are configured',async({page,request})=>{
  const response=await request.get('/manifest.webmanifest');expect(response.ok()).toBe(true);const manifest=await response.json();expect(manifest).toMatchObject({id:'/',scope:'/',start_url:'/',display:'standalone',short_name:'JobMatch'});
  for(const icon of manifest.icons.filter((entry:{type:string})=>entry.type==='image/png')){const image=await request.get(icon.src);expect(image.ok()).toBe(true);const bytes=await image.body();expect(`${bytes.readUInt32BE(16)}x${bytes.readUInt32BE(20)}`).toBe(icon.sizes);}
- await page.goto('/');await expect(page.locator('link[rel="apple-touch-icon"]')).toHaveAttribute('href','/icon-192.png');await expect(page.locator('meta[name="apple-mobile-web-app-capable"]')).toHaveAttribute('content','yes');await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content','#176553');
+ await page.goto('/');
+ await expect(page).toHaveTitle('JobMatch — резюме под вашу вакансию');
+ await expect(page.locator('meta[name="description"]')).toHaveAttribute('content','Выберите файл резюме и добавьте ссылку на вакансию. Подготовьте адаптированное резюме и сопроводительное письмо для ручного отклика на hh.ru.');
+ await expect(page.locator('link[rel="manifest"]')).toHaveAttribute('href','/manifest.webmanifest');
+ await expect(page.locator('link[rel="apple-touch-icon"]')).toHaveAttribute('href','/icon-192.png');await expect(page.locator('meta[name="apple-mobile-web-app-capable"]')).toHaveAttribute('content','yes');await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute('content','#176553');
 });

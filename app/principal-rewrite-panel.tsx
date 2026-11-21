@@ -12,6 +12,17 @@ function sameAccount(a:Account,b:Account){
  return a.subject===b.subject&&a.consent?.id===b.consent?.id&&a.consent?.revision===b.consent?.revision&&a.consent?.granted===b.consent?.granted;
 }
 async function api(body?:unknown,signal?:AbortSignal){const response=await fetch('/api/rewrite-pilot',{method:body?'POST':'GET',headers:body?{'Content-Type':'application/json'}:undefined,body:body?JSON.stringify(body):undefined,cache:'no-store',signal});if(!response.ok)throw Error('PILOT_UNAVAILABLE');return response.json();}
+/** Safari's supported baseline predates AbortSignal.any(). Compose and clean up
+ * only the two bounded client status reads, without changing browser globals. */
+async function readBoundedPilotStatus(parent:AbortSignal){
+ const deadline=new AbortController();
+ const cancel=()=>deadline.abort(parent.reason);
+ if(parent.aborted)throw parent.reason??new DOMException('Проверка отменена','AbortError');
+ parent.addEventListener('abort',cancel,{once:true});
+ const timer=setTimeout(()=>deadline.abort(),15000);
+ try{return await api(undefined,deadline.signal);}
+ finally{clearTimeout(timer);parent.removeEventListener('abort',cancel);}
+}
 /** AI-only entry. Existing local adaptation never depends on authentication. */
 export default function PrincipalRewritePanel({resume,enabled=false,review,context=0}:{resume:string;enabled?:boolean;review?:LocalReviewApply;context?:number}){return enabled?<Panel key={resume} resume={resume} review={review} context={context}/>:null;}
 function Panel({resume,review,context}:{resume:string;review?:LocalReviewApply;context:number}){
@@ -36,7 +47,7 @@ function Panel({resume,review,context}:{resume:string;review?:LocalReviewApply;c
    checks.current?.abort();
    const controller=new AbortController();checks.current=controller;setChecking(true);
    const applicable=()=>alive&&checks.current===controller&&version===generation.current;
-   void api(undefined,AbortSignal.any([controller.signal,AbortSignal.timeout(15000)]))
+   void readBoundedPilotStatus(controller.signal)
     .then(value=>{
      if(!applicable())return;
      const next=Status.parse(value);
@@ -124,7 +135,7 @@ function Panel({resume,review,context}:{resume:string;review?:LocalReviewApply;c
   if(ids.some(id=>!allowed.has(id)))return;
   const version=epoch.current,controller=new AbortController();active.current=controller;applying.current=controller;activityContext.current=context;setBusy(true);
   try{
-   const current=Status.parse(await api(undefined,AbortSignal.any([controller.signal,AbortSignal.timeout(15000)])));
+   const current=Status.parse(await readBoundedPilotStatus(controller.signal));
    if(version!==epoch.current||controller.signal.aborted||statusCheck.current)return;
    if(!currentAccount.current||!sameAccount(account,currentAccount.current)||!sameAccount(account,current)){
     invalidate();remember(null);setMessage('Аккаунт или согласие изменились. Формулировки не применены.');return;
