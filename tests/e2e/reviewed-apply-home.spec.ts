@@ -10,7 +10,8 @@ const consent={id:'22222222-2222-4222-8222-222222222222',policy:ACCOUNT_FULL_POL
 
 async function setup(page:Page){
  const writes:Array<{path:string;body:Record<string,unknown>}>=[],offsite:string[]=[];
- let hold=false,statusReads=0,releases:Array<()=>void>=[];
+ let hold=false,statusReads=0;
+ const releases:Array<()=>void>=[];
  await page.context().route('**/*',async route=>{
   const req=route.request(),url=new URL(req.url());
   if(url.origin!==origin){offsite.push(url.origin);return route.abort();}
