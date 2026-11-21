@@ -11,6 +11,27 @@ function contains(text:string,phrase:string){
 export function preservesKnownSkills(original:string,replacement:string,vacancy:Vacancy):boolean{
  return [...catalog,...vacancy.skills].filter(skill=>normalize(skill)).every(skill=>contains(original,skill)===contains(replacement,skill));
 }
+/** Choose a hook without changing a single character of the evidence itself. */
+function buildLocalCoverLetter(title:string,relevant:readonly string[],matchedSkills:readonly string[]){
+ const role=title.replace(/\s+/g,' ').trim();
+ const target=role?`на вакансию «${role}»`:'на вашу вакансию';
+ if(!relevant.length){
+  return `Здравствуйте!\n\nПрилагаю резюме к отклику ${target}. Если мой профиль вам подходит, предлагаю на встрече начать с вопроса: какой результат на этой позиции важнее всего в первые недели?`;
+ }
+ const anchors=relevant.map((line,index)=>({line,index,hits:matchedSkills.filter(skill=>contains(line,skill)).length}));
+ // Prefer a concise, explicitly relevant quotation over a generic introduction.
+ // Overlong passages remain intact; do not crop away team attribution or qualifiers.
+ const concise=anchors.filter(({line})=>line.length<=240);
+ const [lead]=(concise.length?concise:anchors).sort((a,b)=>b.hits-a.hits||a.index-b.index);
+ const quoted=(line:string)=>`«${line}»`;
+ const rest=relevant.filter(line=>line!==lead.line).slice(0,2);
+ return [
+  'Здравствуйте!',
+  `${quoted(lead.line)}${/[.!?…]$/u.test(lead.line)?'':'.'}\nОткликаюсь ${target} и выделяю этот пример из резюме как отправную точку для разговора.`,
+  rest.length?'Ещё по теме:\n'+rest.map(line=>'• '+quoted(line)).join('\n'):'',
+  'Если этот опыт близок вашим задачам, давайте обсудим первый результат, которого вы ждёте на этой позиции.'
+ ].filter(Boolean).join('\n\n');
+}
 export function adaptResume(resume:string,vacancy:Vacancy){
  const lines=[...eligibleEvidence(resume)];
  const candidates=[...new Map([...vacancy.skills,...catalog.filter(skill=>contains(vacancy.text,skill))].map(skill=>[normalize(skill),skill.trim()])).values()];
@@ -24,7 +45,6 @@ export function adaptResume(resume:string,vacancy:Vacancy){
  // Selected evidence belongs in the cover letter, not a duplicate resume block.
  const body=prioritizeEvidence(resume.trim(),unique);
  const sections=[vacancy.title,body.text].filter(Boolean);
- const company=vacancy.company?` в компании «${vacancy.company}»`:'';
- const coverLetter=[`Здравствуйте!\n\nОткликаюсь на вакансию «${vacancy.title}»${company}.`,unique.length?'Релевантные сведения из моего резюме:\n'+unique.slice(0,3).map(line=>'• '+line).join('\n'):'Направляю резюме для рассмотрения моей кандидатуры.','Буду рад обсудить задачи позиции и мой опыт. Спасибо за внимание к моей кандидатуре!'].join('\n\n');
+ const coverLetter=buildLocalCoverLetter(vacancy.title,unique,matchedSkills);
  return {adaptationNote:evidenceNote(body.reorderedGroups),title:vacancy.title,text:sections.join('\n\n'),coverLetter,mode:'automatic' as const,matchedSkills,missingSkills};
 }
