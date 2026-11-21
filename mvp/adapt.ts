@@ -7,6 +7,10 @@ function contains(text:string,phrase:string){
  const source=normalize(text),needle=normalize(phrase);let offset=source.indexOf(needle);
  while(offset>=0){const before=source[offset-1],after=source[offset+needle.length];if((!before||!/[\p{L}\p{N}]/u.test(before))&&(!after||!/[\p{L}\p{N}]/u.test(after)))return true;offset=source.indexOf(needle,offset+1);}return false;
 }
+/** A rewrite may not change membership of any known or vacancy-listed skill. */
+export function preservesKnownSkills(original:string,replacement:string,vacancy:Vacancy):boolean{
+ return [...catalog,...vacancy.skills].filter(skill=>normalize(skill)).every(skill=>contains(original,skill)===contains(replacement,skill));
+}
 export function adaptResume(resume:string,vacancy:Vacancy){
  const lines=[...eligibleEvidence(resume)];
  const candidates=[...new Map([...vacancy.skills,...catalog.filter(skill=>contains(vacancy.text,skill))].map(skill=>[normalize(skill),skill.trim()])).values()];

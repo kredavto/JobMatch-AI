@@ -8,6 +8,7 @@ import LocalVersionReview from './local-version-review';
 import PrincipalRewritePanel from './principal-rewrite-panel';
 import SkillMatchReview from './skill-match-review';
 import {adaptResume} from '../mvp/adapt';
+import {applyLocalReviewedRewrite,localReviewCandidateIds} from '../mvp/local-reviewed-rewrite';
 import LocalResumePicker from './local-resume-picker';
 import {responseJson,VacancySchema} from '../mvp/responses';
 
@@ -37,6 +38,8 @@ export default function Home() {
   const [errors, setErrors] = useState<Partial<Record<Stage, string>>>({});
   const [hhBlocked,setHHBlocked]=useState(false);
   const hhBlockedRef=useRef(false);
+  const latestReview=useRef(0);
+  const [reviewContext,setReviewContext]=useState(0);
   const controllers = useRef<Partial<Record<Stage, AbortController>>>({});
 
   useEffect(() => {
@@ -56,6 +59,7 @@ export default function Home() {
 
   function invalidateResult() {
     cancel('adapt');
+    setReviewContext(++latestReview.current);
     setResult(null);
   }
 
@@ -111,7 +115,7 @@ export default function Home() {
 
   async function adapt() {
     if (!resume || !vacancy || controllers.current.adapt) return;
-    setResult(null);
+    invalidateResult();
     await run('adapt', async signal => {
       const data = adaptResume(resume.text,vacancy);
       if (!signal.aborted) setResult(data);
@@ -161,14 +165,21 @@ export default function Home() {
       </div>
       <section className={`result-section ${result ? 'has-result' : ''}`} aria-labelledby="result-heading">
         <div className="result-header">
-          <div className="result-title"><span className="step">04</span><div><h2 id="result-heading">Резюме для отклика</h2><p>{result ? (result.mode === 'ai' ? 'ИИ-адаптация завершена' : 'Автоматическая адаптация') : 'Появится здесь после адаптации'}</p></div></div>
+          <div className="result-title"><span className="step">04</span><div><h2 id="result-heading">Резюме для отклика</h2><p>{result ? (result.mode === 'ai' ? 'Локальная адаптация с проверенными вами формулировками' : 'Автоматическая адаптация') : 'Появится здесь после адаптации'}</p></div></div>
         </div>
         {result ? <div className="result-grid">
           <article className="resume-preview"><SkillMatchReview matchedSkills={result.matchedSkills} missingSkills={result.missingSkills}/><div className="document-label">АДАПТИРОВАННОЕ РЕЗЮМЕ</div><h3>{result.title}</h3><ResultText key={result.text} id="resume-result" label="Текст адаптированного резюме" text={result.text} rows={18}/>{result.adaptationNote && <p>{result.adaptationNote}</p>}</article>
           <div className="cover-letter"><div className="document-label">ФИНАЛЬНЫЙ ШТРИХ</div><h3>Сопроводительное письмо</h3><p>Скопируйте письмо и проверьте его перед ручным откликом.</p><ResultText key={result.coverLetter} id="cover-letter" label="Текст сопроводительного письма" text={result.coverLetter}/><div className="manual-note"><strong>Дальше на hh.ru</strong><p>Перенос текста резюме и отправка отклика с этим письмом выполняются вручную в вашем аккаунте hh.ru.</p></div></div>
         </div> : <div className="result-placeholder"><span className="preview-sheet" aria-hidden="true"><i/><i/><i/><i/></span><p>Одно резюме. Одна вакансия.<br/><strong>Всё нужное для вашего отклика.</strong></p></div>}
       </section>
-      {resume&&<PrincipalRewritePanel resume={resume.text} enabled={process.env.NEXT_PUBLIC_JOBMATCH_FULL_REWRITE_PILOT==='true'}/>}
+      {resume&&<PrincipalRewritePanel context={reviewContext} resume={resume.text} enabled={process.env.NEXT_PUBLIC_JOBMATCH_FULL_REWRITE_PILOT==='true'} review={vacancy&&result?{
+         choices:output=>localReviewCandidateIds(resume.text,vacancy,result,output),
+         save:(output,ids)=>{
+          if(latestReview.current!==reviewContext)throw Error('STALE_LOCAL_REVIEW');
+          const applied=applyLocalReviewedRewrite(resume.text,vacancy,result,output,ids);
+          setResult({...result,...applied,mode:'ai'});
+         },
+      }:undefined}/>}
       <LocalVersionReview draft={result&&resume?{name:resume.filename,source:resume.text,title:result.title,text:result.text,coverLetter:result.coverLetter}:null}/>
     </main>
     <footer><span>JobMatch <span className="footer-dot">·</span> Меньше рутины. Больше возможностей.</span><span>Профили сохраняются только в этом браузере по вашей команде. Отдельные версии сохраняются только по вашей команде; без сохранения результат остаётся во вкладке.</span></footer>

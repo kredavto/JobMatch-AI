@@ -1,9 +1,11 @@
-import React,{useState} from 'react';
+import React,{useRef,useState} from 'react';
 import {createRoot} from 'react-dom/client';
 import PrincipalRewritePanel from '../../../app/principal-rewrite-panel';
+import {adaptResume} from '../../../mvp/adapt';
+import {applyLocalReviewedRewrite,localReviewCandidateIds} from '../../../mvp/local-reviewed-rewrite';
 import {ACCOUNT_FULL_POLICY,resumeFacts} from '../../../mvp/full-resume-consent';
 import '../../../app/globals.css';
-const synthetic='Синтетический кандидат\nКоманда создала 12 отчётов в 2024 году.';
+const synthetic='Синтетический кандидат\n• Команда создала 12 отчётов в 2024 году.';
 const ids=['00000000-0000-4000-8000-000000000001','00000000-0000-4000-8000-000000000002'];
 type Consent={id:string;revision:number;granted:boolean;policy:typeof ACCOUNT_FULL_POLICY};
 type Fake={subject:string|null;consents:Record<string,Consent>};
@@ -34,7 +36,20 @@ window.fetch=async(input,init)=>{
  window.__pilotRequests.push(body);
  if(window.__pilotDelay)await new Promise<void>(resolve=>{window.__pilotRelease=resolve;});
  if(window.__pilotFail)return fail();
- return Response.json({subject:v.subject,source:resumeFacts(body.resume),output:{suggestions:[{sourceId:'line-2',sourceQuote:'Команда создала 12 отчётов в 2024 году.',text:'В 2024 году команда создала 12 отчётов.'}]}});
+ return Response.json({subject:v.subject,source:resumeFacts(body.resume),output:{suggestions:[{sourceId:'line-2',sourceQuote:'• Команда создала 12 отчётов в 2024 году.',text:'В 2024 году команда создала 12 отчётов.'}]}});
 };
-function Harness(){const [text,setText]=useState(synthetic);return <main className="mvp-shell"><h1>Синтетический тест</h1><p>VACANCY_MARKER_NOT_FOR_PROVIDER</p><p>Локальный результат сохранён.</p><label>Тестовый исходник<textarea value={text} onChange={e=>setText(e.target.value)}/></label><PrincipalRewritePanel resume={text} enabled/></main>;}
+function Harness(){
+ const [text,setText]=useState(synthetic),[selected,setSelected]=useState('Тестовая должность'),[preferred,setPreferred]=useState<ReturnType<typeof adaptResume>|null>(null),[context,setContext]=useState(0);
+ const latest=useRef(0);
+ const vacancy={title:selected,company:'Тест',url:'https://example.test',text:'VACANCY_MARKER_NOT_FOR_PROVIDER',skills:[]};
+ const current=preferred??adaptResume(text,vacancy);
+ return <main className="mvp-shell"><h1>Синтетический тест</h1><p>{vacancy.text}</p><p>Локальный результат сохранён.</p>
+ <label>Тестовый исходник<textarea value={text} onChange={e=>{setPreferred(null);setText(e.target.value);}}/></label>
+ <button onClick={()=>{setContext(++latest.current);setPreferred(null);setSelected('Другая должность');}}>Сменить тестовую вакансию</button>
+ <p aria-label="Тестовый результат">{current.text}</p><p aria-label="Тестовое письмо">{current.coverLetter}</p>
+ <PrincipalRewritePanel context={context} resume={text} enabled review={{
+  choices:output=>localReviewCandidateIds(text,vacancy,current,output),
+  save:(output,ids)=>{if(latest.current!==context)throw Error('STALE_LOCAL_REVIEW');setPreferred({...current,...applyLocalReviewedRewrite(text,vacancy,current,output,ids)});},
+ }}/></main>;
+}
 createRoot(document.getElementById('root')!).render(<Harness/>);
