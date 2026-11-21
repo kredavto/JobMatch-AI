@@ -1,7 +1,7 @@
 'use client';
 import {useCallback,useEffect,useRef,useState} from 'react';
 import {z} from 'zod';
-import {FULL_NOTICE,ACCOUNT_FULL_POLICY,validateFullResume} from '../mvp/full-resume-consent';
+import {FULL_NOTICE,ACCOUNT_FULL_POLICY,resumeFacts} from '../mvp/full-resume-consent';
 import RewritePreviewPanel from './rewrite-preview-panel';
 import LocalReviewedDraft,{type LocalReviewApply} from './local-reviewed-draft';
 import {validateAuthAck} from '../lib/auth-contract';
@@ -11,7 +11,40 @@ type Account=z.infer<typeof Status>;
 function sameAccount(a:Account,b:Account){
  return a.subject===b.subject&&a.consent?.id===b.consent?.id&&a.consent?.revision===b.consent?.revision&&a.consent?.granted===b.consent?.granted;
 }
-async function api(body?:unknown,signal?:AbortSignal){const response=await fetch('/api/rewrite-pilot',{method:body?'POST':'GET',headers:body?{'Content-Type':'application/json'}:undefined,body:body?JSON.stringify(body):undefined,cache:'no-store',signal});if(!response.ok)throw Error('PILOT_UNAVAILABLE');return response.json();}
+const DraftFailure=z.enum(['login-required','account-changed','revoked','stale-or-revoked','invalid-or-sensitive-resume','consent-or-budget-or-duplicate','reservation-unavailable','origin','invalid-request','no-suggestions','rejected']);
+class PilotHttpError extends Error{constructor(readonly draftState:z.infer<typeof DraftFailure>|null){super('PILOT_UNAVAILABLE');}}
+async function api(body?:unknown,signal?:AbortSignal){
+ const response=await fetch('/api/rewrite-pilot',{method:body?'POST':'GET',headers:body?{'Content-Type':'application/json'}:undefined,body:body?JSON.stringify(body):undefined,cache:'no-store',signal});
+ if(!response.ok){
+  let state=null;
+  try{const parsed=DraftFailure.safeParse((await response.json())?.state);if(parsed.success)state=parsed.data;}catch{/* Only allow listed states from the same-origin route. */}
+  throw new PilotHttpError(state);
+ }
+ return response.json();
+}
+const draftMessages:Record<z.infer<typeof DraftFailure>,string>={
+ 'login-required':'Сессия ИИ не подтверждена. Войдите снова.',
+ 'account-changed':'Аккаунт изменился. Запрос не выполнен.',
+ 'revoked':'Согласие или доступ больше не подтверждены. Черновик не показан.',
+ 'stale-or-revoked':'Сессия, согласие или доступ изменились. Черновик не показан.',
+ 'invalid-or-sensitive-resume':'Этот текст не подходит для ИИ. Проверьте объём и уберите пароли и данные документов.',
+ 'consent-or-budget-or-duplicate':'Не подтверждены согласие или доступ к ИИ, исчерпан лимит либо запрос уже учтён.',
+ 'reservation-unavailable':'Не удалось проверить лимит ИИ. Черновик не запрашивался у Groq.',
+ 'origin':'Откройте JobMatch по его основному адресу. Запрос ИИ отклонён.',
+ 'invalid-request':'Запрос ИИ отклонён. Обновите страницу и проверьте исходный текст.',
+ 'no-suggestions':'ИИ не предложил изменений.',
+ 'rejected':'Ответ ИИ отклонён: он не прошёл проверку формата или соответствия исходнику.',
+};
+function fullResumeInputMessage(resume:string){
+ try{resumeFacts(resume);return null;}catch(error){
+  switch(error instanceof Error?error.message:''){
+   case 'RESUME_LIMIT':return 'Для ИИ нужно от 20 до 10 000 символов.';
+   case 'RESUME_STRUCTURE_LIMIT':return 'Для ИИ нужно не более 80 непустых строк и не более 2 000 символов в строке.';
+   case 'SENSITIVE_OR_HIDDEN_MARKER':return 'ИИ обнаружил возможные чувствительные данные или скрытые символы. Исправьте исходный файл и выберите его заново.';
+   default:return 'Не удалось проверить текст для ИИ.';
+  }
+ }
+}
 /** Safari's supported baseline predates AbortSignal.any(). Compose and clean up
  * only the two bounded client status reads, without changing browser globals. */
 async function readBoundedPilotStatus(parent:AbortSignal){
@@ -117,15 +150,23 @@ function Panel({resume,review,context}:{resume:string;review?:LocalReviewApply;c
  async function run(){
   if(!account?.consent?.granted||busy||checking||statusCheck.current||mutation.current||active.current)return;
   invalidate();
+  const inputMessage=fullResumeInputMessage(resume);
+  if(inputMessage){setMessage(inputMessage+' Текст не отправлен.');return;}
   const version=epoch.current,controller=new AbortController();active.current=controller;activityContext.current=context;setBusy(true);
+  let rechecking=false;
   try{
-   validateFullResume(resume);
    const value=await api({action:'rewrite',expectedSubject:account.subject,requestId:crypto.randomUUID(),consentId:account.consent.id,consentRevision:account.consent.revision,policy:ACCOUNT_FULL_POLICY,resume},controller.signal);
+   rechecking=true;
    const current=Status.parse(await api(undefined,controller.signal));
    if(epoch.current!==version||controller.signal.aborted)return;
    if(value.subject===account.subject&&sameAccount(account,current)){setResult({source:value.source,output:value.output,context});}
    else{invalidate();remember(null);setMessage('Аккаунт или согласие изменились. Черновик не показан.');}
-  }catch{if(epoch.current===version&&!controller.signal.aborted){setResult(null);setMessage('Черновик недоступен. Локальная адаптация и исходник не изменены.');}}
+  }catch(error){if(epoch.current===version&&!controller.signal.aborted){
+   setResult(null);
+   const state=error instanceof PilotHttpError?error.draftState:null;
+   if(rechecking||state==='login-required'||state==='account-changed'||state==='revoked'||state==='stale-or-revoked')remember(null);
+   setMessage((state?draftMessages[state]:rechecking?'Не удалось повторно подтвердить доступ. Черновик не показан.':'Черновик недоступен.')+' Локальная адаптация и исходник не изменены.');
+  }}
   finally{if(epoch.current===version&&active.current===controller){setBusy(false);active.current=null;activityContext.current=null;}}
  }
  const draft=result?.context===context?result:null;
@@ -150,5 +191,5 @@ function Panel({resume,review,context}:{resume:string;review?:LocalReviewApply;c
   }
  }
  function dismissReview(){invalidate();setMessage('Предложения отклонены. Локальный результат не изменён.');}
- return <section className="source-card local-version-review" aria-label="ИИ только для авторизованного пользователя"><h2>ИИ-черновик: необязательный вход</h2><p>Локальная адаптация остаётся доступной без аккаунта.</p>{!account?<><label>Email JobMatch<input type="email" value={email} onChange={e=>setEmail(e.target.value)}/></label><label>Пароль JobMatch<input type="password" autoComplete="current-password" value={password} onChange={e=>setPassword(e.target.value)}/></label><button disabled={checking||mutating||!email||!password} onClick={()=>void login()}>Войти только для ИИ</button></>:<><p>Согласие относится к текущему подтверждённому аккаунту, не к любому пользователю браузера.</p><p>{FULL_NOTICE.replace('Согласие запоминается только в этом браузере','Согласие сохраняется для текущего аккаунта').replace('Не разрешайте на общем устройстве.','Выходите из аккаунта на общем устройстве.')}</p><p><a href="https://console.groq.com/docs/your-data" target="_blank" rel="noreferrer">Обработка данных Groq</a></p>{!checking&&<details><summary>Полный текст перед отправкой</summary><pre style={{whiteSpace:'pre-wrap',overflowWrap:'anywhere'}}>{resume}</pre></details>}{!account.consent?.granted?<><label><input type="checkbox" checked={accepted} onChange={e=>setAccepted(e.target.checked)}/>Разрешаю Groq обрабатывать полный текст при последующих адаптациях по моей команде.</label><button disabled={!accepted||checking||mutating} onClick={()=>void consent(true)}>Сохранить согласие для аккаунта</button></>:<button disabled={mutating} onClick={()=>void consent(false)}>Отозвать согласие аккаунта</button>}<button disabled={!account.consent?.granted||busy||checking||mutating} onClick={()=>void run()}>Создать ИИ-черновик</button><button disabled={mutating} onClick={()=>void logout()}>Выйти из ИИ-аккаунта</button></>}{busy&&!checking&&<button onClick={()=>{invalidate();setMessage('Ожидание отменено; уже переданные данные нельзя отозвать.');}}>Отменить ожидание</button>}<p role="status">{checking?'Проверяем доступ к ИИ…':message}</p>{!checking&&draft&&(review?<LocalReviewedDraft source={draft.source} output={draft.output} review={review} busy={busy} apply={ids=>void applyReview(ids)} dismiss={dismissReview}/>:<><p>ИИ-черновик можно просмотреть. Чтобы применить предложения к резюме, сначала создайте обычную адаптацию под вакансию, затем новый черновик.</p><RewritePreviewPanel source={draft.source} output={draft.output} onDismiss={dismissReview}/></>)}</section>;
+ return <section className="source-card local-version-review" aria-label="ИИ только для авторизованного пользователя"><h2>ИИ-черновик: необязательный вход</h2><p>Локальная адаптация остаётся доступной без аккаунта.</p>{!account?<><label>Email JobMatch<input type="email" value={email} onChange={e=>setEmail(e.target.value)}/></label><label>Пароль JobMatch<input type="password" autoComplete="current-password" value={password} onChange={e=>setPassword(e.target.value)}/></label><button disabled={checking||mutating||!email||!password} onClick={()=>void login()}>Войти только для ИИ</button></>:<><p>Согласие относится к текущему подтверждённому аккаунту, не к любому пользователю браузера.</p><p>{FULL_NOTICE.replace('Согласие запоминается только в этом браузере','Согласие сохраняется для текущего аккаунта').replace('Не разрешайте на общем устройстве.','Выходите из аккаунта на общем устройстве.')}</p><p><a href="https://console.groq.com/docs/your-data" target="_blank" rel="noreferrer">Обработка данных Groq</a></p>{!checking&&<details><summary>Полный текст перед отправкой</summary><pre style={{whiteSpace:'pre-wrap',overflowWrap:'anywhere'}}>{resume}</pre></details>}{!account.consent?.granted?<><label><input type="checkbox" checked={accepted} onChange={e=>setAccepted(e.target.checked)}/>Разрешаю Groq обрабатывать полный текст при последующих адаптациях по моей команде.</label><button disabled={!accepted||checking||mutating} onClick={()=>void consent(true)}>Сохранить согласие для аккаунта</button></>:<button disabled={mutating} onClick={()=>void consent(false)}>Отозвать согласие аккаунта</button>}<p>Ограничения ИИ: от 20 до 10 000 символов, до 80 непустых строк и 2 000 символов в строке. Для локальной адаптации эти ограничения не действуют.</p><button disabled={!account.consent?.granted||busy||checking||mutating} onClick={()=>void run()}>Создать ИИ-черновик</button><button disabled={mutating} onClick={()=>void logout()}>Выйти из ИИ-аккаунта</button></>}{busy&&!checking&&<button onClick={()=>{invalidate();setMessage('Ожидание отменено; уже переданные данные нельзя отозвать.');}}>Отменить ожидание</button>}<p role="status">{checking?'Проверяем доступ к ИИ…':message}</p>{!checking&&draft&&(review?<LocalReviewedDraft source={draft.source} output={draft.output} review={review} busy={busy} apply={ids=>void applyReview(ids)} dismiss={dismissReview}/>:<><p>ИИ-черновик можно просмотреть. Чтобы применить предложения к резюме, сначала создайте обычную адаптацию под вакансию, затем новый черновик.</p><RewritePreviewPanel source={draft.source} output={draft.output} onDismiss={dismissReview}/></>)}</section>;
 }

@@ -9,7 +9,7 @@ const synthetic='Синтетический кандидат\n• Команда
 const ids=['00000000-0000-4000-8000-000000000001','00000000-0000-4000-8000-000000000002'];
 type Consent={id:string;revision:number;granted:boolean;policy:typeof ACCOUNT_FULL_POLICY};
 type Fake={subject:string|null;consents:Record<string,Consent>};
-declare global{interface Window{__pilotRequests:Record<string,unknown>[];__pilotFail:boolean;__pilotDelay:boolean;__pilotRelease?:()=>void;__pilotSwitch:()=>void;__pilotRevoke:()=>void;__pilotFailStatus?:boolean;__pilotHoldStatus?:boolean;__pilotStatusReleases:Array<()=>void>;}}
+declare global{interface Window{__pilotRequests:Record<string,unknown>[];__pilotFail:boolean;__pilotRewriteFailure?:{status:number;state:string};__pilotDelay:boolean;__pilotRelease?:()=>void;__pilotSwitch:()=>void;__pilotRevoke:()=>void;__pilotFailStatus?:boolean;__pilotHoldStatus?:boolean;__pilotStatusReleases:Array<()=>void>;}}
 window.__pilotStatusReleases=[];window.__pilotRequests=[];window.__pilotFail=false;window.__pilotDelay=false;
 const read=():Fake=>JSON.parse(sessionStorage.getItem('synthetic-account-fixture')||'{"subject":null,"consents":{}}');
 const save=(v:Fake)=>sessionStorage.setItem('synthetic-account-fixture',JSON.stringify(v));
@@ -36,6 +36,7 @@ window.fetch=async(input,init)=>{
  window.__pilotRequests.push(body);
  if(window.__pilotDelay)await new Promise<void>(resolve=>{window.__pilotRelease=resolve;});
  if(window.__pilotFail)return fail();
+ if(window.__pilotRewriteFailure){const {status,state}=window.__pilotRewriteFailure;return Response.json({state,message:"PRIVATE UPSTREAM DETAILS"},{status});}
  return Response.json({subject:v.subject,source:resumeFacts(body.resume),output:{suggestions:[{sourceId:'line-2',sourceQuote:'• Команда создала 12 отчётов в 2024 году.',text:'В 2024 году команда создала 12 отчётов.'}]}});
 };
 function Harness(){

@@ -75,3 +75,21 @@ test('revocation on return drops the draft and an out-of-order older check canno
  await expect(page.getByRole('button',{name:launch,exact:true})).toBeDisabled();
  expect(await page.evaluate(()=>window.__pilotRequests.length)).toBe(1);
 });
+
+test('AI-only structural preflight names the limit without sending a rewrite',async({page})=>{
+ await page.goto('/');await login(page);await optin(page);
+ await page.getByLabel('Тестовый исходник').fill(Array(81).fill('Внутренние отчёты').join('\n'));
+ await expect(page.getByRole('button',{name:launch,exact:true})).toBeEnabled();
+ await page.getByRole('button',{name:launch,exact:true}).click();
+ await expect(page.getByText(/не более 80 непустых строк.*Текст не отправлен/)).toBeVisible();
+ expect(await page.evaluate(()=>window.__pilotRequests)).toEqual([]);
+ await expect(page.getByText('Локальный результат сохранён.',{exact:true})).toBeVisible();
+});
+test('only a fixed rewrite stage is shown; upstream diagnostics stay private and no retry occurs',async({page})=>{
+ await page.goto('/');await login(page);await optin(page);
+ await page.evaluate(()=>{window.__pilotRewriteFailure={status:503,state:'reservation-unavailable'};});
+ await page.getByRole('button',{name:launch,exact:true}).click();
+ await expect(page.getByText(/Черновик не запрашивался у Groq/)).toBeVisible();
+ await expect(page.getByText('PRIVATE UPSTREAM DETAILS')).toHaveCount(0);
+ expect(await page.evaluate(()=>window.__pilotRequests.length)).toBe(1);
+});

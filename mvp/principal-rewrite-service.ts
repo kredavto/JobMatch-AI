@@ -34,7 +34,9 @@ export function createPrincipalRewriteService(deps:PilotDependencies={}){
    if(body.action!=='rewrite')return Response.json({subject:principal.id,consent:publicConsent(await deps.store.consent(principal,{grant:body.action==='grant',expectedRevision:body.expectedRevision,policy:body.policy}))},{headers:privateHeaders});
    let facts;try{facts=resumeFacts(validateFullResume(body.resume));}catch{return fail('invalid-or-sensitive-resume',400);}
    if(request.signal.aborted)return fail('cancelled',408);
-   const reservation=await deps.store.reserve(principal,{requestId:body.requestId,consentId:body.consentId,consentRevision:body.consentRevision,policy:body.policy});
+   let reservation;try{
+    reservation=await deps.store.reserve(principal,{requestId:body.requestId,consentId:body.consentId,consentRevision:body.consentRevision,policy:body.policy});
+   }catch{return fail('reservation-unavailable',503);}
    if(!reservation)return fail('consent-or-budget-or-duplicate',403);
    if(request.signal.aborted||!await deps.store.canDeliver(principal,reservation))return fail('revoked',409);
    const signal=AbortSignal.any([request.signal,AbortSignal.timeout(15000)]);

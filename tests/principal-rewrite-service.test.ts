@@ -20,3 +20,27 @@ it('revocation before provider blocks send; revocation during provider blocks re
 it('logout/account switch before delivery discards provider response',async()=>{const m=mock();m.auth.mockResolvedValueOnce(user).mockResolvedValueOnce(null);const r=await m.run(request(command()));expect(r.status).toBe(409);expect(await r.text()).not.toContain('Команда');});
 it('browser consent policy, metadata, credentials and raw provider errors fail closed',async()=>{const m=mock();for(const body of [{...command(),policy:'groq-full-resume-v1'},{...command(),vacancy:'hidden'},{...command(),resume:resume+'\nSSN: 123-45-6789'}])expect((await m.run(request(body))).status).toBe(400);expect(m.store.reserve).not.toHaveBeenCalled();m.rewrite.mockRejectedValue(Error('PRIVATE BODY'));const r=await m.run(request(command()));expect(r.status).toBe(503);expect(await r.text()).not.toContain('PRIVATE');});
 it('authenticator verifies access cookie server-side and ignores body/header owner hints',async()=>{const {createPilotAuthenticator}=await import('../mvp/pilot-auth');const verify=vi.fn().mockResolvedValue({...user,email:'fiction@example.invalid'});const authenticate=createPilotAuthenticator(verify);expect(await authenticate(new Request('https://example.invalid',{headers:{'x-jobmatch-owner':user.id}}))).toBeNull();expect(verify).not.toHaveBeenCalled();const result=await authenticate(new Request('https://example.invalid',{headers:{cookie:'jm_pilot_access=fake-token','x-jobmatch-owner':'not-authority'}}));expect(result).toEqual(user);expect(result).not.toHaveProperty('email');expect(verify).toHaveBeenCalledWith('fake-token');verify.mockRejectedValue(Error('expired'));expect(await authenticate(new Request('https://example.invalid',{headers:{cookie:'jm_pilot_access=fake-token'}}))).toBeNull();});
+it('reviewed Home fixture reaches reservation, but structural and known-marker input fail before reserve',async()=>{
+ const m=mock();
+ const fixture='Фиктивный соискатель\n• Писал внутреннюю документацию.\n• Команда подготовила 17 отчётов на SQL';
+ for(const resume of [Array(81).fill('Внутренние отчёты').join('\n'),'А'.repeat(2001),fixture+'\u200b']){
+  const r=await m.run(request({...command(),resume}));
+  expect(r.status).toBe(400);expect((await r.json()).state).toBe('invalid-or-sensitive-resume');
+ }
+ expect(m.store.reserve).not.toHaveBeenCalled();
+ expect(m.rewrite).not.toHaveBeenCalled();
+ vi.mocked(m.store.reserve).mockResolvedValue(null);
+ const response=await m.run(request({...command(),resume:fixture}));
+ expect(response.status).toBe(403);
+ expect((await response.json()).state).toBe('consent-or-budget-or-duplicate');
+ expect(m.store.reserve).toHaveBeenCalledOnce();
+});
+it('a failed reservation RPC is distinguishable from budget denial and omits raw rejection',async()=>{
+ const m=mock();
+ vi.mocked(m.store.reserve).mockRejectedValue(new Error('PRIVATE RPC DIAGNOSTICS'));
+ const r=await m.run(request(command())),body=await r.json();
+ expect(r.status).toBe(503);
+ expect(body.state).toBe('reservation-unavailable');
+ expect(JSON.stringify(body)).not.toContain('PRIVATE');
+ expect(m.rewrite).not.toHaveBeenCalled();
+});
