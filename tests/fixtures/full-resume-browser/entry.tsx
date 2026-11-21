@@ -7,11 +7,12 @@ const synthetic='Синтетический кандидат\nКоманда с�
 const ids=['00000000-0000-4000-8000-000000000001','00000000-0000-4000-8000-000000000002'];
 type Consent={id:string;revision:number;granted:boolean;policy:typeof ACCOUNT_FULL_POLICY};
 type Fake={subject:string|null;consents:Record<string,Consent>};
-declare global{interface Window{__pilotRequests:Record<string,unknown>[];__pilotFail:boolean;__pilotDelay:boolean;__pilotRelease?:()=>void;__pilotSwitch:()=>void;}}
-window.__pilotRequests=[];window.__pilotFail=false;window.__pilotDelay=false;
+declare global{interface Window{__pilotRequests:Record<string,unknown>[];__pilotFail:boolean;__pilotDelay:boolean;__pilotRelease?:()=>void;__pilotSwitch:()=>void;__pilotRevoke:()=>void;__pilotFailStatus?:boolean;__pilotHoldStatus?:boolean;__pilotStatusReleases:Array<()=>void>;}}
+window.__pilotStatusReleases=[];window.__pilotRequests=[];window.__pilotFail=false;window.__pilotDelay=false;
 const read=():Fake=>JSON.parse(sessionStorage.getItem('synthetic-account-fixture')||'{"subject":null,"consents":{}}');
 const save=(v:Fake)=>sessionStorage.setItem('synthetic-account-fixture',JSON.stringify(v));
 window.__pilotSwitch=()=>{const v=read();v.subject=ids[1];save(v);};
+window.__pilotRevoke=()=>{const v=read();if(v.subject&&v.consents[v.subject]){v.consents[v.subject]={...v.consents[v.subject],granted:false,revision:v.consents[v.subject].revision+1};save(v);}};
 // Test-only same-origin simulated handlers. Never forward any fetch to network.
 window.fetch=async(input,init)=>{
  const path=String(input),v=read();const body=init?.body?JSON.parse(String(init.body)):null;
@@ -22,7 +23,7 @@ window.fetch=async(input,init)=>{
  }
  if(path!=='/api/rewrite-pilot'||!v.subject)return fail();
  const status=()=>({subject:v.subject,consent:v.consents[v.subject!]??null});
- if(!body)return Response.json(status());
+ if(!body){if(window.__pilotHoldStatus)await new Promise<void>(resolve=>window.__pilotStatusReleases.push(resolve));return window.__pilotFailStatus?fail():Response.json(status());}
  if(body.expectedSubject!==v.subject)return fail();
  if(body.action==='grant'||body.action==='revoke'){
   const old=v.consents[v.subject];if(body.expectedRevision!==(old?.revision??0))return fail();

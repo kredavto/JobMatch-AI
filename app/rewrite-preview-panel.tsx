@@ -3,7 +3,7 @@ import React,{useState} from 'react';
 import {prepareRewritePreview} from '../mvp/rewrite-preview';
 import type {RewriteFact} from '../mvp/rewrite-draft';
 /** Synthetic read-only preview. No accept/apply/export controls or model requests. */
-export default function RewritePreviewPanel({source,output}:{source:RewriteFact[];output:unknown}){
+export default function RewritePreviewPanel({source,output,onDismiss}:{source:RewriteFact[];output:unknown;onDismiss?:()=>void}){
  const [dismissed,setDismissed]=useState(false);
  const preview=prepareRewritePreview(source,output);
  if(dismissed)return <p role="status">Предложения скрыты. Исходный текст не изменён.</p>;
@@ -17,6 +17,6 @@ export default function RewritePreviewPanel({source,output}:{source:RewriteFact[
    <p>Статус: требуется проверка человеком. Семантическая проверка не выполнена.</p>
   </article>)}
   {preview.draft.unmodifiedIds.length>0&&<div><h2>Без предложения: исходные факты сохранены</h2><ul>{preview.draft.source.filter(f=>preview.draft.unmodifiedIds.includes(f.id)).map(f=><li key={f.id}>{f.text}</li>)}</ul></div>}
-  <button type="button" className="button secondary" onClick={()=>setDismissed(true)}>Отклонить все предложения</button>
+  <button type="button" className="button secondary" onClick={()=>{setDismissed(true);onDismiss?.();}}>Отклонить все предложения</button>
  </section>;
 }

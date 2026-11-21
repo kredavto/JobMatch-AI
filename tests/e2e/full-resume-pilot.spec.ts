@@ -28,3 +28,50 @@ test('late results rejected after account switch, revoke, logout and source edit
   if(action==='switch')await expect(page.getByText('Аккаунт или согласие изменились. Черновик не показан.',{exact:true})).toBeVisible();
  }
 });
+
+async function returnFocus(page:Page){
+ await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
+}
+test('focus hides an unverified draft and restores it after verifying the same account and consent',async({page})=>{
+ await page.goto('/');await login(page);await optin(page);
+ await page.getByRole('button',{name:launch,exact:true}).click();
+ await expect(page.getByText(review,{exact:true})).toBeVisible();
+ await page.evaluate(()=>{window.__pilotHoldStatus=true;});await returnFocus(page);
+ await expect.poll(()=>page.evaluate(()=>window.__pilotStatusReleases.length)).toBe(1);
+ await expect(page.getByText(review,{exact:true})).toHaveCount(0);
+ await expect(page.getByRole('button',{name:launch,exact:true})).toBeDisabled();
+ await page.evaluate(()=>{window.__pilotHoldStatus=false;window.__pilotStatusReleases[0]();});
+ await expect(page.getByText(review,{exact:true})).toBeVisible();
+ expect(await page.evaluate(()=>window.__pilotRequests.length)).toBe(1);
+});
+
+test('unchanged focus preserves in-flight rewrite; failed status closes the draft without retry',async({page})=>{
+ await page.goto('/');await login(page);await optin(page);
+ await page.evaluate(()=>{window.__pilotDelay=true;});
+ await page.getByRole('button',{name:launch,exact:true}).click();
+ await expect.poll(()=>page.evaluate(()=>!!window.__pilotRelease)).toBe(true);
+ await page.evaluate(()=>{window.__pilotHoldStatus=true;});await returnFocus(page);
+ await expect.poll(()=>page.evaluate(()=>window.__pilotStatusReleases.length)).toBe(1);
+ await page.evaluate(()=>{window.__pilotHoldStatus=false;window.__pilotStatusReleases[0]();window.__pilotRelease?.();});
+ await expect(page.getByText(review,{exact:true})).toBeVisible();
+ await page.evaluate(()=>{window.__pilotFailStatus=true;});await returnFocus(page);
+ await expect(page.getByText(review,{exact:true})).toHaveCount(0);
+ await expect(page.getByText('Не удалось подтвердить доступ к ИИ. Локальная адаптация остаётся доступна.')).toBeVisible();
+ expect(await page.evaluate(()=>window.__pilotRequests.length)).toBe(1);
+});
+
+test('revocation on return drops the draft and an out-of-order older check cannot restore it',async({page})=>{
+ await page.goto('/');await login(page);await optin(page);
+ await page.getByRole('button',{name:launch,exact:true}).click();
+ await expect(page.getByText(review,{exact:true})).toBeVisible();
+ await page.evaluate(()=>{window.__pilotHoldStatus=true;});await returnFocus(page);
+ await expect.poll(()=>page.evaluate(()=>window.__pilotStatusReleases.length)).toBe(1);
+ await page.evaluate(()=>window.__pilotRevoke());await returnFocus(page);
+ await expect.poll(()=>page.evaluate(()=>window.__pilotStatusReleases.length)).toBe(2);
+ await page.evaluate(()=>{window.__pilotHoldStatus=false;window.__pilotStatusReleases[1]();});
+ await expect(page.getByText('Аккаунт или согласие изменились. Черновик не показан.')).toBeVisible();
+ await page.evaluate(()=>window.__pilotStatusReleases[0]());
+ await expect(page.getByText(review,{exact:true})).toHaveCount(0);
+ await expect(page.getByRole('button',{name:launch,exact:true})).toBeDisabled();
+ expect(await page.evaluate(()=>window.__pilotRequests.length)).toBe(1);
+});
