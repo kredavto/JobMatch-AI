@@ -57,13 +57,7 @@ test('file profile save, reload, select, adapt, replace and delete without sendi
  await page.getByLabel('Ссылка на вакансию').fill(vacancy.url);await page.getByRole('button',{name:'Загрузить вакансию',exact:true}).click();await expect(page.locator('.vacancy-loaded')).toBeVisible();
  await page.getByRole('button',{name:'Адаптировать резюме',exact:true}).click();await expect(page.getByLabel('Текст сопроводительного письма')).toContainText('Excel');
  await expect(page.getByRole('region',{name:'Сопоставление навыков'})).toContainText('B2B');
- const handoff=page.locator('.manual-note');
- await expect(handoff).toContainText('Отклик отправляется вручную');
- await expect(handoff).toContainText('по прежним откликам работодатели видят последнюю версию приложенного резюме');
- await expect(handoff).toContainText('Приложить сопроводительное письмо');
- const instructions=handoff.getByRole('link',{name:'Как откликнуться на hh.ru',exact:true});
- await expect(instructions).toHaveAttribute('href','https://feedback.hh.ru/knowledge-base/article/1618');
- await expect(instructions).toHaveAttribute('rel','noreferrer');
+ await expect(page.getByRole('heading',{name:'Сохранение и отклик на hh.ru'})).toHaveCount(0);
  await expect(page.getByRole('button',{name:'Откликнуться',exact:true})).toHaveCount(0);
  await chooseResume(page,'Изменённый синтетический опыт работы с Excel.','replacement.txt');await expect(page.getByRole('button',{name:'Адаптировать резюме',exact:true})).toBeDisabled();await expect(page.getByLabel('Текст сопроводительного письма')).toHaveCount(0);
  page.once('dialog',dialog=>dialog.accept());await page.getByRole('button',{name:'Удалить профиль',exact:true}).click();await page.reload();await expect(page.getByLabel('Сохранённые профили').locator('option')).toHaveCount(1);expect(disallowed).toEqual([]);
@@ -221,3 +215,76 @@ for(const [extension,mimeType] of [
   expect(writes).toEqual([]);expect(outside).toEqual([]);
  });
 }
+
+test('hh source and result handoffs leave JobMatch open and do not submit data to hh',async({page,context})=>{
+ await page.setViewportSize({width:390,height:844});
+ const hhVacancy={...vacancy,url:'https://hh.ru/vacancy/139363612'};
+ const sent:unknown[]=[],hhRequests:{method:string;url:string;body:string|null;referer:string|undefined}[]=[],forbidden:string[]=[];
+ await context.route('https://hh.ru/**',async route=>{
+  const r=route.request();
+  hhRequests.push({method:r.method(),url:r.url(),body:r.postData(),referer:r.headers().referer});
+  await route.fulfill({contentType:'text/html',body:'<title>Fictional hh destination</title><p>Fictional destination, no login or submission</p>'});
+ });
+ await context.route('**/api/mvp/vacancy',route=>{sent.push(route.request().postDataJSON());return route.fulfill({json:hhVacancy});});
+ await context.route(/\/api\/mvp\/(hh|import|adapt|export)(?:\/|$)|\/api\/rewrite-pilot/,route=>{forbidden.push(new URL(route.request().url()).pathname);return route.abort();});
+ await page.goto('/');
+ await expect(page.locator('input[type=password]')).toHaveCount(0);
+ await expect(page.getByRole('link',{name:'Перейти к сохранению на hh.ru'})).toHaveCount(0);
+ const mainUrl=page.url();
+ async function open(name:string,url:string){
+  const link=page.getByRole('link',{name,exact:true});
+  await expect(link).toHaveAttribute('href',url);
+  await expect(link).toHaveAttribute('target','_blank');
+  await expect(link).toHaveAttribute('rel','noopener noreferrer');
+  const [tab]=await Promise.all([context.waitForEvent('page'),link.click()]);
+  await tab.waitForLoadState('domcontentloaded');
+  expect(tab.url()).toBe(url);
+  expect(await tab.evaluate(()=>window.opener)).toBeNull();
+  await tab.close();
+  expect(page.url()).toBe(mainUrl);
+ }
+ const resumes='https://hh.ru/applicant/resumes/',search='https://hh.ru/search/vacancy';
+ await open('Открыть «Резюме и профиль» на hh.ru',resumes);
+ await open('Найти вакансию на hh.ru (новая вкладка)',search);
+ const source='Работал с Excel и CRM в вымышленной компании.';
+ await readResume(page,source);
+ await page.getByRole('button',{name:'Использовать без сохранения',exact:true}).click();
+ // HH regional links resolve to the canonical vacancy returned by the importer.
+ const entered='https://spb.hh.ru/vacancy/139363612';
+ const vacancyInput=page.getByLabel('Ссылка на вакансию');
+ await vacancyInput.fill(entered);
+ await page.getByRole('button',{name:'Загрузить вакансию',exact:true}).click();
+ await page.getByRole('button',{name:'Адаптировать резюме',exact:true}).click();
+ const resultField=page.getByLabel('Текст адаптированного резюме',{exact:true}),result=await resultField.inputValue();
+ await expect(resultField).toHaveValue(vacancy.title+'\n\n'+source);
+ await expect(page.getByRole('heading',{name:'Сохранение и отклик на hh.ru'})).toBeVisible();
+ await expect(page.getByText(/дубль публикуется при сохранении и наследует видимость оригинала/)).toBeVisible();
+ await expect(page.getByText(/по прежним откликам работодатели видят последнюю версию приложенного резюме/)).toBeVisible();
+ await expect(page.getByText(/Приложить сопроводительное письмо/)).toBeVisible();
+ await expect(page.getByRole('link',{name:'Как откликнуться на hh.ru',exact:true})).toHaveAttribute('href','https://feedback.hh.ru/knowledge-base/article/1618');
+ await expect(page.getByRole('button',{name:'Откликнуться',exact:true})).toHaveCount(0);
+ await open('Перейти к сохранению на hh.ru',resumes);
+ await expect(resultField).toHaveValue(result);
+ await open('Открыть эту вакансию на hh.ru',hhVacancy.url);
+ await expect(resultField).toHaveValue(result);
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ expect(sent).toEqual([{url:entered}]);
+ expect(forbidden).toEqual([]);
+ expect(hhRequests).toEqual([resumes,search,resumes,hhVacancy.url].map(url=>({method:'GET',url,body:null,referer:undefined})));
+ await vacancyInput.fill('https://hh.ru/vacancy/139363613');
+ await expect(page.getByRole('link',{name:'Открыть эту вакансию на hh.ru'})).toHaveCount(0);
+});
+
+test('lookalike vacancy gets no hh save or apply handoff',async({page})=>{
+ const url='https://hh.ru.example.com/vacancy/139363612';
+ await page.route('**/api/mvp/vacancy',route=>route.fulfill({json:{...vacancy,url}}));
+ await page.goto('/');
+ await readResume(page,'Работал с Excel и CRM в вымышленной компании.');
+ await page.getByRole('button',{name:'Использовать без сохранения',exact:true}).click();
+ await page.getByLabel('Ссылка на вакансию').fill(url);
+ await page.getByRole('button',{name:'Загрузить вакансию',exact:true}).click();
+ await page.getByRole('button',{name:'Адаптировать резюме',exact:true}).click();
+ await expect(page.getByLabel('Текст адаптированного резюме',{exact:true})).toBeVisible();
+ await expect(page.getByRole('link',{name:'Перейти к сохранению на hh.ru'})).toHaveCount(0);
+ await expect(page.getByRole('link',{name:'Открыть эту вакансию на hh.ru'})).toHaveCount(0);
+});

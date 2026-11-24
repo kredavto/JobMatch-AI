@@ -10,6 +10,7 @@ import SkillMatchReview from './skill-match-review';
 import {adaptResume} from '../mvp/adapt';
 import {applyLocalReviewedRewrite,localReviewCandidateIds} from '../mvp/local-reviewed-rewrite';
 import LocalResumePicker from './local-resume-picker';
+import {HHResumeSource,HHVacancySearch,HHResultHandoff} from './hh-guided-handoff';
 import {responseJson,VacancySchema} from '../mvp/responses';
 
 type Vacancy = {title: string; company: string; url: string; text: string; skills: string[]};
@@ -142,6 +143,7 @@ export default function Home() {
         <div className="source-grid">
           <section className="source-card" aria-labelledby="resume-heading">
             <div className="section-heading"><span className="step">01</span><h2 id="resume-heading">Ваш профиль резюме</h2><Icon name="list"/></div>
+            <HHResumeSource/>
             <LocalResumePicker onSelect={value=>{invalidateResult();setResume(value);}}/>
           </section>
           <section className="source-card" aria-labelledby="vacancy-heading" aria-busy={!!busy.vacancy}>
@@ -149,7 +151,8 @@ export default function Home() {
             <div className="vacancy-form">
               <label htmlFor="vacancy-url">Ссылка на вакансию</label>
               <input id="vacancy-url" type="url" inputMode="url" autoComplete="off" placeholder="https://company.ru/careers/vacancy" value={url} onChange={event => {cancel('vacancy'); setUrl(event.target.value); setVacancy(null); invalidateResult();}} onKeyDown={event => {if (event.key === 'Enter' && url.trim()) {event.preventDefault(); void loadVacancy();}}} aria-describedby="vacancy-hint"/>
-              <p id="vacancy-hint">Загрузим название и требования. Вакансии hh.ru читаются через официальный API с токеном приложения; вход соискателя для этого не нужен.</p>
+              <p id="vacancy-hint">Вставьте ссылку со страницы вакансии. Вход в аккаунт для загрузки описания не нужен.</p>
+              <HHVacancySearch/>
               <button className="button secondary" disabled={!url.trim() || !!busy.vacancy || (hhBlocked&&isHHUrl(url))} onClick={() => void loadVacancy()}><Icon name="link"/>{busy.vacancy ? 'Загружаем…' : 'Загрузить вакансию'}</button>
               {hhBlocked&&<div role="status"><p>hh.ru отказал в доступе. Повторный импорт hh.ru остановлен, другие публичные сайты доступны. Сначала проверьте разрешения API. Разрешение новой попытки само по себе не отправляет запрос.</p><button className="button secondary" disabled={!!busy.vacancy} onClick={()=>{hhBlockedRef.current=false;setHHBlocked(false);try{sessionStorage.removeItem(HH_BLOCK_KEY);}catch{}setErrors(previous=>({...previous,vacancy:undefined}));}}>Разрешить повтор после проверки доступа</button></div>}
               {vacancy && <div className="vacancy-loaded" role="status"><Icon name="check"/><div><strong>{vacancy.title}</strong>{vacancy.company && <span>{vacancy.company}</span>}</div></div>}
@@ -169,8 +172,9 @@ export default function Home() {
         </div>
         {result ? <div className="result-grid">
           <article className="resume-preview"><SkillMatchReview matchedSkills={result.matchedSkills} missingSkills={result.missingSkills}/><div className="document-label">АДАПТИРОВАННОЕ РЕЗЮМЕ</div><h3>{result.title}</h3><ResultText key={result.text} id="resume-result" label="Текст адаптированного резюме" text={result.text} rows={18}/>{result.adaptationNote && <p>{result.adaptationNote}</p>}</article>
-          <div className="cover-letter"><div className="document-label">ФИНАЛЬНЫЙ ШТРИХ</div><h3>Сопроводительное письмо</h3><p>Скопируйте письмо и проверьте его перед ручным откликом.</p><ResultText key={result.coverLetter} id="cover-letter" label="Текст сопроводительного письма" text={result.coverLetter}/><div className="manual-note"><strong>Дальше на hh.ru</strong><p>Отклик отправляется вручную. До нажатия «Откликнуться» проверьте, какое резюме отправится: по прежним откликам работодатели видят последнюю версию приложенного резюме. Если нужна отдельная копия, на hh.ru ей потребуется другое название.</p><p>Если поля для письма не было, после отправки проверьте, доступно ли «Приложить сопроводительное письмо». <a href="https://feedback.hh.ru/knowledge-base/article/1618" target="_blank" rel="noreferrer">Как откликнуться на hh.ru</a></p></div></div>
+          <div className="cover-letter"><div className="document-label">ФИНАЛЬНЫЙ ШТРИХ</div><h3>Сопроводительное письмо</h3><p>Скопируйте письмо и проверьте его перед ручным откликом.</p><ResultText key={result.coverLetter} id="cover-letter" label="Текст сопроводительного письма" text={result.coverLetter}/></div>
         </div> : <div className="result-placeholder"><span className="preview-sheet" aria-hidden="true"><i/><i/><i/><i/></span><p>Одно резюме. Одна вакансия.<br/><strong>Всё нужное для вашего отклика.</strong></p></div>}
+        {result&&vacancy&&<HHResultHandoff vacancyUrl={vacancy.url}/>}
       </section>
       {resume&&<PrincipalRewritePanel context={reviewContext} resume={resume.text} enabled={process.env.NEXT_PUBLIC_JOBMATCH_FULL_REWRITE_PILOT==='true'} review={vacancy&&result?{
          choices:output=>localReviewCandidateIds(resume.text,vacancy,result,output),
